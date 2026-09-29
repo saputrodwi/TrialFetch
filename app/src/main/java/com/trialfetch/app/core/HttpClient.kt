@@ -2,8 +2,10 @@ package com.trialfetch.app.core
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
 /**
@@ -88,10 +90,7 @@ class HttpClient(
         referer: String? = null
     ): String = withContext(Dispatchers.IO) {
         val builder = Request.Builder().url(url)
-            .post(okhttp3.RequestBody.create(
-                "application/json; charset=utf-8".toMediaTypeCompat(),
-                json
-            ))
+            .post(json.toRequestBody("application/json; charset=utf-8".toMediaType()))
             .header("User-Agent", mobileUa)
             .header("Accept", "application/json, text/plain, */*")
         if (referer != null) builder.header("Referer", referer)
@@ -105,6 +104,3 @@ class HttpClient(
 
 class HttpException(val code: Int, val url: String) :
     Exception("HTTP $code dari $url")
-
-private fun String.toMediaTypeCompat() =
-    okhttp3.MediaType.parse(this)

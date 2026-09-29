@@ -74,15 +74,21 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
         if (chapters.isEmpty()) {
             throw SourceException("Daftar chapter kosong.")
         }
-        chapters.sortByDescending { it.chapterId.substringAfter('-').toIntOrNull() ?: 0 }
+        // sortedByDescending mengembalikan list BARU — sortByDescending
+        // (yang di versi lama terpakai) juga begitu, jadi tidak mengubah
+        // `chapters` sama sekali. Karena itu hasilnya harus dipakai
+        // eksplisit, kalau tidak urutan chapter tidak akan pernah terurut.
+        val sorted: List<Chapter> = chapters.sortedByDescending { chapter ->
+            chapter.chapterNumber ?: 0
+        }
 
         return SeriesInfo(
             source = source,
             comicId = comicId,
             title = title,
             coverUrl = cover,
-            latestChapterTitle = chapters.firstOrNull()?.title.orEmpty(),
-            chapters = chapters
+            latestChapterTitle = sorted.firstOrNull()?.title.orEmpty(),
+            chapters = sorted
         )
     }
 

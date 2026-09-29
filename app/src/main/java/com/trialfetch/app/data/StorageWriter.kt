@@ -44,7 +44,11 @@ class StorageWriter(private val context: Context) {
     // ---------------------------------------------------------------- folder
 
     fun writeFile(folderPath: String, fileName: String, bytes: ByteArray): Uri? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            writeLegacy(folderPath, fileName, bytes)
+            return null
+        }
+        run {
             val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, fileName)
@@ -64,9 +68,6 @@ class StorageWriter(private val context: Context) {
                 runCatching { resolver.delete(uri, null, null) }
                 null
             }
-        } else {
-            writeLegacy(folderPath, fileName, bytes)
-            null
         }
     }
 
