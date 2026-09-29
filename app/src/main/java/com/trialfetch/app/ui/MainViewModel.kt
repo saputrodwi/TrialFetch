@@ -49,6 +49,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun canWriteStorage(): Boolean = repo.canWriteStorage()
 
+    private val _urlInput = MutableStateFlow("")
+    val urlInput: StateFlow<String> = _urlInput.asStateFlow()
+
+    private val _urlLoading = MutableStateFlow(false)
+    val urlLoading: StateFlow<Boolean> = _urlLoading.asStateFlow()
+
+    fun onUrlChange(v: String) {
+        _urlInput.value = v
+        _series.value = _series.value.copy(error = null)
+    }
+
+    fun openFromUrl() {
+        val url = _urlInput.value
+        if (url.isBlank() || _urlLoading.value) return
+        _urlLoading.value = true
+        viewModelScope.launch {
+            try {
+                val info = repo.openUrl(url)
+                _series.value = SeriesUiState(info = info)
+            } catch (e: Exception) {
+                _series.value = SeriesUiState(error = e.message ?: "Gagal membuka URL")
+            } finally {
+                _urlLoading.value = false
+            }
+        }
+    }
+
     fun onQueryChange(q: String) {
         _search.value = _search.value.copy(query = q, error = null)
     }

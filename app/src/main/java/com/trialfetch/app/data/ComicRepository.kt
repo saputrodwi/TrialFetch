@@ -15,6 +15,7 @@ import com.trialfetch.app.core.SeriesInfo
 import com.trialfetch.app.core.Source
 import com.trialfetch.app.core.SourceException
 import com.trialfetch.app.core.WmanhuaSource
+import com.trialfetch.app.core.UrlParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +45,7 @@ class ComicRepository(
     // BannerCropper sengaja object stateless — tak butuh Context.
     private val bannerCropper = BannerCropper
     private val storage = StorageWriter(context)
+    private val notifier = DownloadNotifier(context)
 
     private val sources: Map<Source, ComicSource> = mapOf(
         Source.BAOZIMH to BaozimhSource(http),
@@ -130,6 +132,7 @@ class ComicRepository(
                         total = total, done = done, currentPage = img.page,
                         state = DownloadProgress.State.RUNNING
                     )
+                    notifier.showRunning(chapter.title, done, total)
                 }
             } catch (e: Exception) {
                 failed += img.page
@@ -155,26 +158,48 @@ class ComicRepository(
         val savedPath: String = when (settings.outputMode) {
             OutputMode.FOLDER -> {
                 storage.writeText(parentPath, "info.txt", info)
-                "Download/${OutputPaths.ROOT}/$parentPath"
+                storage.displayPath(parentPath)
             }
             OutputMode.ZIP -> {
+                // Entry ZIP memakai path relatif di dalam arsip supaya
+                // saat diekstrak tetap rapi dan tidak bercampur.
                 val zipName = "$chapterDir.zip"
-                val zipPath = "Download/${OutputPaths.ROOT}/$seriesDir"
-                storage.createZip(zipPath, zipName, written)
-                storage.writeText(zipPath, "$chapterDir.info.txt", info)
-                "$zipPath/$zipName"
+                val entries = written.map { (name, data) -> "$chapterDir/$name" to data }
+                storage.createZip(seriesDir, zipName, entries)
+                storage.writeText(seriesDir, "$chapterDir.info.txt", info)
+                storage.displayPath("$seriesDir/$zipName")
             }
         }
 
+        notifier.showDone(chapter.title, done, savedPath)
         DownloadProgress(
             total = total, done = done, state = DownloadProgress.State.DONE,
             savedPath = savedPath
         ).also { _progress.value = it }
     }
 
-    private fun fail(message: String): DownloadProgress =
-        DownloadProgress(state = DownloadProgress.State.FAILED, error = message)
+    /** Membuka series dari URL yang ditempel pengguna. */
+    suspend fun openUrl(rawUrl: String): SeriesInfo {
+        return when (val parsed = UrlParser.parse(rawUrl)) {
+            is UrlParser.Parsed.Series -> series(parsed.source, parsed.comicId)
+            is UrlParser.Parsed.Unknown -> throw SourceException(parsed.reason)
+            is UrlParser.Parsed.Chapter -> {
+                // URL chapter: cari induknya lewat sumber, lalu kembali ke
+                // chapter tersebut. Praktis untuk yang hanya punya link
+                // chapter dari browser.
+                throw SourceException(
+                    "Ini link chapter. Salin link halaman serinya (/book/ atau /comic/) " +
+                        "untuk membuka daftar chapter."
+                )
+            }
+        }
+    }
+
+    private fun fail(message: String, title: String = "Unduhan gagal"): DownloadProgress {
+        notifier.showFailed(title, message)
+        return DownloadProgress(state = DownloadProgress.State.FAILED, error = message)
             .also { _progress.value = it }
+    }
 
     private fun originOf(url: String): String = runCatching {
         val u = java.net.URI(url)

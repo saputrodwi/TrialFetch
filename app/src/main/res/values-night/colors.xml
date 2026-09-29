@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#1B5E4A</color>
-    <!-- Sama dengan --bg versi web: #F3EFE9 -->
-    <color name="splash_background">#F3EFE9</color>
+    <!-- Sama dengan --bg versi web dark: #262322 -->
+    <color name="splash_background">#262322</color>
 </resources>

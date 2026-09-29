@@ -36,10 +36,24 @@ class StorageWriter(private val context: Context) {
         context.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
             android.content.pm.PackageManager.PERMISSION_GRANTED
 
-    /** Judul folder anak, mis. "Judul Komik/Chapter 01". */
-    private fun relativePath(vararg segments: String): String =
-        (listOf(Environment.DIRECTORY_DOWNLOADS, OutputPaths.ROOT) + segments)
-            .joinToString("/")
+    /**
+     * Membangun RELATIVE_PATH lengkap untuk MediaStore / folder publik.
+     *
+     * WAJIB menyertakan "Download/TrialFetch" dan diakhiri garis miring —
+     * MediaStore memakai nilai ini persis sebagai lokasi folder, jadi bila
+     * hanya berisi "judul/chapter" maka file akan mendarat di
+     * "Download/judul/chapter", bukan di dalam TrialFetch. Lackanya garis
+     * miring di akhir juga membuat sebagian perangkat menolaknya.
+     */
+    private fun fullRelativePath(subPath: String): String {
+        val cleaned = subPath.trim('/')
+        val base = "${Environment.DIRECTORY_DOWNLOADS}/${OutputPaths.ROOT}"
+        return if (cleaned.isEmpty()) "$base/" else "$base/$cleaned/"
+    }
+
+    /**>Lokasi folder yang bisa ditampilkan ke pengguna, mis. "Download/TrialFetch/...". */
+    fun displayPath(subPath: String): String =
+        "Download/${OutputPaths.ROOT}/" + subPath.trim('/')
 
     // ---------------------------------------------------------------- folder
 
@@ -48,16 +62,17 @@ class StorageWriter(private val context: Context) {
             writeLegacy(folderPath, fileName, bytes)
             return null
         }
+        val relative = fullRelativePath(folderPath)
         run {
             val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, fileName)
                 put(MediaStore.Downloads.MIME_TYPE, mimeOf(fileName))
-                put(MediaStore.Downloads.RELATIVE_PATH, folderPath)
+                put(MediaStore.Downloads.RELATIVE_PATH, relative)
                 put(MediaStore.Downloads.IS_PENDING, 1)
             }
             val uri = resolver.insert(collection, values)
-                ?: return run { writeLegacy(folderPath, fileName, bytes); null }
+                ?: return null
             return try {
                 resolver.openOutputStream(uri)?.use { it.write(bytes) }
                 values.clear()
@@ -75,7 +90,7 @@ class StorageWriter(private val context: Context) {
         runCatching {
             @Suppress("DEPRECATION")
             val root = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val dir = File(root, folderPath.removePrefix(Environment.DIRECTORY_DOWNLOADS + "/"))
+            val dir = File(root, "${OutputPaths.ROOT}/${folderPath.trim('/')}")
             dir.mkdirs()
             val f = File(dir, fileName)
             f.writeBytes(bytes)
@@ -95,7 +110,10 @@ class StorageWriter(private val context: Context) {
             val projection = arrayOf(MediaStore.Downloads._ID)
             val selection =
                 "${MediaStore.Downloads.RELATIVE_PATH}=? AND ${MediaStore.Downloads.DISPLAY_NAME}=?"
-            val args = arrayOf(folderPath, fileName)
+            // Harus sama persis dengan nilai yang dipakai saat menulis,
+            // termasuk garis miring di akhir — kalau tidak, file tidak
+            // akan ditemukan saat pembungkusan ZIP.
+            val args = arrayOf(fullRelativePath(folderPath), fileName)
             val id = resolver.query(collection, projection, selection, args, null)?.use { c ->
                 if (c.moveToFirst()) c.getLong(0) else null
             } ?: return null

@@ -1,7 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      Base: Material.NoActionBar karena seluruh UI dibangun dengan Compose.
+      Warna diambil dari palet versi web (Trial Fetch) supaya transisi ke
+      aplikasi tidak terasa "lompat" warna.
+    -->
     <style name="Theme.TrialFetch" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <!--
+      Splash: background polosFilled dengan warna web, plus ikon aplikasi.
+      Dipasang lewat androidx SplashScreen di MainActivity, lalu langsung
+      installSplashScreen() supaya tidak ada jeda buatan.
+    -->
+    <style name="Theme.TrialFetch.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.TrialFetch</item>
     </style>
 </resources>

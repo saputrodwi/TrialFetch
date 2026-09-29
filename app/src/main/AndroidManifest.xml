@@ -4,6 +4,22 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!--
+      Android 10+ (API 29) menulis ke folder publik lewat MediaStore dan
+      tidak butuh izin ini. Android 9 ke bawah (API 24-28) masih memakai
+      jalur file biasa, jadi izinnya wajib ada. maxSdkVersion membatasi
+      permintaan ini supaya Android 10+ tidak pernah menanyakannya.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Notifikasi progres unduhan -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".TrialFetchApp"
         android:allowBackup="true"
@@ -18,7 +34,7 @@
             android:name=".ui.MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.TrialFetch">
+            android:theme="@style/Theme.TrialFetch.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
