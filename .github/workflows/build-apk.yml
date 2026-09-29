@@ -27,13 +27,41 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      # ---------------------------------------------------------------
+      # Keystore
+      #
+      # Kalau secret TF_STORE_BASE64 terpasang, app/build.gradle.kts akan
+      # mendecode-nya ke build/signing/keystore.p12 lalu menandatanganin APK
+      # dengankey itu. Kalau belum terpasang, build otomatis jatuh ke
+      # debug key — pipeline tetap hijau dan APK-nya tetap bisa diuji.
+      #
+      # Cara memasangnya (Settings > Secrets and variables > Actions):
+      #   TF_STORE_BASE64   = isi file .p12mu, di-encode base64 satu baris:
+      #                       base64 -w 0 keystore.p12
+      #   TF_STORE_PASSWORD = password store
+      #   TF_KEY_ALIAS      = alias kunci, mis. "trial-fetch"
+      #   TF_KEY_PASSWORD   = password kunci itu
+      #
+      # build/signing/ sudah masuk .gitignore, jadi file hasil decode
+      # tidak akan ikut ter-commit kalaupun langkah ini gagal.
+      # ---------------------------------------------------------------
+
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Build release APK
-        # Kalau secret signing belum diisi, buildTypes.release otomatis
-        # jatuh ke debug key sehingga langkah ini tetap berhasil.
         run: gradle :app:assembleRelease --stacktrace --no-daemon
+
+      # Wiping signing material happens no matter what — sukses atau gagal.
+      # `if: always()` guarantees this step runs even when an earlier step
+      # failed, so a broken build never leaves the key lying on disk.
+      - name: Hapus material signing
+        if: always()
+        run: |
+          rm -rf build/signing
+          rm -f keystore.properties signing.properties
+          echo "sisa file keystore di runner:"
+          find . -name "*.p12" -o -name "*.jks" -o -name "*.keystore" | grep -v "^./.git" || echo "  (tidak ada)"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

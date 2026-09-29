@@ -1,6 +1,7 @@
 # Gradle
 .gradle/
 build/
+!gradle/wrapper/gradle-wrapper.jar
 local.properties
 
 # Android
@@ -8,21 +9,36 @@ local.properties
 *.aab
 *.ap_
 *.dex
+*.class
 captures/
 .externalNativeBuild/
 .cxx/
 
-# Keystore — JANGAN pernah commit
+# Keystore & signing — JANGAN PERNAH commit
+# Kalau ini bocor, siapa pun bisa menandatangani update APK-mu sepretend
+# aplikasi sah, jadi harus dijaga ketat.
 *.jks
 *.keystore
 *.p12
+*.pfx
+*.pem
+*.key
 keystore.properties
 keystore/
+signing.properties
+google-services.json
+
+# Play Store / secrets
+*.env
+.env.*
 
 # IDE
 .idea/
 *.iml
+*.hprof
 .DS_Store
+Thumbs.db
 
 # Node / alat bantu
 node_modules/
+npm-debug.log*

@@ -5,19 +5,44 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Keystore dibaca dari gradle.properties (values) atau environment (CI),
-// supaya tidak pernah ikut ter-commit.
-val tfStoreFile = (project.findProperty("TF_STORE_FILE") as String?)
-    ?: System.getenv("TF_STORE_FILE")
-val tfStorePassword = (project.findProperty("TF_STORE_PASSWORD") as String?)
-    ?: System.getenv("TF_STORE_PASSWORD")
-val tfKeyAlias = (project.findProperty("TF_KEY_ALIAS") as String?)
-    ?: System.getenv("TF_KEY_ALIAS")
-val tfKeyPassword = (project.findProperty("TF_KEY_PASSWORD") as String?)
-    ?: System.getenv("TF_KEY_PASSWORD")
+// Kredensial signing. File keystore-nya sendiri bisa datang dari dua
+// sumber: path (TF_STORE_FILE) ATAU isi base64 (TF_STORE_BASE64) — yang
+// kedua adalah cara standarnya GitHub Actions menyimpan file biner,
+// karena Actions hanya bisa menyimpan secret berbentuk teks.
+val tfStoreFile = (System.getenv("TF_STORE_FILE") as String?)
+    ?: (project.findProperty("TF_STORE_FILE") as String?)
+val tfStoreBase64 = (System.getenv("TF_STORE_BASE64") as String?)
+    ?: (project.findProperty("TF_STORE_BASE64") as String?)
+val tfStorePassword = (System.getenv("TF_STORE_PASSWORD") as String?)
+    ?: (project.findProperty("TF_STORE_PASSWORD") as String?)
+val tfKeyAlias = (System.getenv("TF_KEY_ALIAS") as String?)
+    ?: (project.findProperty("TF_KEY_ALIAS") as String?)
+val tfKeyPassword = (System.getenv("TF_KEY_PASSWORD") as String?)
+    ?: (project.findProperty("TF_KEY_PASSWORD") as String?)
 
-val hasReleaseSigning = listOf(tfStoreFile, tfStorePassword, tfKeyAlias, tfKeyPassword)
-    .all { !it.isNullOrBlank() }
+// Syarat minimal: ada password, alias, dan password kunci. File keystore
+// boleh datang lewat path maupun base64 — yang wajib ada salah satu.
+val hasReleaseSigning = !tfStorePassword.isNullOrBlank() &&
+    !tfKeyAlias.isNullOrBlank() &&
+    !tfKeyPassword.isNullOrBlank() &&
+    (!tfStoreFile.isNullOrBlank() || !tfStoreBase64.isNullOrBlank())
+
+// Hasil decode base64 ditaruh di build/ (sudah masuk .gitignore) dan
+// dihapus ulang oleh workflow pada langkah "Hapus material signing".
+val stagingDir = rootProject.layout.buildDirectory.dir("signing").get().asFile
+
+val releaseStoreFile: File? = when {
+    !hasReleaseSigning -> null
+    !tfStoreBase64.isNullOrBlank() -> {
+        stagingDir.mkdirs()
+        File(stagingDir, "keystore.p12").apply {
+            if (!exists()) {
+                writeBytes(android.util.Base64.decode(tfStoreBase64, android.util.Base64.DEFAULT))
+            }
+        }
+    }
+    else -> rootProject.file(tfStoreFile!!)
+}
 
 android {
     namespace = "com.trialfetch.app"
@@ -32,9 +57,9 @@ android {
     }
 
     signingConfigs {
-        if (hasReleaseSigning) {
+        if (hasReleaseSigning && releaseStoreFile != null) {
             create("release") {
-                storeFile = rootProject.file(tfStoreFile!!)
+                storeFile = releaseStoreFile
                 storePassword = tfStorePassword
                 keyAlias = tfKeyAlias
                 keyPassword = tfKeyPassword
@@ -70,6 +95,22 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    // Empat ABI + satu universal APK.
+    //
+    // Catatan: proyek ini tidak punya kode native (murni Kotlin/Java), jadi
+    // secara teknis semua APK ini berisi kelas yang sama dan tidak ada
+    // perbedaan ukuran nyata. Split tetap dikonfigurasi karena
+    // perangkat lawas sering butuh paket per-ABI, dan universal dipakai
+    // untuk-gitung/install yang praktis.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
+        }
     }
 
     packaging {
