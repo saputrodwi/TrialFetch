@@ -1,3 +1,9 @@
+// PENTING: ini harus import eksplisit, bukan `java.util.Base64` langsung.
+// Di Gradle Kotlin DSL, `java` dan `android` adalah NAMA EKSTENSI proyek,
+// bukan package — sehingga `java.util.…` ikut resolve ke JavaPluginExtension
+// dan gagal dengan "Unresolved reference: util". Import eksplisit menang.
+import java.util.Base64
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -45,15 +51,9 @@ val releaseStoreFile: File? = when {
         stagingDir.mkdirs()
         File(stagingDir, "keystore.$storeExt").apply {
             if (!exists()) {
-                // Penting: harus java.util.Base64, BUKAN android.util.Base64.
-                // Build script dieksekusi di JVM, bukan di Android, jadi class
-                // framework Android tidak tersedia di sini — dan `android`
-                // di build script akan resolve ke ekstensi AGP.
                 // MIME decoder dipakai karena mengabaikan karakter non-base64,
                 // jadi secret yang terlipat baris tetap aman.
-                writeBytes(
-                    java.util.Base64.getMimeDecoder().decode(tfStoreBase64.trim())
-                )
+                writeBytes(Base64.getMimeDecoder().decode(tfStoreBase64.trim()))
             }
         }
     }
