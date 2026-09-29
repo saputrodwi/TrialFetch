@@ -22,7 +22,7 @@ internal fun cleanText(raw: String): String = raw
     .replace("&lt;", "<")
     .replace("&gt;", ">")
     .replace("&quot;", "\"")
-    .replace("&#(\d+);".toRegex()) { m ->
+    .replace(Regex("""&#(\d+);""")) { m ->
         m.groupValues[1].toIntOrNull()?.toChar()?.toString() ?: m.value
     }
     .replace("&nbsp;", " ")

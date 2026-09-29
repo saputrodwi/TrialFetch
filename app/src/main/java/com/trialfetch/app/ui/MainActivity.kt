@@ -95,9 +95,10 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     }
 
     var showSettings by remember { mutableStateOf(false) }
+    val searchState by vm.search.collectAsStateWithLifecycle()
 
     SearchScreen(
-        state by vm.search.collectAsStateWithLifecycle(),
+        state = searchState,
         sources = vm.repo.availableSources,
         onQueryChange = vm::onQueryChange,
         onSourceChange = vm::onSourceChange,

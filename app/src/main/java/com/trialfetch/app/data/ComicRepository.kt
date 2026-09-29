@@ -41,7 +41,8 @@ class ComicRepository(
     private val context: android.content.Context,
     private val http: HttpClient = HttpClient()
 ) {
-    private val bannerCropper = BannerCropper(context)
+    // BannerCropper sengaja object stateless — tak butuh Context.
+    private val bannerCropper = BannerCropper
     private val storage = StorageWriter(context)
 
     private val sources: Map<Source, ComicSource> = mapOf(

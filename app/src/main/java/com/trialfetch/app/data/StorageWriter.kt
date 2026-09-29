@@ -1,5 +1,6 @@
 package com.trialfetch.app.data
 
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -7,7 +8,6 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import java.io.File
-import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -20,8 +20,8 @@ import java.util.zip.ZipOutputStream
  *  - API 24-28 masih boleh menulis langsung lewat
  *    Environment.DIRECTORY_DOWNLOADS (butuh WRITE_EXTERNAL_STORAGE).
  *
- * [openSink] mengembalikan OutputStream yang siap ditulis; pemanggil yang
- * menutupnya. Keduanya diardown bersama oleh implementasinya.
+ * Penulisan memakai MediaStore di Android 10+ dan file biasa di bawahnya,
+ * karena akses folder publik sudah dibatasi sejak Android 10.
  */
 class StorageWriter(private val context: Context) {
 
@@ -81,31 +81,39 @@ class StorageWriter(private val context: Context) {
             Uri.fromFile(f)
         }.getOrNull()
 
-    /** File yang sudah tertulis, untuk dimasukkan ke zip. */
-    fun existingFile(folderPath: String, fileName: String): File? {
+    /**
+     * Membaca isi file yang sudah tertulis sebelumnya.
+     *
+     * Dipakai saat mode ZIP: gambar-gambarnya sudah ada di MediaStore,
+     * lalu dibungkus jadi satu arsip. Pada Android 10+ file publik tidak
+     * punya jalur File biasa, jadi isinya diambil lewat content://.
+     */
+    fun readFile(folderPath: String, fileName: String): ByteArray? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             val projection = arrayOf(MediaStore.Downloads._ID)
             val selection =
                 "${MediaStore.Downloads.RELATIVE_PATH}=? AND ${MediaStore.Downloads.DISPLAY_NAME}=?"
             val args = arrayOf(folderPath, fileName)
-            resolver.query(collection, projection, selection, args, null)?.use { c ->
-                if (!c.moveToFirst()) return null
-                val id = c.getLong(0)
-                return resolver.openFileDescriptor(
-                    MediaStore.Downloads.buildContentUri(id), "r"
-                )?.let { it }?.let { FileDescriptorSource(it) }
-            }
-            return null
+            val id = resolver.query(collection, projection, selection, args, null)?.use { c ->
+                if (c.moveToFirst()) c.getLong(0) else null
+            } ?: return null
+
+            // ContentUris.withAppendedId adalah cara baku membuat uri item
+            // dari sebuah collection — MediaStore tidak menyediakan
+            // buildContentUri.
+            val uri = ContentUris.withAppendedId(collection, id)
+            return runCatching {
+                resolver.openInputStream(uri)?.use { it.readBytes() }
+            }.getOrNull()
         }
+
         @Suppress("DEPRECATION")
         val root = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         val dir = File(root, folderPath.removePrefix(Environment.DIRECTORY_DOWNLOADS + "/"))
         val f = File(dir, fileName)
-        return if (f.exists()) f else null
+        return if (f.exists()) f.readBytes() else null
     }
-
-    private class FileDescriptorSource(val pfd: android.os.ParcelFileDescriptor)
 
     // ------------------------------------------------------------------- zip
 

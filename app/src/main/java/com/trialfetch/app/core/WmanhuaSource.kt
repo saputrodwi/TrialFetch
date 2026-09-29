@@ -1,5 +1,10 @@
 package com.trialfetch.app.core
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
 /**
  * wmanhua.com — sumber paling "jujur": tidak ada enkripsi maupun signing.
  * Halaman chapter memblok dua variabel JS polos:
@@ -84,10 +89,10 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
     private suspend fun fetchAllChapters(comicId: String, fallbackHtml: String): List<Chapter> {
         runCatching {
             val json = http.postJson("$base/comic/$comicId", "{}", referer = "$base/comic/$comicId.html")
-            val root = kotlinx.serialization.json.Json.parseToJsonElement(json).jsonObject
+            val root = Json.parseToJsonElement(json).jsonObject
             if (root["code"]?.jsonPrimitive?.content == "0") {
                 val list = root["data"]?.jsonObject?.get("chapters")
-                    ?.let { kotlinx.serialization.json.Json.parseToJsonElement(it.toString()).jsonArray }
+                    ?.let { Json.parseToJsonElement(it.toString()).jsonArray }
                     .orEmpty()
                 return list.mapNotNull { el ->
                     val o = el.jsonObject
