@@ -1,0 +1,110 @@
+package com.trialfetch.app.core
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
+
+/**
+ * Pembungkus HTTP untuk semua scraping.
+ *
+ * Penting: request keluar dari IP perangkat pengguna, bukan dari IP data
+ * center. Itu sebabnya sumber yang memblokir Cloudflare Workers (mis.
+ * manwang.net, rumanhua.org) tetap bisa diakses dari sini.
+ */
+class HttpClient(
+    private val client: OkHttpClient = defaultClient()
+) {
+    private val desktopUa =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    private val mobileUa =
+        "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+
+    companion object {
+        fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
+    /** Ambil HTML halaman, dengan header yang meniru browser. */
+    suspend fun getHtml(
+        url: String,
+        referer: String? = null,
+        mobile: Boolean = true
+    ): String = withContext(Dispatchers.IO) {
+        val builder = Request.Builder().url(url)
+            .header(
+                "User-Agent",
+                if (mobile) mobileUa else desktopUa
+            )
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+        // Beberapa situs mem-block request yang dianggap bukan navigasi
+            // (bot); header ini membuat request terlihat seperti membuka dokumen.
+            .header("Sec-Fetch-Dest", "document")
+            .header("Sec-Fetch-Mode", "navigate")
+            .header("Sec-Fetch-Site", "same-origin")
+            .header("Upgrade-Insecure-Requests", "1")
+        if (referer != null) builder.header("Referer", referer)
+
+        client.newCall(builder.build()).execute().use { res ->
+            if (!res.isSuccessful) {
+                throw HttpException(res.code, url)
+            }
+            res.body?.string() ?: throw HttpException(-1, url)
+        }
+    }
+
+    /** Ambil file biner (gambar), mengikuti header yang diminta sumber. */
+    suspend fun getBytes(
+        url: String,
+        referer: String? = null,
+        accept: String = "image/avif,image/webp,image/*,*/*;q=0.8",
+        sendNoReferer: Boolean = false
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val builder = Request.Builder().url(url)
+            .header("User-Agent", mobileUa)
+            .header("Accept", accept)
+        if (!sendNoReferer) {
+            builder.header("Referer", referer ?: url)
+        }
+
+        client.newCall(builder.build()).execute().use { res ->
+            if (!res.isSuccessful) throw HttpException(res.code, url)
+            res.body?.bytes() ?: throw HttpException(-1, url)
+        }
+    }
+
+    suspend fun postJson(
+        url: String,
+        json: String,
+        referer: String? = null
+    ): String = withContext(Dispatchers.IO) {
+        val builder = Request.Builder().url(url)
+            .post(okhttp3.RequestBody.create(
+                "application/json; charset=utf-8".toMediaTypeCompat(),
+                json
+            ))
+            .header("User-Agent", mobileUa)
+            .header("Accept", "application/json, text/plain, */*")
+        if (referer != null) builder.header("Referer", referer)
+
+        client.newCall(builder.build()).execute().use { res ->
+            if (!res.isSuccessful) throw HttpException(res.code, url)
+            res.body?.string() ?: throw HttpException(-1, url)
+        }
+    }
+}
+
+class HttpException(val code: Int, val url: String) :
+    Exception("HTTP $code dari $url")
+
+private fun String.toMediaTypeCompat() =
+    okhttp3.MediaType.parse(this)

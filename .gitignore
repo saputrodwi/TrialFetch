@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+local.properties
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystore — JANGAN pernah commit
+*.jks
+*.keystore
+*.p12
+keystore.properties
+keystore/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Node / alat bantu
+node_modules/
