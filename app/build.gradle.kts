@@ -45,7 +45,15 @@ val releaseStoreFile: File? = when {
         stagingDir.mkdirs()
         File(stagingDir, "keystore.$storeExt").apply {
             if (!exists()) {
-                writeBytes(android.util.Base64.decode(tfStoreBase64, android.util.Base64.DEFAULT))
+                // Penting: harus java.util.Base64, BUKAN android.util.Base64.
+                // Build script dieksekusi di JVM, bukan di Android, jadi class
+                // framework Android tidak tersedia di sini — dan `android`
+                // di build script akan resolve ke ekstensi AGP.
+                // MIME decoder dipakai karena mengabaikan karakter non-base64,
+                // jadi secret yang terlipat baris tetap aman.
+                writeBytes(
+                    java.util.Base64.getMimeDecoder().decode(tfStoreBase64.trim())
+                )
             }
         }
     }
@@ -111,7 +119,7 @@ android {
     // secara teknis semua APK ini berisi kelas yang sama dan tidak ada
     // perbedaan ukuran nyata. Split tetap dikonfigurasi karena
     // perangkat lawas sering butuh paket per-ABI, dan universal dipakai
-    // untuk-gitung/install yang praktis.
+    // untuk pengguna yang mengutamakan kemudahan install.
     splits {
         abi {
             isEnable = true
