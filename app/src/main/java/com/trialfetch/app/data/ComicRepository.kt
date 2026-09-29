@@ -96,7 +96,13 @@ class ComicRepository(
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
 
         val total = page.images.size
+        // written hanya dipakai mode ZIP. Untuk mode Folder, file langsung
+        // ditulis ke MediaStore lalu agak dihapus dari daftar, jadi penghitung
+        // sukses harus terpisah. Sebelumnya done diambil dari written.size,
+        // sehingga di mode Folder selalu 0: progress bar tidak bergerak dan
+        // hasil akhir salah melaporkan "semua gambar gagal".
         val written = mutableListOf<Pair<String, ByteArray>>()
+        var succeeded = 0
         val failed = mutableListOf<Int>()
 
         for (img in page.images) {
@@ -124,10 +130,11 @@ class ComicRepository(
                     // Ditunda sampai semua gambar terkumpul, supaya tidak
                     // menulis file lalu menghapusnya lagi.
                     written += fileName to payload
+                    succeeded++
                 } else {
-                    storage.writeFile(parentPath, fileName, payload)
+                    if (storage.writeFile(parentPath, fileName, payload)) succeeded++
                 }
-                written.size.let { done ->
+                succeeded.let { done ->
                     _progress.value = DownloadProgress(
                         total = total, done = done, currentPage = img.page,
                         state = DownloadProgress.State.RUNNING
@@ -139,7 +146,7 @@ class ComicRepository(
             }
         }
 
-        val done = written.size
+        val done = succeeded
         if (done == 0) {
             return@withContext fail("Semua $total gambar gagal diunduh")
         }

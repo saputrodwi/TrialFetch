@@ -57,33 +57,65 @@ class StorageWriter(private val context: Context) {
 
     // ---------------------------------------------------------------- folder
 
-    fun writeFile(folderPath: String, fileName: String, bytes: ByteArray): Uri? {
+    /**
+     * Menulis file, menimpa kalau nama yang sama sudah ada.
+     *
+     * Penting: MediaStore.insert() SELALU membuat baris baru. Kalau nama
+     * sama sudah ada, sistem menamai otomatis menjadi "0001(1).jpg" dan isi
+     * file lama tetap ada. Itu yang bikin hasil unduhan kelihatan dobel saat
+     * chapter yang sama diunduh ulang. Jadi sebelum insert, file yang cocok
+     * dicari lebih dulu lalu ditimpa.
+     *
+     * Mengembalikan true kalau benar-benar tertulis.
+     */
+    fun writeFile(folderPath: String, fileName: String, bytes: ByteArray): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            writeLegacy(folderPath, fileName, bytes)
-            return null
+            return writeLegacy(folderPath, fileName, bytes) != null
         }
         val relative = fullRelativePath(folderPath)
-        run {
-            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(MediaStore.Downloads.MIME_TYPE, mimeOf(fileName))
-                put(MediaStore.Downloads.RELATIVE_PATH, relative)
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-            val uri = resolver.insert(collection, values)
-                ?: return null
-            return try {
-                resolver.openOutputStream(uri)?.use { it.write(bytes) }
-                values.clear()
-                values.put(MediaStore.Downloads.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-                uri
-            } catch (e: Exception) {
-                runCatching { resolver.delete(uri, null, null) }
-                null
-            }
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+
+        findExisting(collection, fileName, relative)?.let { existing ->
+            return runCatching {
+                resolver.openOutputStream(existing, "wt")?.use { it.write(bytes) }
+                true
+            }.getOrDefault(false)
         }
+
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+            put(MediaStore.Downloads.MIME_TYPE, mimeOf(fileName))
+            put(MediaStore.Downloads.RELATIVE_PATH, relative)
+            put(MediaStore.Downloads.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(collection, values) ?: return false
+        return try {
+            resolver.openOutputStream(uri)?.use { it.write(bytes) }
+            values.clear()
+            values.put(MediaStore.Downloads.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+            true
+        } catch (e: Exception) {
+            runCatching { resolver.delete(uri, null, null) }
+            false
+        }
+    }
+
+    /** Cari entri MediaStore dengan DISPLAY_NAME dan RELATIVE_PATH yang sama. */
+    private fun findExisting(collection: Uri, fileName: String, relative: String): Uri? {
+        val projection = arrayOf(MediaStore.Downloads._ID)
+        val selection =
+            "${MediaStore.Downloads.DISPLAY_NAME} = ? AND " +
+                "${MediaStore.Downloads.RELATIVE_PATH} = ?"
+        val args = arrayOf(fileName, relative)
+        return runCatching {
+            resolver.query(collection, projection, selection, args, null)
+                ?.use { c ->
+                    if (!c.moveToFirst()) return@use null
+                    val id = c.getLong(0)
+                    Uri.withAppendedPath(collection, id.toString())
+                }
+        }.getOrNull()
     }
 
     private fun writeLegacy(folderPath: String, fileName: String, bytes: ByteArray): Uri? =
@@ -149,11 +181,21 @@ class StorageWriter(private val context: Context) {
                 zos.closeEntry()
             }
         }
-        return writeFile(zipFolderPath, zipName, bytes.toByteArray())
+        if (!writeFile(zipFolderPath, zipName, bytes.toByteArray())) return null
+        return findByName(zipFolderPath, zipName)
     }
 
-    fun writeText(folderPath: String, fileName: String, text: String): Uri? =
-        writeFile(folderPath, fileName, text.toByteArray(Charsets.UTF_8))
+    fun writeText(folderPath: String, fileName: String, text: String): Uri? {
+        if (!writeFile(folderPath, fileName, text.toByteArray(Charsets.UTF_8))) return null
+        return findByName(folderPath, fileName)
+    }
+
+    /** Ambil Uri item yang baru ditulis, untuk dilaporkan ke pengguna. */
+    private fun findByName(folderPath: String, fileName: String): Uri? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        return findExisting(collection, fileName, fullRelativePath(folderPath))
+    }
 
     private fun mimeOf(name: String): String = when {
         name.endsWith(".jpg", true) || name.endsWith(".jpeg", true) -> "image/jpeg"

@@ -122,10 +122,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _series.value = SeriesUiState()
     }
 
+    // Penanda yang sedang ada, terpisah dari progress. Flag progress baru
+    // berubah ke RUNNING setelah gambar pertama selesai, jadi dua tap cepat
+    // bisa sama-sama lolos guard dari progress dan mengunduh chapter yang sama
+    // dua kali. Flag ini disetel seketika sebelum coroutine mulai.
+    private val downloading = java.util.concurrent.atomic.AtomicBoolean(false)
+
     fun download(info: SeriesInfo, chapter: Chapter) {
-        if (progress.value.state == DownloadProgress.State.RUNNING) return
+        if (!downloading.compareAndSet(false, true)) return
         viewModelScope.launch {
-            repo.downloadChapter(info, chapter, _settings.value)
+            try {
+                repo.downloadChapter(info, chapter, _settings.value)
+            } finally {
+                downloading.set(false)
+            }
         }
     }
 }
