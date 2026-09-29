@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+
+    <!--
+      Trust anchor tambahan untuk perangkat dengan store CA sistem yang usang.
+
+      twmanga.com (mirror Baozimh) hanya menyajikan rantai sertifikat
+      *.twmanga.com -> ZeroSSL RSA DV SSL CA 2 -> Sectigo Public Server
+      Authentication Root R46. Root R46 baru diterbitkan Maret 2021 dan
+      tidak punya cross sign ke root yang lebih lama. Android hanya menambah
+      root CA baru lewat pembaruan sistem Google Play, jadi perangkat lama
+      (mis. Realme C15, Android 11) bisa belum memilikinya. Gejalanya:
+      CertPathValidatorException "Trust anchor for certification path not
+      found", sementara Chrome tetap bisa membuka situsnya.
+
+      R46 dan intermediate-nya ditambahkan sebagai anchor. Verifikasi
+      sertifikat, validitas masa berlaku, dan pencocokan hostname tetap
+      dijalankan normal; tidak ada trust-all atau penonaktifan verifikasi.
+      Anchor tambahan ini hanya menambah root yang dipercaya, tidak
+      mengurangi pemeriksaan apa pun.
+
+      Certifikat disalin dari trust store sistem Debian, bukan dari sumber
+      lain, supaya tidak ada CA asing yang tersisip.
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/sectigo_root_r46" />
+            <certificates src="@raw/zerossl_rsa_dv_ssl_ca2" />
+        </trust-anchors>
+    </base-config>
+
+</network-security-config>

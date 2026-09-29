@@ -28,6 +28,11 @@ keystore/
 signing.properties
 google-services.json
 
+# Pengecualian sempit: sertifikat CA publik yang sengaja dipaketkan sebagai
+# trust anchor di res/raw/ untuk perangkat dengan store CA sistem usang.
+# Ini sertifikat publik, bukan kunci privat, jadi aman di-commit.
+!app/src/main/res/raw/*.pem
+
 # Play Store / secrets
 *.env
 .env.*
