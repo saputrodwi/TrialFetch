@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#1B5E4A</color>
+    <!--
+      Latar ikon adaptif. Sebelumnya #1B5E4A (hijau tua) yang membuat logo
+      terlihat seperti berlatar hijau di home screen. Sekarang disamakan dengan
+      warna splash dan latar versi web.
+    -->
+    <color name="ic_launcher_background">#F3EFE9</color>
     <!-- Warna latar splash, sama dengan nilai variabel bg versi web. -->
     <color name="splash_background">#F3EFE9</color>
 </resources>
