@@ -69,6 +69,12 @@ import com.trialfetch.app.core.Source
 import com.trialfetch.app.data.ComicRepository
 import com.trialfetch.app.data.DownloadProgress
 import com.trialfetch.app.ui.theme.LocalExtraColors
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.Color
+import com.trialfetch.app.data.ThemeMode
+import androidx.compose.foundation.border
+import com.trialfetch.app.ui.theme.BrutalCard
+import com.trialfetch.app.ui.theme.PolkaDotBackground
 import com.trialfetch.app.ui.theme.TrialFetchTheme
 
 class MainActivity : ComponentActivity() {
@@ -80,12 +86,24 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            TrialFetchTheme {
-                Surface(
-                    Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    AppRoot()
+            val vm: MainViewModel = viewModel()
+            val settings by vm.settings.collectAsStateWithLifecycle()
+
+            // Tema mengikuti pilihan di Pengaturan, bukan hanya setelan sistem.
+            val darkTheme = when (settings.themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            }
+
+            TrialFetchTheme(darkTheme = darkTheme) {
+                PolkaDotBackground(Modifier.fillMaxSize()) {
+                    Surface(
+                        Modifier.fillMaxSize(),
+                        color = Color.Transparent
+                    ) {
+                        AppRoot(vm)
+                    }
                 }
             }
         }
@@ -395,19 +413,19 @@ private fun UrlInputCard(
 @Composable
 private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
     val extra = LocalExtraColors.current
-    Surface(
-        onClick = onClick,
-        color = extra.card,
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth()
+    BrutalCard(
+        modifier = Modifier.fillMaxWidth(),
+        background = extra.card,
+        onClick = onClick
     ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
                 model = r.coverUrl,
                 contentDescription = null,
                 modifier = Modifier
                     .size(width = 56.dp, height = 76.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(2.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(8.dp)),
                 contentScale = ContentScale.Crop
             )
             Spacer(Modifier.width(12.dp))
@@ -415,7 +433,6 @@ private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
                 Text(
                     r.title,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )

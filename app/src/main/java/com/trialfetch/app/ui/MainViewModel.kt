@@ -11,6 +11,7 @@ import com.trialfetch.app.core.SourceException
 import com.trialfetch.app.data.ComicRepository
 import com.trialfetch.app.data.DownloadProgress
 import com.trialfetch.app.data.DownloadSettings
+import com.trialfetch.app.data.SettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,10 +43,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val progress: StateFlow<DownloadProgress> = repo.progress
 
-    private val _settings = MutableStateFlow(DownloadSettings())
+    private val settingsStore = SettingsStore(app)
+
+    private val _settings = MutableStateFlow(settingsStore.load())
     val settings: StateFlow<DownloadSettings> = _settings.asStateFlow()
 
-    fun updateSettings(s: DownloadSettings) { _settings.value = s }
+    fun updateSettings(s: DownloadSettings) {
+        _settings.value = s
+        settingsStore.save(s)
+    }
 
     fun canWriteStorage(): Boolean = repo.canWriteStorage()
 

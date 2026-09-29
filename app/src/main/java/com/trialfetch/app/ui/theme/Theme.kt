@@ -10,8 +10,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.trialfetch.app.R
 
 /**
  * Palet diambil apa adanya dari versi web (Trial Fetch), supaya kedua
@@ -42,6 +45,10 @@ object WebPalette {
     val LightInk = Color(0xFF3A3733)
     val LightInkSoft = Color(0xFF8A857E)
     val LightOutline = Color(0xFFB3AEA6)
+    val LightShadow = Color(0xFFB3AEA6)
+    val LightTitleShadow = Color(0xFFF6C9DB)
+    val LightBgDot = Color(0x80FFFFFF)
+    val LightOnAccent = Color(0xFF3A3733)
 
     // gelap
     val DarkBg = Color(0xFF262322)
@@ -50,7 +57,33 @@ object WebPalette {
     val DarkInk = Color(0xFFD8D2C8)
     val DarkInkSoft = Color(0xFF9A938A)
     val DarkOutline = Color(0xFF57524C)
+    val DarkShadow = Color(0xFF191614)
+    val DarkTitleShadow = Color(0xFF6E2F49)
+    val DarkBgDot = Color(0x24FFFFFF)
+    val DarkOnAccent = Color(0xFF1A1817)
 }
+
+/**
+ * Font asli yang dipakai web, di-subset ke rentang Latin lalu ditaruh di
+ * res/font. Tanpa ini aplikasi masih memakai Roboto dan langsung terlihat
+ * beda dari web meski warnanya sama.
+ */
+private val Baloo2 = FontFamily(
+    Font(R.font.baloo2_bold, FontWeight.Bold),
+    Font(R.font.baloo2_extrabold, FontWeight.ExtraBold)
+)
+
+private val Quicksand = FontFamily(
+    Font(R.font.quicksand_regular, FontWeight.Normal),
+    Font(R.font.quicksand_medium, FontWeight.Medium),
+    Font(R.font.quicksand_semibold, FontWeight.SemiBold),
+    Font(R.font.quicksand_bold, FontWeight.Bold)
+)
+
+val JetBrainsMono = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_bold, FontWeight.Bold)
+)
 
 /** Warna non-Material3 yang dipakai khusus di beberapa komponen. */
 data class ExtraColors(
@@ -65,7 +98,14 @@ data class ExtraColors(
     val blue: Color,
     val green: Color,
     val purple: Color,
-    val red: Color
+    val red: Color,
+    /** Warna bayangan keras tanpa blur, mengikuti --shadow di web. */
+    val shadow: Color,
+    /** Warna text-shadow judul, mengikuti --title-shadow di web. */
+    val titleShadow: Color,
+    /** Warna titik polkadot di latar, mengikuti --bg-dot di web. */
+    val bgDot: Color,
+    val onAccent: Color
 )
 
 val LocalExtraColors = staticCompositionLocalOf {
@@ -81,7 +121,11 @@ val LocalExtraColors = staticCompositionLocalOf {
         blue = WebPalette.Blue,
         green = WebPalette.Green,
         purple = WebPalette.Purple,
-        red = WebPalette.Red
+        red = WebPalette.Red,
+        shadow = WebPalette.LightShadow,
+        titleShadow = WebPalette.LightTitleShadow,
+        bgDot = WebPalette.LightBgDot,
+        onAccent = WebPalette.LightOnAccent
     )
 }
 
@@ -137,30 +181,77 @@ private val DarkColors = darkColorScheme(
     onErrorContainer = Color(0xFFFFB0B0)
 )
 
+/**
+ * Tipografi mengikuti web: Baloo 2 weight 800 untuk judul, Quicksand untuk
+ * isi. Di web keduanya dipakai persis seperti ini, termasuk ukuran yang
+ * membulat (20, 16, 14) agar terasa ramah.
+ */
 private val AppTypography = Typography(
+    headlineMedium = TextStyle(
+        fontFamily = Baloo2,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
+        letterSpacing = 0.sp
+    ),
+    headlineSmall = TextStyle(
+        fontFamily = Baloo2,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        letterSpacing = 0.sp
+    ),
     titleLarge = TextStyle(
-        fontWeight = FontWeight.Bold,
+        fontFamily = Baloo2,
+        fontWeight = FontWeight.ExtraBold,
         fontSize = 20.sp,
         lineHeight = 26.sp,
         letterSpacing = 0.sp
     ),
     titleMedium = TextStyle(
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = Baloo2,
+        fontWeight = FontWeight.Bold,
         fontSize = 16.sp,
         lineHeight = 22.sp,
         letterSpacing = 0.1.sp
     ),
     titleSmall = TextStyle(
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = Baloo2,
+        fontWeight = FontWeight.Bold,
         fontSize = 14.sp,
         lineHeight = 20.sp,
         letterSpacing = 0.1.sp
     ),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
-    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
-    labelLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 12.sp)
+    bodyLarge = TextStyle(
+        fontFamily = Quicksand,
+        fontSize = 16.sp,
+        lineHeight = 24.sp
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = Quicksand,
+        fontSize = 14.sp,
+        lineHeight = 20.sp
+    ),
+    bodySmall = TextStyle(
+        fontFamily = Quicksand,
+        fontSize = 12.sp,
+        lineHeight = 16.sp
+    ),
+    labelLarge = TextStyle(
+        fontFamily = Quicksand,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp
+    ),
+    labelMedium = TextStyle(
+        fontFamily = Quicksand,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp
+    ),
+    labelSmall = TextStyle(
+        fontFamily = Quicksand,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp
+    )
 )
 
 @Composable
@@ -182,7 +273,11 @@ fun TrialFetchTheme(
             blue = Color(0xFF8FC8E4),
             green = Color(0xFF6FA87F),
             purple = Color(0xFFA88FC9),
-            red = Color(0xFFC96A6A)
+            red = Color(0xFFC96A6A),
+            shadow = WebPalette.DarkShadow,
+            titleShadow = WebPalette.DarkTitleShadow,
+            bgDot = WebPalette.DarkBgDot,
+            onAccent = WebPalette.DarkOnAccent
         )
     } else {
         ExtraColors(
@@ -197,7 +292,11 @@ fun TrialFetchTheme(
             blue = WebPalette.Blue,
             green = WebPalette.Green,
             purple = WebPalette.Purple,
-            red = WebPalette.Red
+            red = WebPalette.Red,
+            shadow = WebPalette.LightShadow,
+            titleShadow = WebPalette.LightTitleShadow,
+            bgDot = WebPalette.LightBgDot,
+            onAccent = WebPalette.LightOnAccent
         )
     }
 

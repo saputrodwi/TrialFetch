@@ -24,6 +24,10 @@ import androidx.compose.ui.unit.dp
 import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.data.NamingRule
 import com.trialfetch.app.data.OutputMode
+import com.trialfetch.app.data.ThemeMode
+import com.trialfetch.app.ui.theme.BrutalCard
+import com.trialfetch.app.ui.theme.BrutalChoiceRow
+import com.trialfetch.app.ui.theme.BrutalTitle
 import com.trialfetch.app.ui.theme.LocalExtraColors
 
 /**
@@ -47,6 +51,29 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        SectionCard("Tampilan", extra.purple) {
+            BrutalChoiceRow(
+                options = ThemeMode.entries.map { it.label },
+                selectedIndex = ThemeMode.entries.indexOf(settings.themeMode),
+                onSelect = { i ->
+                    onChange(settings.copy(themeMode = ThemeMode.entries[i]))
+                }
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                when (settings.themeMode) {
+                    ThemeMode.SYSTEM ->
+                        "Ikuti setelan HP, jadi tema ikut berubah saat mode terang atau gelap dinyalakan."
+                    ThemeMode.LIGHT -> "Selalu terang, apa pun setelan HP."
+                    ThemeMode.DARK -> "Selalu gelap, apa pun setelan HP."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
         SectionCard("Simpan sebagai", extra.blue) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutputMode.entries.forEach { mode ->
@@ -130,20 +157,15 @@ private fun SectionCard(
     accent: androidx.compose.ui.graphics.Color,
     content: @Composable () -> Unit
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleSmall,
-                color = accent
-            )
-            Spacer(Modifier.height(12.dp))
-            content()
-        }
+    val extra = LocalExtraColors.current
+    BrutalCard(modifier = Modifier.fillMaxWidth(), background = extra.card) {
+        BrutalTitle(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = accent
+        )
+        Spacer(Modifier.height(12.dp))
+        content()
     }
 }
 

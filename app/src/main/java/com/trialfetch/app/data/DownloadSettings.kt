@@ -45,8 +45,26 @@ data class NamingRule(
 data class DownloadSettings(
     val outputMode: OutputMode = OutputMode.FOLDER,
     val naming: NamingRule = NamingRule(),
-    val cropBanner: Boolean = true
+    val cropBanner: Boolean = true,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM
 )
+
+/**
+ * Pilihan tema tampilan.
+ *
+ * [SYSTEM] mengikuti setelan sistem operasi, jadi tema berubah sendiri sesuai
+ * mode terang atau gelap yang aktif di HP.
+ */
+enum class ThemeMode(val label: String) {
+    SYSTEM("Ikuti sistem"),
+    LIGHT("Terang"),
+    DARK("Gelap");
+
+    companion object {
+        fun fromName(value: String?): ThemeMode =
+            entries.firstOrNull { it.name == value } ?: SYSTEM
+    }
+}
 
 /** Lokasi penulisan yang diminta pengguna. */
 object OutputPaths {
