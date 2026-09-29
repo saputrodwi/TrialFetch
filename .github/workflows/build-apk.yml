@@ -31,13 +31,18 @@ jobs:
       # Keystore
       #
       # Kalau secret TF_STORE_BASE64 terpasang, app/build.gradle.kts akan
-      # mendecode-nya ke build/signing/keystore.p12 lalu menandatanganin APK
-      # dengankey itu. Kalau belum terpasang, build otomatis jatuh ke
+      # mendecode-nya ke build/signing/keystore.<ext> lalu menandatangani
+      # APK dengan key itu. Kalau belum terpasang, build otomatis jatuh ke
       # debug key — pipeline tetap hijau dan APK-nya tetap bisa diuji.
       #
       # Cara memasangnya (Settings > Secrets and variables > Actions):
-      #   TF_STORE_BASE64   = isi file .p12mu, di-encode base64 satu baris:
-      #                       base64 -w 0 keystore.p12
+      #   TF_STORE_BASE64   = isi file keystore-mu, di-encode base64
+      #                       satu baris (JKS maupun PKCS#12):
+      #                         base64 -w 0 keystore.jks
+      #   TF_STORE_EXT      = "jks" (default) atau "p12". WAJIB cocok dengan
+      #                       format file aslinya — Gradle membaca format
+      #                       dari ekstensi, jadi JKS yang diberi ekstensi
+      #                       .p2 akan ditolak saat signing.
       #   TF_STORE_PASSWORD = password store
       #   TF_KEY_ALIAS      = alias kunci, mis. "trial-fetch"
       #   TF_KEY_PASSWORD   = password kunci itu
@@ -61,7 +66,7 @@ jobs:
           rm -rf build/signing
           rm -f keystore.properties signing.properties
           echo "sisa file keystore di runner:"
-          find . -name "*.p12" -o -name "*.jks" -o -name "*.keystore" | grep -v "^./.git" || echo "  (tidak ada)"
+          find . \( -name "*.p12" -o -name "*.jks" -o -name "*.keystore" -o -name "*.pfx" \) -not -path "./.git/*" || echo "  (tidak ada)"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

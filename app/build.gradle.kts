@@ -29,13 +29,21 @@ val hasReleaseSigning = !tfStorePassword.isNullOrBlank() &&
 
 // Hasil decode base64 ditaruh di build/ (sudah masuk .gitignore) dan
 // dihapus ulang oleh workflow pada langkah "Hapus material signing".
+//
+// Ekstensi bukan cosmetic: Gradle menentukan format keystore dari nama
+// file. Isi JKS yang diberi ekstensi .p12 akan ditolak saat signing, dan
+// sebaliknya. Karena itu ekstensinya ikut dikonfigurasi (default "jks",
+// ubah ke "p12" kalau nanti kamu pakai PKCS#12).
 val stagingDir = rootProject.layout.buildDirectory.dir("signing").get().asFile
+val storeExt = ((System.getenv("TF_STORE_EXT") as String?)
+    ?: (project.findProperty("TF_STORE_EXT") as String?)
+    ?: "jks").trim().removePrefix(".").lowercase()
 
 val releaseStoreFile: File? = when {
     !hasReleaseSigning -> null
     !tfStoreBase64.isNullOrBlank() -> {
         stagingDir.mkdirs()
-        File(stagingDir, "keystore.p12").apply {
+        File(stagingDir, "keystore.$storeExt").apply {
             if (!exists()) {
                 writeBytes(android.util.Base64.decode(tfStoreBase64, android.util.Base64.DEFAULT))
             }
