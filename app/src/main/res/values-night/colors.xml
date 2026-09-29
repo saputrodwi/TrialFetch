@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#1B5E4A</color>
-    <!-- Sama dengan --bg versi web dark: #262322 -->
+    <!-- Warna latar splash untuk mode gelap, sama dengan variabel bg versi web. -->
     <color name="splash_background">#262322</color>
 </resources>
