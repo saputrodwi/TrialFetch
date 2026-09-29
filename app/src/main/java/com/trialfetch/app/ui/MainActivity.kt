@@ -118,7 +118,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     ) { storageGranted = StoragePermission.isGranted(context) }
 
     val notifLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { /* hasilnya tidak dipakai; notifikasi tetap jalan bila diizinkan */ }
 
     LaunchedEffect(Unit) {
