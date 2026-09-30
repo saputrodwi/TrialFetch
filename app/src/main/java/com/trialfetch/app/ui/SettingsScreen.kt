@@ -1,7 +1,13 @@
 package com.trialfetch.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -190,11 +197,27 @@ private fun SectionCard(
 ) {
     val extra = LocalExtraColors.current
     BrutalCard(modifier = Modifier.fillMaxWidth(), background = extra.card) {
-        BrutalTitle(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = accent
-        )
+        // Judul ditulis dengan warna tinta (onBackground), BUKAN aksen
+        // pastel — pastel terang di atas kartu terang tidak terbaca di
+        // mode terang. Aksen dipertahankan sebagai penanda kotak kecil
+        // agar tiap section tetap punya identitas warna.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(12.dp)
+                    .background(accent, RoundedCornerShape(3.dp))
+                    .border(
+                        2.dp,
+                        MaterialTheme.colorScheme.onBackground,
+                        RoundedCornerShape(3.dp)
+                    )
+            )
+            Spacer(Modifier.width(8.dp))
+            BrutalTitle(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
         Spacer(Modifier.height(12.dp))
         content()
     }

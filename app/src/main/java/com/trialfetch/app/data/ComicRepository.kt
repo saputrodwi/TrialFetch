@@ -119,11 +119,10 @@ class ComicRepository(
             return@withContext fail(e.message ?: "Gagal membaca chapter")
         }
 
-        // Nama folder diawali id sumber supaya dua series berjudul sama
-        // dari sumber berbeda (atau 80 karakter awal yang sama) tidak
-        // menumpuk di folder yang sama. Tanpa ini, clearFolder() sebelum
-        // unduhan bisa menghapus file series lain secara diam-diam.
-        val seriesDir = "${series.source.id}_${sanitize(series.title)}"
+        // Nama folder = judul series saja, sesuai permintaan pengguna.
+        // Catatan: dua series berjudul persis sama dari sumber berbeda akan
+        // berbagi folder; itu edge case yang diterima demi nama bersih.
+        val seriesDir = sanitize(series.title)
         val chapterDir = sanitize(chapter.title)
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
 

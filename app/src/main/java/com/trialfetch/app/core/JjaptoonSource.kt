@@ -48,7 +48,15 @@ class JjaptoonSource(private val http: HttpClient) : ComicSource {
     private val srcRe = Regex("""\bsrc="([^"]+)"""", RegexOption.IGNORE_CASE)
     private val altRe = Regex("""\balt="([^"]*)"""", RegexOption.IGNORE_CASE)
     private val trailingNumRe = Regex("""\d+\s*$""")
+    private val coverFullRe = Regex("""https://img\.jjaptoon[^"'\s]+/covers/[^"'\s]+""")
     private val coverRe = Regex("""/covers/[^"'\s]+""")
+
+    /** Host gambar dari origin halaman: www.X -> img.X. */
+    private fun imgHost(origin: String): String {
+        val host = origin.substringAfter("://")
+        val img = if (host.startsWith("www.")) "img." + host.removePrefix("www.") else "img.$host"
+        return origin.substringBefore("://") + "://" + img
+    }
 
     private suspend fun fetchHtml(url: String, origin: String): String {
         return try {
@@ -112,9 +120,12 @@ class JjaptoonSource(private val http: HttpClient) : ComicSource {
             .find(html)?.groupValues?.get(1)?.let(::cleanText)
             ?.substringBefore(" - ")?.takeIf { it.isNotBlank() }
             ?: "Komik $comicId"
-        val cover = coverRe.find(html)?.value?.let {
-            if (it.startsWith("http")) it else "$origin$it"
-        }.orEmpty()
+        // Utamakan URL lengkap (host img.*), karena path relatif yang
+        // ditempel ke origin halaman (www.*) menghasilkan 404 — gambar
+        // cover memang dilayani dari host img.*, bukan www.*.
+        val cover = coverFullRe.find(html)?.value
+            ?: coverRe.find(html)?.value?.let { imgHost(origin) + it }
+            ?: ""
 
         return SeriesInfo(
             source = source,
