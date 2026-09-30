@@ -10,6 +10,7 @@ import com.trialfetch.app.core.Chapter
 import com.trialfetch.app.core.ChapterPage
 import com.trialfetch.app.core.ComicSource
 import com.trialfetch.app.core.HttpClient
+import com.trialfetch.app.core.ReaderPage
 import com.trialfetch.app.core.ImageCrypto
 import com.trialfetch.app.core.ImageFormat
 import com.trialfetch.app.core.KoudaimhSource
