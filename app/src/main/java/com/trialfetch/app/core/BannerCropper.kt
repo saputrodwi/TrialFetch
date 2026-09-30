@@ -9,7 +9,6 @@ import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.Mat
 import org.opencv.core.MatOfByte
-import org.opencv.core.MatOfInt
 import org.opencv.core.Size
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
@@ -218,7 +217,7 @@ class BannerCropper(private val context: Context) {
         val regionGray = grayOf(src, sy)
 
         val blurred = Mat()
-        Imgproc.GaussianBlur(regionGray, blurred, Size(3.0, 3.0), 0.0, 0.0, Imgproc.BORDER_DEFAULT)
+        Imgproc.GaussianBlur(regionGray, blurred, Size(3.0, 3.0), 0.0, 0.0, Core.BORDER_DEFAULT)
         val edge = Mat()
         Imgproc.Canny(blurred, edge, CANNY_LOW.toDouble(), CANNY_HIGH.toDouble())
         val dark = darkMask(regionGray)
@@ -343,7 +342,7 @@ class BannerCropper(private val context: Context) {
             val eq = Mat()
             Imgproc.equalizeHist(gray, eq)
             val blurred = Mat()
-            Imgproc.GaussianBlur(eq, blurred, Size(3.0, 3.0), 0.0, 0.0, Imgproc.BORDER_DEFAULT)
+            Imgproc.GaussianBlur(eq, blurred, Size(3.0, 3.0), 0.0, 0.0, Core.BORDER_DEFAULT)
             val edge = Mat()
             Imgproc.Canny(blurred, edge, CANNY_LOW.toDouble(), CANNY_HIGH.toDouble())
             val dark = darkMask(gray)
@@ -393,26 +392,20 @@ class BannerCropper(private val context: Context) {
     private fun matchSameSize(src: Mat, templ: Mat): Double {
         val result = Mat()
         Imgproc.matchTemplate(src, templ, result, Imgproc.TM_CCOEFF_NORMED)
-        val mm = CoreMinMaxLoc(result)
+        val mm = maxCoeff(result)
         result.release()
         return clamp01(mm)
     }
 
-    private fun CoreMinMaxLoc(m: Mat): Double {
-        val minVal = DoubleArray(1)
-        val maxVal = DoubleArray(1)
-        val minLoc = MatOfInt()
-        val maxLoc = MatOfInt()
-        Core.minMaxLoc(m, minVal, maxVal, minLoc, maxLoc)
-        minLoc.release()
-        maxLoc.release()
-        return maxVal[0]
+    private fun maxCoeff(m: Mat): Double {
+        val r = Core.minMaxLoc(m)
+        return r.maxVal
     }
 
     /** 1 - rata-rata selisih absolut, opsional hanya pada piksel mask. */
     private fun meanAbsDiff(a: Mat, b: Mat, mask: Mat?): Double {
         val diff = Mat()
-        Imgproc.absdiff(a, b, diff)
+        Core.absdiff(a, b, diff)
         val mean = if (mask == null) Core.mean(diff)[0] else Core.mean(diff, mask)[0]
         diff.release()
         return clamp01(1.0 - (if (mean.isNaN()) 255.0 else mean) / 255.0)
@@ -423,8 +416,8 @@ class BannerCropper(private val context: Context) {
         if (rPx <= 0 || tPx <= 0) return 0.0
         val inter = Mat()
         val union = Mat()
-        Imgproc.bitwise_and(regionDark, templateDark, inter)
-        Imgproc.bitwise_or(regionDark, templateDark, union)
+        Core.bitwise_and(regionDark, templateDark, inter)
+        Core.bitwise_or(regionDark, templateDark, union)
         val interCount = Core.countNonZero(inter)
         val unionCount = Core.countNonZero(union)
         inter.release(); union.release()
