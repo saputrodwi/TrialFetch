@@ -85,6 +85,23 @@ object UrlParser {
                 }
             }
 
+            // --- Jjabtoon: /webtoons/{id} = series, /episodes/{id} = chapter.
+            // Domain bernomor (jjabtoon001.com, dst) jadi dicocokkan longgar.
+            host.contains("jjabtoon") -> {
+                val ep = Regex("""/episodes/(\d+)""").find(withScheme)?.groupValues?.get(1)
+                if (ep != null) {
+                    val base = runCatching {
+                        val u = java.net.URI(withScheme)
+                        "${u.scheme}://${u.host}"
+                    }.getOrDefault("https://jjabtoon001.com")
+                    Parsed.Chapter(Source.JJABTOON, "$base/episodes/$ep")
+                } else {
+                    val id = Regex("""/webtoons/(\d+)""").find(withScheme)?.groupValues?.get(1)
+                    if (id != null) Parsed.Series(Source.JJABTOON, id)
+                    else Parsed.Unknown("URL Jjabtoon tidak dikenali")
+                }
+            }
+
             else -> Parsed.Unknown("Situs \"$host\" belum didukung")
         }
     }

@@ -5,7 +5,8 @@ enum class Source(val id: String, val displayName: String) {
     BAOZIMH("baozimh", "Baozimh"),
     MANWANG("manwang", "Manwang"),
     WMANHUA("wmanhua", "Wmanhua"),
-    KOUDAIMH("koudaimh", "Koudaimh");
+    KOUDAIMH("koudaimh", "Koudaimh"),
+    JJABTOON("jjabtoon", "Jjabtoon");
 
     companion object {
         fun from(id: String): Source? = entries.firstOrNull { it.id == id }

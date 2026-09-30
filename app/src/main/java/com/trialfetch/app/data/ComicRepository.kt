@@ -1,6 +1,7 @@
 package com.trialfetch.app.data
 
 import com.trialfetch.app.core.BaozimhSource
+import com.trialfetch.app.core.JjabtoonSource
 import com.trialfetch.app.core.BannerCropper
 import com.trialfetch.app.core.Chapter
 import com.trialfetch.app.core.ChapterPage
@@ -58,7 +59,8 @@ class ComicRepository(
         Source.BAOZIMH to BaozimhSource(http),
         Source.MANWANG to ManwangSource(http),
         Source.WMANHUA to WmanhuaSource(http),
-        Source.KOUDAIMH to KoudaimhSource(http)
+        Source.KOUDAIMH to KoudaimhSource(http),
+        Source.JJABTOON to JjabtoonSource(http)
     )
 
     val availableSources: List<Source> = sources.keys.toList()
