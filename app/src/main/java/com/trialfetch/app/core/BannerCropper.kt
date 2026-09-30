@@ -406,7 +406,12 @@ class BannerCropper(private val context: Context) {
     private fun meanAbsDiff(a: Mat, b: Mat, mask: Mat?): Double {
         val diff = Mat()
         Core.absdiff(a, b, diff)
-        val mean = if (mask == null) Core.mean(diff)[0] else Core.mean(diff, mask)[0]
+        // Core.mean mengembalikan Scalar; field-nya harus diakses eksplisit.
+        val mean: Double = if (mask == null) {
+            Core.mean(diff).`val`[0]
+        } else {
+            Core.mean(diff, mask).`val`[0]
+        }
         diff.release()
         return clamp01(1.0 - (if (mean.isNaN()) 255.0 else mean) / 255.0)
     }
