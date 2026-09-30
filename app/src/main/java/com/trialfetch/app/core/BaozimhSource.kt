@@ -54,6 +54,30 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
         )
         val dataSrcRe = Regex("""data-src="([^"]+)"""", RegexOption.IGNORE_CASE)
         val dataIndexRe = Regex("""data-index="(\d+)"""", RegexOption.IGNORE_CASE)
+
+        /**
+         * URL CDN chapter Baozimh dipindah ke static-tw.baozimh.com.
+         *
+         * Disalin dari Trial Fetch web (index.html, rewriteBzcdnUrl): host itu
+         * menyajikan versi lain untuk path yang sama, dan web memakainya
+         * dengan sengaja demi hasil gambar yang lebih bersih.
+         *
+         * Catatan jujur hasil pengukuran: rewrite TIDAK selalu menghapus
+         * watermark. Untuk comic 我有无限金色词条 filenya berbeda
+         * (471.865 -> 328.067 byte) tapi logo 腾讯动漫 tetap ada; untuk comic
+         * lain filenya identik byte demi byte. Jadi ini perbaikan yang
+         * sporadis, bukan jaminan bersih. Pita banner 200px yang dihapus
+         * BannerCropper adalah hal yang terpisah.
+         */
+        private val cdnRe = Regex(
+            """^https?://[\w-]+\.(?:baozicdn\.com|bzcdn\.net)/(.+)$""",
+            RegexOption.IGNORE_CASE
+        )
+
+        fun rewriteCdnUrl(url: String): String {
+            val m = cdnRe.find(url) ?: return url
+            return "https://static-tw.baozimh.com/" + m.groupValues[1]
+        }
     }
 
     private val searchRe = Regex(
@@ -251,7 +275,7 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
             val tag = m.value
             val url = dataSrcRe.find(tag)?.groupValues?.get(1) ?: return@mapNotNull null
             val idx = dataIndexRe.find(tag)?.groupValues?.get(1)?.toIntOrNull()
-            ImageRef(url.replace("&amp;", "&"), (idx ?: 0) + 1)
+            ImageRef(rewriteCdnUrl(url.replace("&amp;", "&")), (idx ?: 0) + 1)
         }.sortedBy { it.page }
             .distinctBy { it.url }
             .toList()
