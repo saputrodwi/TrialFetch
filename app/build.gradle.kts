@@ -88,19 +88,28 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            // JANGAN fallback diam-diam ke debug key: APK "release" yang
-            // ditandatangani debug bisa ter-install dan berbahaya untuk
-            // distribusi. Gagalkan build dengan pesan jelas bila secret
-            // signing belum dipasang.
+            // Kalau signing belum disiapkan, jatuh ke debug key supaya
+            // `assembleRelease` tetap menghasilkan APK yang bisa diuji.
+            // Ini disengaja untuk alur testing (lihat komentar Keystore di
+            // workflow), TAPI berisiko untuk distribusi: APK "release"
+            // yang ditandatangani debug key tidak bisa di-upgrade ke APK
+            // yang ditandatangani key lain. Karena itu fallback ini selalu
+            // berteriak lewat warning annotation di CI + log error Gradle.
             signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
             } else {
-                error(
-                    "Release signing belum disiapkan. Pasang secret " +
-                        "TF_STORE_BASE64 (+ TF_STORE_EXT, TF_STORE_PASSWORD, " +
-                        "TF_KEY_ALIAS, TF_KEY_PASSWORD) lalu jalankan ulang."
+                logger.warn(
+                    "Release signing belum disiapkan (secret TF_STORE_* kosong). " +
+                        "APK release memakai DEBUG key — hanya untuk uji, " +
+                        "jangan distribusikan."
                 )
+                println(
+                    "::warning::Release signing belum disiapkan; " +
+                        "APK release memakai DEBUG key (hanya untuk uji)."
+                )
+                signingConfigs.getByName("debug")
             }
+        }
         }
         debug {
             applicationIdSuffix = ".debug"
