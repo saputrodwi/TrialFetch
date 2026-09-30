@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.data.NamingRule
 import com.trialfetch.app.data.OutputMode
+import com.trialfetch.app.core.DohProvider
 import com.trialfetch.app.data.ThemeMode
 import com.trialfetch.app.ui.theme.BrutalCard
 import com.trialfetch.app.ui.theme.BrutalChoiceRow
@@ -133,7 +134,37 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        SectionCard("Penyimpanan", extra.green) {
+        SectionCard("DNS over HTTPS", extra.green) {
+            RowToggle(
+                title = "Pakai DoH",
+                subtitle = "Resolve domain lewat HTTPS terenkripsi agar tidak " +
+                    "bisa diblokir atau dibelokkan oleh DNS ISP / jaringan. " +
+                    "Aktifkan bila situs tidak bisa dibuka padahal internet lancar.",
+                checked = settings.dohEnabled,
+                accent = extra.green
+            ) { v -> onChange(settings.copy(dohEnabled = v)) }
+            if (settings.dohEnabled) {
+                Spacer(Modifier.height(10.dp))
+                BrutalChoiceRow(
+                    options = DohProvider.entries.map { it.label },
+                    selectedIndex = DohProvider.entries.indexOf(settings.dohProvider),
+                    onSelect = { i ->
+                        onChange(settings.copy(dohProvider = DohProvider.entries[i]))
+                    }
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Berlaku langsung untuk semua request berikutnya, " +
+                        "tanpa restart aplikasi.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        SectionCard("Penyimpanan", extra.blue) {
             Text(
                 "Semua hasil unduhan disimpan ke folder publik:\n" +
                     "Download/TrialFetch/<judul>/<chapter>/",

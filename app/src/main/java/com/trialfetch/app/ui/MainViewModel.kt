@@ -10,6 +10,9 @@ import com.trialfetch.app.core.Source
 import com.trialfetch.app.core.SourceException
 import com.trialfetch.app.data.ComicRepository
 import com.trialfetch.app.data.DownloadProgress
+import android.util.Log
+import com.trialfetch.app.core.DohConfig
+import com.trialfetch.app.core.HttpClient
 import com.trialfetch.app.data.BookmarkStore
 import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.data.SavedSeries
@@ -37,6 +40,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val repo = ComicRepository(app)
 
+    // Client polos (DNS sistem) yang dipakai hanya untuk query HTTPS ke
+    // resolver DoH. Ditaruh di sini (bukan di bawah) karena init memakainya.
+    // Setelah DoH aktif, resolve lainnya lewat DoH.
+    private val dohBootstrap = HttpClient.defaultClient()
+
     private val _search = MutableStateFlow(SearchUiState())
     val search: StateFlow<SearchUiState> = _search.asStateFlow()
 
@@ -50,9 +58,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _settings = MutableStateFlow(settingsStore.load())
     val settings: StateFlow<DownloadSettings> = _settings.asStateFlow()
 
+    init {
+        applyNetwork(_settings.value)
+    }
+
     fun updateSettings(s: DownloadSettings) {
         _settings.value = s
         settingsStore.save(s)
+        applyNetwork(s)
+    }
+
+    private fun applyNetwork(s: DownloadSettings) {
+        if (!s.dohEnabled) {
+            repo.updateNetwork(null)
+            return
+        }
+        val dns = runCatching { DohConfig.buildDns(s.dohProvider, dohBootstrap) }
+            .getOrElse { e ->
+                Log.w("MainViewModel", "DoH gagal dibangun, pakai DNS sistem: ${e.message}")
+                null
+            }
+        repo.updateNetwork(dns)
+        Log.i("MainViewModel", "DNS: " + if (dns == null) "sistem" else "DoH " + s.dohProvider.name)
     }
 
     // --- Bookmark series ---

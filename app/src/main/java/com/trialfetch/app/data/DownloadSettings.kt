@@ -1,5 +1,7 @@
 package com.trialfetch.app.data
 
+import com.trialfetch.app.core.DohProvider
+
 /**
  * Cara hasil unduhan disimpan.
  */
@@ -46,7 +48,9 @@ data class DownloadSettings(
     val outputMode: OutputMode = OutputMode.FOLDER,
     val naming: NamingRule = NamingRule(),
     val cropBanner: Boolean = true,
-    val themeMode: ThemeMode = ThemeMode.SYSTEM
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val dohEnabled: Boolean = false,
+    val dohProvider: DohProvider = DohProvider.CLOUDFLARE
 )
 
 /**

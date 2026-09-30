@@ -2,6 +2,7 @@ package com.trialfetch.app.core
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Dns
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,13 +27,20 @@ class HttpClient(
             "(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
     companion object {
-        fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .followRedirects(true)
-            .followSslRedirects(true)
-            .retryOnConnectionFailure(true)
-            .build()
+        /**
+         * Client standar. Kalau [dns] diisi (mis. DoH dari [DohConfig]),
+         * semua resolve hostname lewat sana; kalau null, DNS sistem.
+         */
+        fun defaultClient(dns: Dns? = null): OkHttpClient {
+            val b = OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .retryOnConnectionFailure(true)
+            if (dns != null) b.dns(dns)
+            return b.build()
+        }
     }
 
     /** Ambil HTML halaman, dengan header yang meniru browser. */

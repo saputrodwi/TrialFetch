@@ -51,25 +51,29 @@ data class DownloadProgress(
 
 class ComicRepository(
     private val context: android.content.Context,
-    private val http: HttpClient = HttpClient()
+    http: HttpClient = HttpClient()
 ) {
     // Cropper butuh Context untuk memuat 4 template banner dari res/raw.
     private val bannerCropper = BannerCropper(context.applicationContext)
     private val storage = StorageWriter(context)
     private val notifier = DownloadNotifier(context)
 
-    private val sources: Map<Source, ComicSource> = mapOf(
-        Source.BAOZIMH to BaozimhSource(http),
-        Source.MANWANG to ManwangSource(http),
-        Source.WMANHUA to WmanhuaSource(http),
-        Source.KOUDAIMH to KoudaimhSource(http),
-        Source.JJABTOON to JjabtoonSource(http),
-        Source.JJAPTOON to JjaptoonSource(http),
-        Source.GOODTOON to GoodtoonSource(http),
-        Source.RUMAN to RumanhuaSource(http)
-    )
+    private var http: HttpClient = http
 
-    val availableSources: List<Source> = sources.keys.toList()
+    private var sources: Map<Source, ComicSource> = buildSources(http)
+
+    val availableSources: List<Source>
+        get() = sources.keys.toList()
+
+    /**
+     * Ganti DNS yang dipakai (mis. nyalakan DoH) tanpa membuat repository
+     * baru. Source tidak menyimpan state sehingga aman dibangun ulang;
+     * yang diganti hanya client HTTP di dalamnya.
+     */
+    fun updateNetwork(dns: okhttp3.Dns?) {
+        http = HttpClient(HttpClient.defaultClient(dns))
+        sources = buildSources(http)
+    }
 
     private val _progress = MutableStateFlow(DownloadProgress())
     val progress: StateFlow<DownloadProgress> = _progress.asStateFlow()
@@ -298,6 +302,17 @@ class ComicRepository(
     }.getOrDefault(url)
 
     companion object {
+        fun buildSources(http: HttpClient): Map<Source, ComicSource> = mapOf(
+            Source.BAOZIMH to BaozimhSource(http),
+            Source.MANWANG to ManwangSource(http),
+            Source.WMANHUA to WmanhuaSource(http),
+            Source.KOUDAIMH to KoudaimhSource(http),
+            Source.JJABTOON to JjabtoonSource(http),
+            Source.JJAPTOON to JjaptoonSource(http),
+            Source.GOODTOON to GoodtoonSource(http),
+            Source.RUMAN to RumanhuaSource(http)
+        )
+
         /**
          * Kunci gambar Manwang/Rumanhua (source_id 12). Sama untuk keduanya
          * karena backend-nya sama; IV = key (lihat worker.js RUMANHUA_IMAGE_KEY,

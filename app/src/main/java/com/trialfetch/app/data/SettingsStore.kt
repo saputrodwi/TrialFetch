@@ -1,6 +1,7 @@
 package com.trialfetch.app.data
 
 import android.content.Context
+import com.trialfetch.app.core.DohProvider
 
 /**
  * Penyimpanan [DownloadSettings] di SharedPreferences.
@@ -31,7 +32,9 @@ class SettingsStore(context: Context) {
             outputMode = output,
             naming = naming,
             cropBanner = prefs.getBoolean(KEY_CROP_BANNER, true),
-            themeMode = ThemeMode.fromName(prefs.getString(KEY_THEME, null))
+            themeMode = ThemeMode.fromName(prefs.getString(KEY_THEME, null)),
+            dohEnabled = prefs.getBoolean(KEY_DOH_ENABLED, false),
+            dohProvider = DohProvider.fromName(prefs.getString(KEY_DOH_PROVIDER, null))
         )
     }
 
@@ -42,6 +45,8 @@ class SettingsStore(context: Context) {
             .putInt(KEY_NAMING_PAD, settings.naming.padDigits)
             .putBoolean(KEY_CROP_BANNER, settings.cropBanner)
             .putString(KEY_THEME, settings.themeMode.name)
+            .putBoolean(KEY_DOH_ENABLED, settings.dohEnabled)
+            .putString(KEY_DOH_PROVIDER, settings.dohProvider.name)
             .apply()
     }
 
@@ -51,5 +56,7 @@ class SettingsStore(context: Context) {
         const val KEY_NAMING_PAD = "naming_pad"
         const val KEY_CROP_BANNER = "crop_banner"
         const val KEY_THEME = "theme_mode"
+        const val KEY_DOH_ENABLED = "doh_enabled"
+        const val KEY_DOH_PROVIDER = "doh_provider"
     }
 }
