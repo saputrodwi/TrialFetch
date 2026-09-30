@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -24,6 +25,10 @@ import java.util.zip.ZipOutputStream
  * karena akses folder publik sudah dibatasi sejak Android 10.
  */
 class StorageWriter(private val context: Context) {
+
+    private companion object {
+        const val TAG = "StorageWriter"
+    }
 
     private val resolver = context.contentResolver
 
@@ -76,10 +81,12 @@ class StorageWriter(private val context: Context) {
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
 
         findExisting(collection, fileName, relative)?.let { existing ->
-            return runCatching {
+            val ok = runCatching {
                 resolver.openOutputStream(existing, "wt")?.use { it.write(bytes) }
                 true
             }.getOrDefault(false)
+            Log.i(TAG, "timpa $fileName di $relative -> $ok")
+            return ok
         }
 
         val values = ContentValues().apply {
@@ -88,7 +95,14 @@ class StorageWriter(private val context: Context) {
             put(MediaStore.Downloads.RELATIVE_PATH, relative)
             put(MediaStore.Downloads.IS_PENDING, 1)
         }
-        val uri = resolver.insert(collection, values) ?: return false
+        val uri = resolver.insert(collection, values)
+        // Insert tanpa menemukan yang lama = nama akan menjadi "nama(1).ext".
+        Log.w(
+            TAG,
+            "insert $fileName ke $relative (tidak menemukan yang lama) -> " +
+                if (uri == null) "GAGAL" else "ok, uri=$uri"
+        )
+        if (uri == null) return false
         return try {
             resolver.openOutputStream(uri)?.use { it.write(bytes) }
             values.clear()

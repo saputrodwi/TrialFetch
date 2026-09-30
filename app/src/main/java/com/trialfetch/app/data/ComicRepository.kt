@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import android.util.Log
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 
@@ -102,6 +103,15 @@ class ComicRepository(
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
 
         val total = page.images.size
+        // Log ini yang menentukan apakah "dobel" berasal dari parser gambar
+        // yang menghasilkan 2 URL per halaman, atau dari penulis file yang
+        // membuat nama (1).
+        Log.i(
+            "ComicRepository",
+            "chapter=${chapter.title} jumlahGambar=$total host=" +
+                page.images.firstOrNull()?.url?.substringBefore("/scomic") +
+                " mode=${settings.outputMode} sumber=${series.source}"
+        )
         if (settings.cropBanner && series.source == Source.BAOZIMH) {
             bannerCropper.resetStats()
         }
