@@ -390,7 +390,7 @@ class BannerCropper(private val context: Context) {
         }
         val mag = IntArray(src.size)
         var maxMag = 1
-        for (i in src.size.indices) {
+        for (i in 0 until src.size) {
             val m = abs(gx[i]) + abs(gy[i])
             mag[i] = m
             if (m > maxMag) maxMag = m
@@ -419,7 +419,7 @@ class BannerCropper(private val context: Context) {
             }
         }
         val stack = ArrayDeque<Int>()
-        for (i in strong.indices) if (strong[i]) stack.addLast(i)
+        for (i in 0 until strong.size) if (strong[i]) stack.addLast(i)
         while (stack.isNotEmpty()) {
             val i = stack.removeLast()
             val x = i % w
@@ -479,7 +479,7 @@ class BannerCropper(private val context: Context) {
 
     private fun thresholdInv(g: Gray, t: Int): Gray {
         val out = IntArray(g.size)
-        for (i in g.size.indices) out[i] = if (g.px[i] <= t) 255 else 0
+        for (i in 0 until g.size) out[i] = if (g.px[i] <= t) 255 else 0
         return Gray(g.w, g.h, out)
     }
 
@@ -538,7 +538,7 @@ class BannerCropper(private val context: Context) {
             acc += hist[i]
             lut[i] = ((acc - hist[i] / 2).toDouble() / total * 255.0).roundToInt().coerceIn(0, 255)
         }
-        for (i in src.size.indices) out[i] = lut[src.px[i]]
+        for (i in 0 until src.size) out[i] = lut[src.px[i]]
         return Gray(src.w, src.h, out)
     }
 
@@ -594,7 +594,7 @@ class BannerCropper(private val context: Context) {
     private fun meanAbsDiff(a: Gray, b: Gray, mask: Gray?): Double {
         var sum = 0L
         var n = 0
-        for (i in a.size.indices) {
+        for (i in 0 until a.size) {
             if (mask != null && mask.px[i] == 0) continue
             sum += abs(a.px[i] - b.px[i])
             n++
@@ -639,7 +639,7 @@ class BannerCropper(private val context: Context) {
         if (rPx <= 0 || tPx <= 0) return 0.0
         var inter = 0
         var union = 0
-        for (i in regionDark.size.indices) {
+        for (i in 0 until regionDark.size) {
             val a = regionDark.px[i] != 0
             val b = tmplDark.px[i] != 0
             if (a && b) inter++
