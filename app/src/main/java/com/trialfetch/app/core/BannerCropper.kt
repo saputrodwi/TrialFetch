@@ -3,6 +3,7 @@ package com.trialfetch.app.core
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import com.trialfetch.app.R
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
@@ -56,6 +57,7 @@ class BannerCropper(private val context: Context) {
     )
 
     private companion object {
+        const val TAG = "BannerCropper"
         const val BANNER_HEIGHT = 200
         const val WIDTH_MATCH_TOLERANCE = 0.25
         const val MATCH_THRESHOLD = 0.58
@@ -91,22 +93,54 @@ class BannerCropper(private val context: Context) {
     private var templates: List<Template>? = null
     private var openCvReady: Boolean? = null
 
+    /** Berapa halaman yang diperiksa dan berapa yang benar-benar dipotong. */
+    @Volatile
+    var checked: Int = 0
+        private set
+
+    @Volatile
+    var cut: Int = 0
+        private set
+
+    @Volatile
+    var failed: Int = 0
+        private set
+
+    fun resetStats() {
+        checked = 0
+        cut = 0
+        failed = 0
+    }
+
     /**
      * Memotong banner kalau terdeteksi. Tidak pernah melempar exception dan
      * tidak pernah menghilangkan halaman: kalau decode, OpenCV, atau penilaian
      * gagal, byte asli dikembalikan apa adanya.
      */
     fun crop(raw: ByteArray): ByteArray {
-        if (!ensureOpenCv()) return raw
+        if (!ensureOpenCv()) {
+            Log.w(TAG, "OpenCV belum siap; $checked halaman dilewati tanpa dipotong")
+            return raw
+        }
         return try {
             val bmp = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return raw
             try {
                 val side = detectCut(bmp)
-                if (side == null) raw else cutBytes(bmp, side)
+                checked++
+                if (side == null) {
+                    Log.i(TAG, "halaman ${bmp.width}x${bmp.height}: tidak ada banner")
+                    raw
+                } else {
+                    cut++
+                    Log.i(TAG, "halaman ${bmp.width}x${bmp.height}: banner dipotong di $side")
+                    cutBytes(bmp, side).ifEmpty { raw }
+                }
             } finally {
                 bmp.recycle()
             }
         } catch (e: Throwable) {
+            failed++
+            Log.e(TAG, "gagal memeriksa satu halaman, dilewati apa adanya", e)
             raw
         }
     }
@@ -115,6 +149,7 @@ class BannerCropper(private val context: Context) {
         openCvReady?.let { return it }
         val ok = runCatching { OpenCVLoader.initLocal() }.getOrDefault(false)
         openCvReady = ok
+        Log.i(TAG, "OpenCVLoader.initLocal() = $ok")
         return ok
     }
 
@@ -138,6 +173,11 @@ class BannerCropper(private val context: Context) {
         val bottomStats = stripStats(src, h - BANNER_HEIGHT)
         val topFaint = topStats.isFaintBanner()
         val bottomFaint = bottomStats.isFaintBanner()
+        Log.i(
+            TAG,
+            "pita atas putih=${"%.3f".format(topStats.white)} samar=${"%.4f".format(topStats.faint)} " +
+                "bawah putih=${"%.3f".format(bottomStats.white)} samar=${"%.4f".format(bottomStats.faint)}"
+        )
         if (topFaint && bottomFaint) {
             src.release()
             return if (topStats.white >= bottomStats.white) Side.TOP else Side.BOTTOM
@@ -185,24 +225,38 @@ class BannerCropper(private val context: Context) {
         if (h <= 0) return StripStats(0.0, 0.0)
         val band = src.submat(sy, sy + h, 0, src.cols())
         try {
-            val total = band.rows() * band.cols()
-            if (total <= 0) return StripStats(0.0, 0.0)
+            // WAJIB: Utils.bitmapToMat menghasilkan Mat 4 channel (RGBA),
+            // sedangkan Imgproc.threshold hanya jalan di citra 1 channel.
+            // Kalau dilewatkan apa adanya, cv::threshold melempar exception
+            // yang ditangkap crop() sehingga gambar diam-diam tidak pernah
+            // dipotong.
+            val gray = Mat()
+            Imgproc.cvtColor(band, gray, Imgproc.COLOR_RGBA2GRAY)
+            try {
+                val total = gray.rows() * gray.cols()
+                if (total <= 0) return StripStats(0.0, 0.0)
 
-            val whiteMask = Mat()
-            Imgproc.threshold(band, whiteMask, 245.0, 255.0, Imgproc.THRESH_BINARY)
-            val white = Core.countNonZero(whiteMask) / total.toDouble()
-            whiteMask.release()
+                val whiteMask = Mat()
+                Imgproc.threshold(gray, whiteMask, 245.0, 255.0, Imgproc.THRESH_BINARY)
+                val white = Core.countNonZero(whiteMask) / total.toDouble()
+                whiteMask.release()
 
-            val faintMask = Mat()
-            Imgproc.threshold(band, faintMask, 200.0, 255.0, Imgproc.THRESH_BINARY)
-            val faintHigh = Core.countNonZero(faintMask)
-            faintMask.release()
-            val faintLowMask = Mat()
-            Imgproc.threshold(band, faintLowMask, 250.0, 255.0, Imgproc.THRESH_BINARY)
-            val faint = (faintHigh - Core.countNonZero(faintLowMask)) / total.toDouble()
-            faintLowMask.release()
+                // Konten samar: abu 200..250. Dihitung dengan mask atas
+                // (>=200) dikurangi mask bawah (>=250).
+                val hiMask = Mat()
+                Imgproc.threshold(gray, hiMask, 200.0, 255.0, Imgproc.THRESH_BINARY)
+                val hiCount = Core.countNonZero(hiMask)
+                hiMask.release()
+                val loMask = Mat()
+                Imgproc.threshold(gray, loMask, 250.0, 255.0, Imgproc.THRESH_BINARY)
+                val loCount = Core.countNonZero(loMask)
+                loMask.release()
+                val faint = (hiCount - loCount).coerceAtLeast(0) / total.toDouble()
 
-            return StripStats(white, faint)
+                return StripStats(white, faint)
+            } finally {
+                gray.release()
+            }
         } finally {
             band.release()
         }
@@ -336,8 +390,10 @@ class BannerCropper(private val context: Context) {
             val buf = MatOfByte(*bytes)
             val m = Imgcodecs.imdecode(buf, Imgcodecs.IMREAD_COLOR)
             if (m.empty()) continue
+            // imdecode dengan IMREAD_COLOR menghasilkan Mat 3 channel BGR,
+            // bukan RGBA. Memakai COLOR_RGBA2GRAY di sini melempar exception.
             val gray = Mat()
-            Imgproc.cvtColor(m, gray, Imgproc.COLOR_RGBA2GRAY)
+            Imgproc.cvtColor(m, gray, Imgproc.COLOR_BGR2GRAY)
 
             val eq = Mat()
             Imgproc.equalizeHist(gray, eq)
@@ -361,6 +417,7 @@ class BannerCropper(private val context: Context) {
             blurred.release()
             m.release()
         }
+        Log.i(TAG, "template banner termuat: ${list.size} dari ${TEMPLATE_RES.size}")
         templates = list
         return list
     }

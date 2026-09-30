@@ -102,6 +102,9 @@ class ComicRepository(
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
 
         val total = page.images.size
+        if (settings.cropBanner && series.source == Source.BAOZIMH) {
+            bannerCropper.resetStats()
+        }
         // written hanya dipakai mode ZIP. Untuk mode Folder, file langsung
         // ditulis ke MediaStore lalu agak dihapus dari daftar, jadi penghitung
         // sukses harus terpisah. Sebelumnya done diambil dari written.size,
@@ -165,6 +168,12 @@ class ComicRepository(
             appendLine("Chapter: ${chapter.title}")
             appendLine("Sumber: ${series.source.displayName}")
             appendLine("Berhasil: $done dari $total halaman")
+            if (settings.cropBanner && series.source == Source.BAOZIMH) {
+                appendLine(
+                    "Banner: ${bannerCropper.cut} dipotong dari ${bannerCropper.checked} diperiksa" +
+                        (if (bannerCropper.failed > 0) ", ${bannerCropper.failed} gagal diperiksa" else "")
+                )
+            }
             appendLine("Waktu: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())}")
             append(note)
         }
@@ -185,7 +194,14 @@ class ComicRepository(
             }
         }
 
-        notifier.showDone(chapter.title, done, savedPath)
+        val bannerLine = if (settings.cropBanner && series.source == Source.BAOZIMH &&
+            bannerCropper.checked > 0
+        ) {
+            "\nBanner: ${bannerCropper.cut}/${bannerCropper.checked} dipotong"
+        } else {
+            ""
+        }
+        notifier.showDone(chapter.title + bannerLine, done, savedPath)
         DownloadProgress(
             total = total, done = done, state = DownloadProgress.State.DONE,
             savedPath = savedPath, chapterTitle = chapter.title
