@@ -132,8 +132,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val res = repo.search(st.source, st.query.trim())
                 _search.value = _search.value.copy(loading = false, results = res)
-            } catch (e: SourceException) {
-                _search.value = _search.value.copy(loading = false, error = e.message)
             } catch (e: Exception) {
                 _search.value = _search.value.copy(loading = false, error = e.message)
             }
