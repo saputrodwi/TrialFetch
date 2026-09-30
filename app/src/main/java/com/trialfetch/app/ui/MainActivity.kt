@@ -101,7 +101,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             val vm: MainViewModel = viewModel()
             val settings by vm.settings.collectAsStateWithLifecycle()
-    val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
 
             // Tema mengikuti pilihan di Pengaturan, bukan hanya setelan sistem.
             val darkTheme = when (settings.themeMode) {
@@ -169,6 +168,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val urlInput by vm.urlInput.collectAsStateWithLifecycle()
     val urlLoading by vm.urlLoading.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
     val extra = LocalExtraColors.current
 
     // Izin penyimpanan: dibutuhkan hanya di Android 9 ke bawah. Android 10+
