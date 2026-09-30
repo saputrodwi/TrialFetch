@@ -125,7 +125,7 @@ fun SettingsScreen(
         SectionCard("Pemotongan banner", extra.yellow) {
             RowToggle(
                 title = "Potong banner Baozimh",
-                subtitle = "Menghapus pita 200px di atas gambar (logo + alamat situs).",
+                subtitle = "Khusus Baozimh. Menghapus pita banner 200px di atas atau bawah gambar (logo + alamat situs).",
                 checked = settings.cropBanner,
                 accent = extra.yellowDeep
             ) { v -> onChange(settings.copy(cropBanner = v)) }

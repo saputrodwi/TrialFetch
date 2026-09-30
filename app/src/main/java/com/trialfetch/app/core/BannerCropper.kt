@@ -72,6 +72,33 @@ class BannerCropper(private val context: Context) {
         const val W_DARK = 0.25
         const val W_DIFF = 0.02
 
+        /**
+         * Rasio piksel putih untuk pita 200px yang dianggap banner kosong.
+         *
+         * Template matching saja tidak cukup: pita banner yang isinya putih
+         * kosong total tidak punya apa pun untuk dicocokkan dengan template,
+         * jadi skornya rendah dan banner-nya lolos. Aturan rasio putih ini
+         * sudah dipakai web untuk halaman pendek (hanya saja di situ tidak
+         * berlaku untuk halaman tinggi), di sini diperluas ke pita mana pun.
+         *
+         * Diukur dari 92 pita atas/bawah chapter "我有无限金色词条" ch19:
+         * 20 pita >= 0.90, hanya 1 pita di 0.80-0.90, dan 71 pita < 0.80
+         * dengan nilai tertinggi 0.794. Jadi 0.90 memisahkan dengan celah
+         * yang jelas, tanpa memotong satu halaman pun yang tidak bener.
+         */
+        const val WHITE_STRIP_THRESHOLD = 0.90
+
+        /**
+         * Batas atas rasio piksel gelap pada pita yang dianggap kosong.
+         *
+         * Diukur dari 92 pita chapter "我有无限金色词条" ch19: 17 pita yang
+         * kosong punya tinta <= 0.009, sedangkan pita yang isinya belum
+         * pasti punya 0.019 dan 0.040. Pita di antara keduanya sengaja
+         * TIDAK dipotong lewat gerbang ini, dan diserahkan ke template
+         * scoring agar tidak ada isi komik yang ikut terpotong.
+         */
+        const val EMPTY_STRIP_INK = 0.012
+
         const val DARK_THRESHOLD = 135
         const val MASK_THRESHOLD = 246
         const val CANNY_LOW = 45
@@ -120,6 +147,22 @@ class BannerCropper(private val context: Context) {
             }
             if (h <= BANNER_HEIGHT) return null
 
+            // Gerbang murah lebih dulu: pita yang nyaris kosong putih tidak
+            // mungkin berisi panel komik, dan tidak bisa dikenali template
+            // matching karena tidak ada yang bisa dicocokkan.
+            val topStrip = stripStats(bmp, 0)
+            val bottomStrip = stripStats(bmp, h - BANNER_HEIGHT)
+            val topEmpty = topStrip.isEmptyStrip()
+            val bottomEmpty = bottomStrip.isEmptyStrip()
+            if (topEmpty && bottomEmpty) {
+                // Keduanya kosong: potong yang lebih putih.
+                return if (topStrip.white >= bottomStrip.white) Side.TOP else Side.BOTTOM
+            } else if (topEmpty) {
+                return Side.TOP
+            } else if (bottomEmpty) {
+                return Side.BOTTOM
+            }
+
             val top = checkRegion(bmp, Side.TOP)
             val bottom = checkRegion(bmp, Side.BOTTOM)
 
@@ -136,6 +179,52 @@ class BannerCropper(private val context: Context) {
         }
     }
 
+    /** Rasio putih dan rasio tinta gelap pada pita 200px mulai [sy]. */
+    private data class StripStats(val white: Double, val ink: Double) {
+        /** Pita dianggap banner kosong: nyaris putih dan tanpa tinta. */
+        fun isEmptyStrip(): Boolean =
+            white >= WHITE_STRIP_THRESHOLD && ink <= EMPTY_STRIP_INK
+    }
+
+    /**
+     * Menghitung rasio piksel putih dan gelap pada pita setinggi 200px.
+     *
+     * Piksel dibaca dengan sampling per baris dan per kolom supaya murah:
+     * untuk gerbang yang hanya butuh perkiraan, membaca seluruh 1200x200
+     * piksel per halaman itu berlebihan. Dokumentasi Android juga
+     * menyarankan tidak memproses bitmap penuh saat yang dibutuhkan kecil.
+     */
+    private fun stripStats(bmp: Bitmap, sy: Int): StripStats {
+        val w = bmp.width
+        val h = min(BANNER_HEIGHT, bmp.height - sy)
+        if (h <= 0) return StripStats(0.0, 0.0)
+
+        val step = 4
+        val row = IntArray(w)
+        var white = 0
+        var ink = 0
+        var total = 0
+        var y = 0
+        while (y < h) {
+            bmp.getPixels(row, 0, w, 0, sy + y, w, 1)
+            var x = 0
+            while (x < w) {
+                val c = row[x]
+                val r = (c shr 16) and 0xFF
+                val g = (c shr 8) and 0xFF
+                val b = c and 0xFF
+                val gray = (r * 77 + g * 150 + b * 29) shr 8
+                if (gray > 245) white++
+                if (gray <= 140) ink++
+                total++
+                x += step
+            }
+            y += step
+        }
+        if (total == 0) return StripStats(0.0, 0.0)
+        return StripStats(white.toDouble() / total, ink.toDouble() / total)
+    }
+
     /** Halaman berukuran kecil yang seluruh isinya banner. */
     private fun detectFullPage(bmp: Bitmap): Boolean {
         val w = bmp.width
@@ -145,8 +234,8 @@ class BannerCropper(private val context: Context) {
 
         var white = 0
         for (v in g.px) if (v > 245) white++
-        val whiteRatio = white.toDouble() / g.size
-        if (whiteRatio < 0.80 || whiteRatio > 0.99) return false
+        val whiteShare = white.toDouble() / g.size
+        if (whiteShare < 0.80 || whiteShare > 0.99) return false
 
         // Simetri kiri-kanan: logo dan teks banner berada di tengah.
         val halfW = w / 2
