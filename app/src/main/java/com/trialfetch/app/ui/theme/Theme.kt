@@ -5,10 +5,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import android.app.Activity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -298,6 +302,21 @@ fun TrialFetchTheme(
             bgDot = WebPalette.LightBgDot,
             onAccent = WebPalette.LightOnAccent
         )
+    }
+
+    // Ikon status bar & navigation bar mengikuti tema AKTUAL (termasuk
+    // override manual Terang/Gelap), bukan cuma mode sistem. Tanpa ini,
+    // windowLightStatusBar=true permanen di themes.xml membuat ikon tak
+    // terlihat saat dark mode aktif.
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
     }
 
     CompositionLocalProvider(LocalExtraColors provides extra) {

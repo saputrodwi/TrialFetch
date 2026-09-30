@@ -173,15 +173,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // bisa sama-sama lolos guard dari progress dan mengunduh chapter yang sama
     // dua kali. Flag ini disetel seketika sebelum coroutine mulai.
     private val downloading = java.util.concurrent.atomic.AtomicBoolean(false)
+    private var downloadJob: kotlinx.coroutines.Job? = null
 
     fun download(info: SeriesInfo, chapter: Chapter) {
         if (!downloading.compareAndSet(false, true)) return
-        viewModelScope.launch {
+        downloadJob = viewModelScope.launch {
             try {
                 repo.downloadChapter(info, chapter, _settings.value)
             } finally {
                 downloading.set(false)
+                downloadJob = null
             }
         }
+    }
+
+    /** Batalkan unduhan yang sedang berjalan lalu tutup panelnya. */
+    fun cancelDownload() {
+        downloadJob?.cancel()
+        downloadJob = null
+        downloading.set(false)
+        repo.resetProgress()
+    }
+
+    /** Tutup panel hasil (selesai/gagal) tanpa membatalkan apa pun. */
+    fun dismissProgress() {
+        // Jangan tutup saat masih berjalan; pakai cancelDownload untuk itu.
+        if (downloading.get()) return
+        repo.resetProgress()
     }
 }

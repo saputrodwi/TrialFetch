@@ -68,6 +68,11 @@ class ComicRepository(
     private val _progress = MutableStateFlow(DownloadProgress())
     val progress: StateFlow<DownloadProgress> = _progress.asStateFlow()
 
+    /** Kembalikan progres ke IDLE (menutup panel unduhan). */
+    fun resetProgress() {
+        _progress.value = DownloadProgress()
+    }
+
     fun canWriteStorage(): Boolean = storage.canWrite()
 
     suspend fun search(source: Source, query: String): List<SearchResult> =

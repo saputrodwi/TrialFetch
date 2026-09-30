@@ -35,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Link
@@ -257,6 +258,8 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                         progress = downloadState,
                         isBookmarked = bookmarks.any { b -> b.source == it.source && b.comicId == it.comicId },
                         onToggleBookmark = { vm.toggleBookmark(it) },
+                        onDismissProgress = vm::dismissProgress,
+                        onCancelDownload = vm::cancelDownload,
                         onBack = {
                             vm.closeSeries()
                             tab = Tab.SEARCH
@@ -531,13 +534,15 @@ private fun SeriesScreen(
     progress: DownloadProgress,
     isBookmarked: Boolean,
     onToggleBookmark: () -> Unit,
+    onDismissProgress: () -> Unit,
+    onCancelDownload: () -> Unit,
     onBack: () -> Unit,
     onDownload: (Chapter) -> Unit
 ) {
     val extra = LocalExtraColors.current
     Column(Modifier.fillMaxSize()) {
         if (progress.state != DownloadProgress.State.IDLE) {
-            DownloadPanel(progress, extra)
+            DownloadPanel(progress, extra, onDismissProgress, onCancelDownload)
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
             item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark) }
@@ -637,54 +642,80 @@ private fun InfoRow(label: String, value: String) {
 @Composable
 private fun DownloadPanel(
     progress: DownloadProgress,
-    extra: com.trialfetch.app.ui.theme.ExtraColors
+    extra: com.trialfetch.app.ui.theme.ExtraColors,
+    onDismiss: () -> Unit,
+    onCancel: () -> Unit
 ) {
+    // Teks ditulis dengan warna gelap eksplisit, BUKAN warisan onSurface.
+    // Surface kustom tidak menghitung contentColor otomatis, jadi di dark
+    // mode teks ikut terang di atas kuning terang dan tidak terbaca.
+    // onAccent gelap di kedua mode sehingga aman dipakai di sini.
+    val ink = extra.onAccent
     Surface(
         color = extra.yellow,
         shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            3.dp, MaterialTheme.colorScheme.onBackground
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    when (progress.state) {
+                        DownloadProgress.State.RUNNING ->
+                            "Mengunduh halaman ${progress.done}/${progress.total}"
+                        DownloadProgress.State.DONE ->
+                            "Selesai: ${progress.done}/${progress.total} halaman"
+                        DownloadProgress.State.FAILED ->
+                            progress.error ?: "Gagal"
+                        else -> ""
+                    },
+                    Modifier.weight(1f),
+                    color = if (progress.state == DownloadProgress.State.FAILED)
+                        MaterialTheme.colorScheme.onErrorContainer else ink,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (progress.state == DownloadProgress.State.RUNNING) {
+                    TextButton(onClick = onCancel) {
+                        Text("Batal", color = ink)
+                    }
+                } else {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = ink)
+                    }
+                }
+            }
             when (progress.state) {
                 DownloadProgress.State.RUNNING -> {
-                    Text(
-                        "Mengunduh halaman ${progress.done}/${progress.total}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
                     Spacer(Modifier.height(8.dp))
                     LinearProgressIndicator(
                         progress = { progress.fraction },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        color = ink,
+                        trackColor = ink.copy(alpha = 0.25f)
                     )
                 }
                 DownloadProgress.State.DONE -> {
-                    Text(
-                        "Selesai: ${progress.done}/${progress.total} halaman",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
                     progress.savedPath?.let {
                         Spacer(Modifier.height(4.dp))
                         Text(
                             it,
+                            color = ink.copy(alpha = 0.8f),
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-                DownloadProgress.State.FAILED -> Text(
-                    progress.error ?: "Gagal",
-                    color = MaterialTheme.colorScheme.error
-                )
                 else -> Unit
             }
         }
     }
 }
-
 @Composable
 private fun ChapterRow(
     chapter: Chapter,
