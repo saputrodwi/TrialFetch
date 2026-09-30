@@ -206,7 +206,8 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
                 lastError = e
                 continue
             }
-            val page = parseAppChapter(html) ?: run {
+            val page = parseAppChapter(html)
+            if (page == null) {
                 lastError = SourceException("Respons API app kosong")
                 continue
             }

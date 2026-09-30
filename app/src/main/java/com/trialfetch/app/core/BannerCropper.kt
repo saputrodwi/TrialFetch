@@ -55,7 +55,9 @@ class BannerCropper(private val context: Context) {
 
     /** Citra abu-abu sederhana: nilai 0..255 per piksel. */
     private class Gray(val w: Int, val h: Int, val px: IntArray) {
-        val count: Int get() = w * h
+        // Bernama size, bukan count: "count" bertabrakan dengan
+        // Iterable.count() dan membuat .indices ambigu.
+        val size: Int get() = w * h
     }
 
     private companion object {
@@ -143,7 +145,7 @@ class BannerCropper(private val context: Context) {
 
         var white = 0
         for (v in g.px) if (v > 245) white++
-        val whiteRatio = white.toDouble() / g.count
+        val whiteRatio = white.toDouble() / g.size
         if (whiteRatio < 0.80 || whiteRatio > 0.99) return false
 
         // Simetri kiri-kanan: logo dan teks banner berada di tengah.
@@ -172,7 +174,7 @@ class BannerCropper(private val context: Context) {
                 }
             }
             val ratio = ink.toDouble() / (w.toDouble() * thirdH)
-            if (ratio >= range.first && ratio <= range.last) validZones++
+            if (ratio >= range.start && ratio <= range.endInclusive) validZones++
         }
         return validZones >= 2
     }
@@ -348,8 +350,8 @@ class BannerCropper(private val context: Context) {
 
     /** Kernel [1 2 1] satu dimensi, sama seperti GaussianBlur 3x3 OpenCV. */
     private fun gaussianBlur3(src: Gray): Gray {
-        val tmp = IntArray(src.count)
-        val out = IntArray(src.count)
+        val tmp = IntArray(src.size)
+        val out = IntArray(src.size)
         for (y in 0 until src.h) {
             val base = y * src.w
             for (x in 0 until src.w) {
@@ -374,8 +376,8 @@ class BannerCropper(private val context: Context) {
     private fun canny(src: Gray, low: Int, high: Int): Gray {
         val w = src.w
         val h = src.h
-        val gx = IntArray(src.count)
-        val gy = IntArray(src.count)
+        val gx = IntArray(src.size)
+        val gy = IntArray(src.size)
         for (y in 1 until h - 1) {
             for (x in 1 until w - 1) {
                 val i = y * w + x
@@ -386,15 +388,15 @@ class BannerCropper(private val context: Context) {
                 gy[i] = (bl + 2 * bc + br) - (tl + 2 * tc + tr)
             }
         }
-        val mag = IntArray(src.count)
+        val mag = IntArray(src.size)
         var maxMag = 1
-        for (i in src.count.indices) {
+        for (i in src.size.indices) {
             val m = abs(gx[i]) + abs(gy[i])
             mag[i] = m
             if (m > maxMag) maxMag = m
         }
-        val strong = BooleanArray(src.count)
-        val weak = BooleanArray(src.count)
+        val strong = BooleanArray(src.size)
+        val weak = BooleanArray(src.size)
         for (y in 1 until h - 1) {
             for (x in 1 until w - 1) {
                 val i = y * w + x
@@ -436,8 +438,8 @@ class BannerCropper(private val context: Context) {
                 }
             }
         }
-        val out = IntArray(src.count)
-        for (i in strong.indices) out[i] = if (strong[i]) 255 else 0
+        val out = IntArray(src.size)
+        for (i in 0 until src.size) out[i] = if (strong[i]) 255 else 0
         return Gray(w, h, out)
     }
 
@@ -476,14 +478,14 @@ class BannerCropper(private val context: Context) {
     }
 
     private fun thresholdInv(g: Gray, t: Int): Gray {
-        val out = IntArray(g.count)
-        for (i in g.count.indices) out[i] = if (g.px[i] <= t) 255 else 0
+        val out = IntArray(g.size)
+        for (i in g.size.indices) out[i] = if (g.px[i] <= t) 255 else 0
         return Gray(g.w, g.h, out)
     }
 
     private fun dilate(src: Gray, k: Int): Gray {
         val r = k / 2
-        val out = IntArray(src.count)
+        val out = IntArray(src.size)
         for (y in 0 until src.h) {
             for (x in 0 until src.w) {
                 var v = 0
@@ -505,7 +507,7 @@ class BannerCropper(private val context: Context) {
     }
 
     private fun erode3(src: Gray): Gray {
-        val out = IntArray(src.count)
+        val out = IntArray(src.size)
         for (y in 0 until src.h) {
             for (x in 0 until src.w) {
                 var v = 255
@@ -528,15 +530,15 @@ class BannerCropper(private val context: Context) {
     private fun equalizeHist(src: Gray): Gray {
         val hist = IntArray(256)
         for (v in src.px) hist[v]++
-        val out = IntArray(src.count)
-        val total = src.count
+        val out = IntArray(src.size)
+        val total = src.size
         var acc = 0
         val lut = IntArray(256)
         for (i in 0..255) {
             acc += hist[i]
             lut[i] = ((acc - hist[i] / 2).toDouble() / total * 255.0).roundToInt().coerceIn(0, 255)
         }
-        for (i in src.count.indices) out[i] = lut[src.px[i]]
+        for (i in src.size.indices) out[i] = lut[src.px[i]]
         return Gray(src.w, src.h, out)
     }
 
@@ -592,7 +594,7 @@ class BannerCropper(private val context: Context) {
     private fun meanAbsDiff(a: Gray, b: Gray, mask: Gray?): Double {
         var sum = 0L
         var n = 0
-        for (i in a.count.indices) {
+        for (i in a.size.indices) {
             if (mask != null && mask.px[i] == 0) continue
             sum += abs(a.px[i] - b.px[i])
             n++
@@ -607,8 +609,8 @@ class BannerCropper(private val context: Context) {
      * korelasi kedua citra.
      */
     private fun tmCoeffNormed(a: Gray, b: Gray): Double {
-        val n = a.count
-        if (n == 0 || b.count != n) return 0.0
+        val n = a.size
+        if (n == 0 || b.size != n) return 0.0
         var sumA = 0L
         var sumB = 0L
         for (i in 0 until n) {
@@ -637,7 +639,7 @@ class BannerCropper(private val context: Context) {
         if (rPx <= 0 || tPx <= 0) return 0.0
         var inter = 0
         var union = 0
-        for (i in regionDark.count.indices) {
+        for (i in regionDark.size.indices) {
             val a = regionDark.px[i] != 0
             val b = tmplDark.px[i] != 0
             if (a && b) inter++
