@@ -25,7 +25,7 @@ internal fun cleanText(raw: String): String = raw
     .replace(Regex("""&#(\d+);""")) { m ->
         m.groupValues[1].toIntOrNull()?.toChar()?.toString() ?: m.value
     }
-    .replace(Regex("""&#x([0-9a-fA-F]+);""")) { m ->
+    .replace(Regex("""&#x([0-9a-fA-F]+);""", RegexOption.IGNORE_CASE)) { m ->
         m.groupValues[1].toIntOrNull(16)?.toChar()?.toString() ?: m.value
     }
     .replace("&apos;", "'")

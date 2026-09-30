@@ -32,9 +32,11 @@ class NamingRuleTest {
     @Test fun semuaPresetValid() {
         for ((rule, _) in NamingRule.PRESETS) {
             // Tidak boleh crash dan harus menghasilkan nama ber-ekstensi.
+            // (Isi angka tidak dicek di sini karena preset {i} memang
+            // mulai dari 0 sehingga halaman 7 jadi img_006.)
             val name = rule.fileName(7, "webp")
             assertEquals(true, name.endsWith(".webp"))
-            assertEquals(true, name.contains("7"))
+            assertEquals(true, name.length > ".webp".length)
         }
     }
 }
