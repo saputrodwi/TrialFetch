@@ -22,9 +22,30 @@ class HttpClient(
     private val desktopUa =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    private val mobileUa =
+    internal val mobileUa =
         "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+
+    /** Origin sebuah URL, mis. "https://s.baozicdn.com/". */
+    internal fun originOf(url: String): String = runCatching {
+        val u = java.net.URI(url)
+        "${u.scheme}://${u.host}/"
+    }.getOrDefault(url)
+
+    /**
+     * Header untuk memuat satu gambar — logika SAMA dengan [getBytes]:
+     * UA mobile + Accept image + Referer origin, kecuali [noReferer].
+     * Dipakai reader streaming (Coil) agar diperlakukan sama seperti unduhan.
+     */
+    internal fun imageHeaders(
+        url: String,
+        accept: String = "image/avif,image/webp,image/*,*/*;q=0.8",
+        noReferer: Boolean = false
+    ): Map<String, String> = buildMap {
+        put("User-Agent", mobileUa)
+        put("Accept", accept)
+        if (!noReferer) put("Referer", originOf(url))
+    }
 
     companion object {
         /**

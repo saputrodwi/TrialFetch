@@ -81,7 +81,9 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.trialfetch.app.core.Chapter
+import com.trialfetch.app.core.ReaderPage
 import com.trialfetch.app.core.SearchResult
 import com.trialfetch.app.core.SeriesInfo
 import com.trialfetch.app.core.Source
@@ -179,7 +181,8 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
     val readerReq by vm.reader.collectAsStateWithLifecycle()
-    val readerImages by vm.readerImages.collectAsStateWithLifecycle()
+    val readerPages by vm.readerPages.collectAsStateWithLifecycle()
+    val readerError by vm.readerError.collectAsStateWithLifecycle()
     val extra = LocalExtraColors.current
 
     // Izin penyimpanan: dibutuhkan hanya di Android 9 ke bawah. Android 10+
@@ -320,16 +323,17 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
 
     // Reader menutupi seluruh layar di atas tab apa pun.
     readerReq?.let { req ->
+        val streaming = readerPages?.firstOrNull()?.uri?.startsWith("http") == true
         ReaderScreen(
             title = req.chapter.title,
-            images = readerImages,
+            pages = readerPages,
+            error = readerError,
+            isStreaming = streaming,
             onClose = vm::closeReader,
             onDownload = {
-                if (storageGranted) {
-                    series?.let { info -> vm.download(info, req.chapter) }
-                }
-                vm.closeReader()
-            }
+                if (storageGranted) vm.download(req.series, req.chapter)
+            },
+            onRetry = { vm.openReader(req.series, req.chapter) }
         )
     }
 }
@@ -874,59 +878,71 @@ private fun SavedScreen(
 @Composable
 private fun ReaderScreen(
     title: String,
-    images: List<android.net.Uri>?,
+    pages: List<ReaderPage>?,
+    error: String?,
+    isStreaming: Boolean,
     onClose: () -> Unit,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    onRetry: () -> Unit
 ) {
     BackHandler(onBack = onClose)
     // Kunci geser pager saat ada halaman yang di-zoom, supaya cubit
     // horizontal tidak malah pindah halaman.
     var pagerLocked by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     Box(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
         when {
-            images == null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                CircularProgressIndicator(color = Color.White)
-            }
-            images.isEmpty() -> Column(
+            error != null -> Column(
                 Modifier
                     .fillMaxSize()
                     .padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    Icons.Default.MenuBook,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.7f),
-                    modifier = Modifier.size(64.dp)
-                )
-                Spacer(Modifier.height(16.dp))
                 Text(
-                    "Chapter ini belum diunduh.",
+                    error,
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium
                 )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Unduh dulu supaya bisa dibaca offline.",
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.bodyMedium
-                )
                 Spacer(Modifier.height(20.dp))
+                TextButton(onClick = onRetry) {
+                    Text("Coba lagi", color = Color.White)
+                }
+                Spacer(Modifier.height(4.dp))
                 TextButton(onClick = onDownload) {
-                    Text("Unduh sekarang", color = Color.White)
+                    Text("Unduh saja", color = Color.White.copy(alpha = 0.8f))
                 }
                 Spacer(Modifier.height(4.dp))
                 TextButton(onClick = onClose) {
                     Text("Tutup", color = Color.White.copy(alpha = 0.7f))
                 }
             }
+            pages == null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+            pages.isEmpty() -> Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "Tidak ada gambar untuk dibaca.",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(20.dp))
+                TextButton(onClick = onClose) {
+                    Text("Tutup", color = Color.White.copy(alpha = 0.7f))
+                }
+            }
             else -> {
-                val list = images
+                val list = pages
                 val pagerState = rememberPagerState(pageCount = { list.size })
                 HorizontalPager(
                     state = pagerState,
@@ -942,8 +958,20 @@ private fun ReaderScreen(
                         pagerLocked = next > 1f
                     }
                     val active = pagerState.currentPage == page
+                    // URL remote dimuat dengan header penangkal hotlink
+                    // (sama seperti unduhan); file lokal langsung.
+                    val item = list[page]
+                    val model = remember(item.uri) {
+                        if (item.uri.startsWith("http")) {
+                            ImageRequest.Builder(context).data(item.uri).apply {
+                                for ((k, v) in item.headers) addHeader(k, v)
+                            }.build()
+                        } else {
+                            item.uri
+                        }
+                    }
                     AsyncImage(
-                        model = list[page],
+                        model = model,
                         contentDescription = "Halaman ${page + 1}",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
@@ -976,6 +1004,17 @@ private fun ReaderScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (isStreaming) {
+                        Text(
+                            "online",
+                            color = Color.White.copy(alpha = 0.6f),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                    }
+                    IconButton(onClick = onDownload) {
+                        Icon(Icons.Default.Download, contentDescription = "Unduh chapter", tint = Color.White)
+                    }
                     Text(
                         "${pagerState.currentPage + 1}/${list.size}",
                         color = Color.White.copy(alpha = 0.8f),
@@ -987,3 +1026,4 @@ private fun ReaderScreen(
         }
     }
 }
+

@@ -379,10 +379,19 @@ class ComicRepository(
             .also { _progress.value = it }
     }
 
-    private fun originOf(url: String): String = runCatching {
-        val u = java.net.URI(url)
-        "${u.scheme}://${u.host}/"
-    }.getOrDefault(url)
+    // originOf pindah ke HttpClient agar dipakai bersama getBytes/streaming.
+    private fun originOf(url: String): String = http.originOf(url)
+
+    /**
+     * Halaman siap-streaming untuk reader: URL remote + header penangkal
+     * hotlink yang sama persis dengan unduhan (lihat HttpClient.getBytes).
+     */
+    fun streamPages(series: SeriesInfo, page: ChapterPage): List<ReaderPage> {
+        val noRef = series.source == Source.KOUDAIMH
+        return page.images.sortedBy { it.page }.map { img ->
+            ReaderPage(img.url, http.imageHeaders(img.url, noReferer = noRef))
+        }
+    }
 
     companion object {
         fun buildSources(http: HttpClient): Map<Source, ComicSource> = mapOf(

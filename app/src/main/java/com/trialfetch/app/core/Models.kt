@@ -61,3 +61,13 @@ data class ImageRef(
     val page: Int,
     val needsDecrypt: Boolean = false
 )
+
+/**
+ * Satu halaman untuk reader: bisa file lokal (file://, content://)
+ * atau URL remote (http...). [headers] hanya dipakai untuk remote
+ * (User-Agent + Referer penangkal hotlink), dikosongkan untuk lokal.
+ */
+data class ReaderPage(
+    val uri: String,
+    val headers: Map<String, String> = emptyMap()
+)

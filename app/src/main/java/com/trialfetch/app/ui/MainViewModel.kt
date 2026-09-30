@@ -119,26 +119,57 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _reader = MutableStateFlow<ReaderRequest?>(null)
     val reader: StateFlow<ReaderRequest?> = _reader.asStateFlow()
 
-    private val _readerImages = MutableStateFlow<List<android.net.Uri>?>(null)
-    val readerImages: StateFlow<List<android.net.Uri>?> = _readerImages.asStateFlow()
+    private val _readerPages = MutableStateFlow<List<com.trialfetch.app.core.ReaderPage>?>(null)
+    val readerPages: StateFlow<List<com.trialfetch.app.core.ReaderPage>?> = _readerPages.asStateFlow()
 
+    private val _readerError = MutableStateFlow<String?>(null)
+    val readerError: StateFlow<String?> = _readerError.asStateFlow()
+
+    /**
+     * Buka reader: pakai file lokal bila sudah diunduh, kalau belum
+     * streaming langsung dari URL seperti versi web (tanpa wajib unduh).
+     * Chapter terenkripsi (URL-nya ciphertext) tetap wajib diunduh dulu.
+     */
     fun openReader(series: com.trialfetch.app.core.SeriesInfo, chapter: com.trialfetch.app.core.Chapter) {
         _reader.value = ReaderRequest(series, chapter)
-        _readerImages.value = null
+        _readerPages.value = null
+        _readerError.value = null
         viewModelScope.launch {
-            val uris = withContext(Dispatchers.IO) {
+            val local = withContext(Dispatchers.IO) {
                 repo.getReadableImages(series, chapter, _settings.value)
             }
-            // Abaikan bila user sudah menutup sebelum selesai dimuat.
-            if (_reader.value?.chapter?.chapterId == chapter.chapterId) {
-                _readerImages.value = uris
+            if (_reader.value?.chapter?.chapterId != chapter.chapterId) return@launch
+            if (local.isNotEmpty()) {
+                _readerPages.value = local.map {
+                    com.trialfetch.app.core.ReaderPage(it.toString())
+                }
+                return@launch
+            }
+            try {
+                val page = withContext(Dispatchers.IO) {
+                    repo.chapter(series.source, chapter.url)
+                }
+                if (_reader.value?.chapter?.chapterId != chapter.chapterId) return@launch
+                if (page.images.isEmpty()) {
+                    _readerError.value = "Chapter ini tidak berisi gambar."
+                    return@launch
+                }
+                if (page.images.any { it.needsDecrypt }) {
+                    _readerError.value = "Chapter terenkripsi — unduh dulu untuk membukanya."
+                    return@launch
+                }
+                _readerPages.value = repo.streamPages(series, page)
+            } catch (e: Exception) {
+                if (_reader.value?.chapter?.chapterId != chapter.chapterId) return@launch
+                _readerError.value = e.message ?: "Gagal memuat chapter"
             }
         }
     }
 
     fun closeReader() {
         _reader.value = null
-        _readerImages.value = null
+        _readerPages.value = null
+        _readerError.value = null
     }
 
     fun removeBookmark(item: SavedSeries) {
