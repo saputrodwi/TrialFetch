@@ -60,6 +60,55 @@ class StorageWriter(private val context: Context) {
     fun displayPath(subPath: String): String =
         "Download/${OutputPaths.ROOT}/" + subPath.trim('/')
 
+    /**
+     * Menghapus semua file yang ada di dalam satu folder sebelum chapter
+     * diunduh ulang.
+     *
+     * MediaStore.insert() selalu membuat entri baru; kalau nama file sama
+     * sudah ada tapi tidak terlihat oleh aplikasi (mis. sisa unduhan lama
+     * setelah aplikasi dihapus lalu dipasang ulang), file itu tak bisa
+     * ditimpa dan MediaStore membuat "nama(1).ext". Membersihkan folder
+     * lebih dulu menghindari itu.
+     *
+     * Mengembalikan jumlah file yang benar-benar terhapus.
+     */
+    fun clearFolder(folderPath: String): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val relative = fullRelativePath(folderPath)
+        return runCatching {
+            val ids = mutableListOf<Long>()
+            resolver.query(
+                collection, arrayOf(MediaStore.Downloads._ID),
+                "${MediaStore.Downloads.RELATIVE_PATH} = ?", arrayOf(relative), null
+            )?.use { c ->
+                while (c.moveToNext()) ids.add(c.getLong(0))
+            }
+            var deleted = 0
+            for (id in ids) {
+                val uri = Uri.withAppendedPath(collection, id.toString())
+                if (runCatching { resolver.delete(uri, null, null) > 0 }.getOrDefault(0) > 0) deleted++
+            }
+            Log.i(TAG, "bersihkan $relative: menghapus $deleted dari ${ids.size} file")
+            deleted
+        }.getOrDefault(0)
+    }
+
+    /** Berapa file yang masih ada di folder, untuk dipakai sebagai peringatan. */
+    fun countFiles(folderPath: String): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val relative = fullRelativePath(folderPath)
+        return runCatching {
+            var n = 0
+            resolver.query(
+                collection, arrayOf(MediaStore.Downloads._ID),
+                "${MediaStore.Downloads.RELATIVE_PATH} = ?", arrayOf(relative), null
+            )?.use { c -> while (c.moveToNext()) n++ }
+            n
+        }.getOrDefault(0)
+    }
+
     // ---------------------------------------------------------------- folder
 
     /**

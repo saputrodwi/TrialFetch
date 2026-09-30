@@ -115,6 +115,15 @@ class ComicRepository(
         if (settings.cropBanner && series.source == Source.BAOZIMH) {
             bannerCropper.resetStats()
         }
+
+        // Mode Folder: bersihkan isi folder chapter lebih dulu supaya
+        // unduhan ulang tidak menghasilkan "nama(1).ext". File sisa dari
+        // pemasangan aplikasi sebelumnya bisa saja tidak terlihat oleh
+        // aplikasi, jadi jumlahnya ikut dilaporkan.
+        var staleFiles = 0
+        if (settings.outputMode == OutputMode.FOLDER) {
+            staleFiles = storage.clearFolder(parentPath)
+        }
         // written hanya dipakai mode ZIP. Untuk mode Folder, file langsung
         // ditulis ke MediaStore lalu agak dihapus dari daftar, jadi penghitung
         // sukses harus terpisah. Sebelumnya done diambil dari written.size,
@@ -182,6 +191,12 @@ class ComicRepository(
                 appendLine(
                     "Banner: ${bannerCropper.cut} dipotong dari ${bannerCropper.checked} diperiksa" +
                         (if (bannerCropper.failed > 0) ", ${bannerCropper.failed} gagal diperiksa" else "")
+                )
+            }
+            if (staleFiles > 0) {
+                appendLine(
+                    "PERINGATAN: $staleFiles file lama tidak bisa dihapus oleh aplikasi. " +
+                        "Hapus manual folder ini agar tidak muncul berkas '(1)'."
                 )
             }
             appendLine("Waktu: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())}")
