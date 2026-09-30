@@ -154,5 +154,12 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+
+    // OpenCV asli, sama seperti yang dipakai Trial Fetch web (opencv.js).
+    // Pemotong banner memanggil cv.Canny / cv.equalizeHist /
+    // cv.matchTemplate secara langsung, bukan implementasi sendiri, supaya
+    // hasilnya sama persis dengan acuan.
+    implementation("org.opencv:opencv:4.14.0")
+
     debugImplementation(libs.androidx.ui.tooling)
 }
