@@ -133,7 +133,10 @@ class BannerCropper(private val context: Context) {
                 } else {
                     cut++
                     Log.i(TAG, "halaman ${bmp.width}x${bmp.height}: banner dipotong di $side")
-                    cutBytes(bmp, side).ifEmpty { raw }
+                    // cutBytes mengembalikan array kosong kalau gagal
+                    // encode; kalau begitu pakai gambar asli.
+                    val cropped = cutBytes(bmp, side)
+                    if (cropped.isEmpty()) raw else cropped
                 }
             } finally {
                 bmp.recycle()
