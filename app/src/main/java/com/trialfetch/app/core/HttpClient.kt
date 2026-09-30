@@ -82,6 +82,25 @@ class HttpClient(
         }
     }
 
+    /**
+     * POST dengan body kosong dan header bebas.
+     *
+     * Dipakai endpoint AJAX yang menolak request tanpa header aplikasi
+     * (mis. Madara GoodToon yang wajib X-Requested-With: XMLHttpRequest).
+     */
+    suspend fun postEmpty(
+        url: String,
+        headers: Map<String, String>
+    ): String = withContext(Dispatchers.IO) {
+        val builder = Request.Builder().url(url)
+            .post(ByteArray(0).toRequestBody(null))
+        for ((k, v) in headers) builder.header(k, v)
+        client.newCall(builder.build()).execute().use { res ->
+            if (!res.isSuccessful) throw HttpException(res.code, url)
+            res.body?.string() ?: throw HttpException(-1, url)
+        }
+    }
+
     /** Ambil file biner (gambar), mengikuti header yang diminta sumber. */
     suspend fun getBytes(
         url: String,
@@ -105,13 +124,15 @@ class HttpClient(
     suspend fun postJson(
         url: String,
         json: String,
-        referer: String? = null
+        referer: String? = null,
+        extraHeaders: Map<String, String> = emptyMap()
     ): String = withContext(Dispatchers.IO) {
         val builder = Request.Builder().url(url)
             .post(json.toRequestBody("application/json; charset=utf-8".toMediaType()))
             .header("User-Agent", mobileUa)
             .header("Accept", "application/json, text/plain, */*")
         if (referer != null) builder.header("Referer", referer)
+        for ((k, v) in extraHeaders) builder.header(k, v)
 
         client.newCall(builder.build()).execute().use { res ->
             if (!res.isSuccessful) throw HttpException(res.code, url)

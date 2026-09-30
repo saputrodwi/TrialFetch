@@ -102,6 +102,50 @@ object UrlParser {
                 }
             }
 
+            // --- Jjaptoon: /comics/{id} = series, /chapters/{id} = chapter.
+            // Domain bernomor dan TLD bisa berganti, jadi dicocokkan longgar.
+            host.contains("jjaptoon") -> {
+                val ch = Regex("""/chapters/(\d+)""").find(withScheme)?.groupValues?.get(1)
+                if (ch != null) {
+                    val base = runCatching {
+                        val u = java.net.URI(withScheme)
+                        "${u.scheme}://${u.host}"
+                    }.getOrDefault("https://www.jjaptoon008.com")
+                    Parsed.Chapter(Source.JJAPTOON, "$base/chapters/$ch")
+                } else {
+                    val id = Regex("""/comics/(\d+)""").find(withScheme)?.groupValues?.get(1)
+                    if (id != null) Parsed.Series(Source.JJAPTOON, id)
+                    else Parsed.Unknown("URL Jjaptoon tidak dikenali")
+                }
+            }
+
+            // --- Goodtoon: /manga/{slug}/ = series,
+            // /manga/{slug}/{n}/ atau /chapter-{n}/ = chapter.
+            host.contains("goodtoon") && !host.startsWith("img.") -> {
+                val ch = Regex("""/manga/([a-z0-9\-]+)/(?:chapter-)?(\d+)/""",
+                    RegexOption.IGNORE_CASE).find(withScheme)
+                if (ch != null) {
+                    Parsed.Chapter(Source.GOODTOON, withScheme.substringBefore("?"))
+                } else {
+                    val slug = Regex("""/manga/([a-z0-9\-]+)""",
+                        RegexOption.IGNORE_CASE).find(withScheme)?.groupValues?.get(1)
+                    if (slug != null) Parsed.Series(Source.GOODTOON, slug.trimEnd('/'))
+                    else Parsed.Unknown("URL Goodtoon tidak dikenali")
+                }
+            }
+
+            // --- Rumanhua: /news/{id} = series, /show/{kode}.html = chapter.
+            host == "rumanhua.org" || host.endsWith(".rumanhua.org") -> {
+                val show = Regex("""/show/([^/?#.]+)""").find(withScheme)?.groupValues?.get(1)
+                if (show != null) {
+                    Parsed.Chapter(Source.RUMAN, "https://www.rumanhua.org/show/$show.html")
+                } else {
+                    val id = Regex("""/news/(\d+)""").find(withScheme)?.groupValues?.get(1)
+                    if (id != null) Parsed.Series(Source.RUMAN, id)
+                    else Parsed.Unknown("URL Rumanhua tidak dikenali")
+                }
+            }
+
             else -> Parsed.Unknown("Situs \"$host\" belum didukung")
         }
     }

@@ -2,6 +2,9 @@ package com.trialfetch.app.data
 
 import com.trialfetch.app.core.BaozimhSource
 import com.trialfetch.app.core.JjabtoonSource
+import com.trialfetch.app.core.GoodtoonSource
+import com.trialfetch.app.core.JjaptoonSource
+import com.trialfetch.app.core.RumanhuaSource
 import com.trialfetch.app.core.BannerCropper
 import com.trialfetch.app.core.Chapter
 import com.trialfetch.app.core.ChapterPage
@@ -53,6 +56,15 @@ class ComicRepository(
     // Cropper butuh Context untuk memuat 4 template banner dari res/raw.
     private val bannerCropper = BannerCropper(context.applicationContext)
     private val storage = StorageWriter(context)
+    private companion object {
+        /**
+         * Kunci gambar Manwang/Rumanhua (source_id 12). Sama untuk keduanya
+         * karena backend-nya sama; IV = key (lihat worker.js RUMANHUA_IMAGE_KEY,
+         * dan ImageCrypto.decrypt default IV ke key).
+         */
+        const val IMAGE_KEY_MANWANG_RUMAN = "my2ecret782ecret"
+    }
+
     private val notifier = DownloadNotifier(context)
 
     private val sources: Map<Source, ComicSource> = mapOf(
@@ -60,7 +72,10 @@ class ComicRepository(
         Source.MANWANG to ManwangSource(http),
         Source.WMANHUA to WmanhuaSource(http),
         Source.KOUDAIMH to KoudaimhSource(http),
-        Source.JJABTOON to JjabtoonSource(http)
+        Source.JJABTOON to JjabtoonSource(http),
+        Source.JJAPTOON to JjaptoonSource(http),
+        Source.GOODTOON to GoodtoonSource(http),
+        Source.RUMAN to RumanhuaSource(http)
     )
 
     val availableSources: List<Source> = sources.keys.toList()
@@ -153,10 +168,31 @@ class ComicRepository(
                     sendNoReferer = series.source == Source.KOUDAIMH
                 )
 
-                val payload = if (settings.cropBanner && series.source == Source.BAOZIMH) {
-                    bannerCropper.crop(raw)
+                // Gambar terenkripsi (Manwang/Rumanhua source_id 12) WAJIB
+                // didekripsi dulu. Flag needsDecrypt sebelumnya diabaikan
+                // total sehingga file ciphertext tersimpan sebagai jpg rusak.
+                // Kunci sama untuk keduanya karena backend-nya sama.
+                var decryptFailed = false
+                val plain = if (img.needsDecrypt) {
+                    try {
+                        ImageCrypto.decrypt(raw, IMAGE_KEY_MANWANG_RUMAN)
+                    } catch (e: Exception) {
+                        Log.w("ComicRepository", "dekripsi halaman ${img.page} gagal: ${e.message}")
+                        decryptFailed = true
+                        raw
+                    }
                 } else {
                     raw
+                }
+                if (decryptFailed) {
+                    failed += img.page
+                    continue
+                }
+
+                val payload = if (settings.cropBanner && series.source == Source.BAOZIMH) {
+                    bannerCropper.crop(plain)
+                } else {
+                    plain
                 }
 
                 val finalFormat = ImageFormat.sniff(payload)
