@@ -155,7 +155,8 @@ class JjabtoonSource(private val http: HttpClient) : ComicSource {
                 lastError = SourceException("Respons episode Jjabtoon tidak dikenali")
                 continue
             }
-            val imgs = data["images"]?.jsonArray ?: run {
+            val imgs = data["images"]?.jsonArray
+            if (imgs == null) {
                 lastError = SourceException("Episode Jjabtoon tidak berisi gambar")
                 continue
             }

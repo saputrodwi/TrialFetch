@@ -10,7 +10,9 @@ import com.trialfetch.app.core.Source
 import com.trialfetch.app.core.SourceException
 import com.trialfetch.app.data.ComicRepository
 import com.trialfetch.app.data.DownloadProgress
+import com.trialfetch.app.data.BookmarkStore
 import com.trialfetch.app.data.DownloadSettings
+import com.trialfetch.app.data.SavedSeries
 import com.trialfetch.app.data.SettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +53,38 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun updateSettings(s: DownloadSettings) {
         _settings.value = s
         settingsStore.save(s)
+    }
+
+    // --- Bookmark series ---
+    private val bookmarkStore = BookmarkStore(app)
+
+    private val _bookmarks = MutableStateFlow(bookmarkStore.load())
+    val bookmarks: StateFlow<List<SavedSeries>> = _bookmarks.asStateFlow()
+
+    fun isBookmarked(source: com.trialfetch.app.core.Source, comicId: String): Boolean =
+        _bookmarks.value.any { it.source == source && it.comicId == comicId }
+
+    fun toggleBookmark(info: com.trialfetch.app.core.SeriesInfo) {
+        val cur = _bookmarks.value.toMutableList()
+        val i = cur.indexOfFirst { it.source == info.source && it.comicId == info.comicId }
+        if (i >= 0) cur.removeAt(i)
+        else cur.add(
+            0, SavedSeries(
+                source = info.source,
+                comicId = info.comicId,
+                title = info.title,
+                author = info.author,
+                coverUrl = info.coverUrl
+            )
+        )
+        _bookmarks.value = cur
+        bookmarkStore.saveAll(cur)
+    }
+
+    fun removeBookmark(item: SavedSeries) {
+        val cur = _bookmarks.value.filterNot { it.key() == item.key() }
+        _bookmarks.value = cur
+        bookmarkStore.saveAll(cur)
     }
 
     fun canWriteStorage(): Boolean = repo.canWriteStorage()
@@ -102,6 +136,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _search.value = _search.value.copy(loading = false, error = e.message)
             } catch (e: Exception) {
                 _search.value = _search.value.copy(loading = false, error = e.message)
+            }
+        }
+    }
+
+    fun openSaved(item: SavedSeries) {
+        _series.value = SeriesUiState(loading = true)
+        viewModelScope.launch {
+            try {
+                val info = repo.series(item.source, item.comicId)
+                _series.value = SeriesUiState(info = info)
+            } catch (e: Exception) {
+                _series.value = SeriesUiState(error = e.message ?: "Gagal memuat series")
             }
         }
     }

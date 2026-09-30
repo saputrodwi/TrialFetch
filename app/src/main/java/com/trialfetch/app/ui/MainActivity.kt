@@ -10,6 +10,8 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -31,6 +33,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
@@ -79,6 +84,7 @@ import com.trialfetch.app.ui.theme.LocalExtraColors
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
 import com.trialfetch.app.data.ThemeMode
+import com.trialfetch.app.data.SavedSeries
 import androidx.compose.foundation.border
 import com.trialfetch.app.ui.theme.BrutalCard
 import com.trialfetch.app.ui.theme.PolkaDotBackground
@@ -95,6 +101,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val vm: MainViewModel = viewModel()
             val settings by vm.settings.collectAsStateWithLifecycle()
+    val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
 
             // Tema mengikuti pilihan di Pengaturan, bukan hanya setelan sistem.
             val darkTheme = when (settings.themeMode) {
@@ -117,7 +124,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Tab { SEARCH, SERIES, SETTINGS }
+private enum class Tab { SEARCH, SERIES, SAVED, SETTINGS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -136,6 +143,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 tab = Tab.SEARCH
             }
             Tab.SETTINGS -> tab = Tab.SEARCH
+            Tab.SAVED -> tab = Tab.SEARCH
             Tab.SEARCH -> {
                 if (exitArmed) {
                     (context as? Activity)?.finish()
@@ -199,6 +207,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                         when (tab) {
                             Tab.SEARCH -> "Trial Fetch"
                             Tab.SERIES -> series?.title ?: "Trial Fetch"
+                            Tab.SAVED -> "Tersimpan"
                             Tab.SETTINGS -> "Pengaturan"
                         },
                         maxLines = 1,
@@ -207,7 +216,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                     )
                 },
                 navigationIcon = {
-                    if (tab == Tab.SETTINGS) {
+                    if (tab == Tab.SETTINGS || tab == Tab.SAVED) {
                         IconButton(onClick = { tab = Tab.SEARCH }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
                         }
@@ -215,6 +224,9 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 },
                 actions = {
                     if (tab == Tab.SEARCH) {
+                        IconButton(onClick = { tab = Tab.SAVED }) {
+                            Icon(Icons.Default.Bookmark, contentDescription = "Tersimpan")
+                        }
                         IconButton(onClick = { tab = Tab.SETTINGS }) {
                             Icon(Icons.Default.Settings, contentDescription = "Pengaturan")
                         }
@@ -243,6 +255,8 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                     SeriesScreen(
                         info = it,
                         progress = downloadState,
+                        isBookmarked = bookmarks.any { b -> b.source == it.source && b.comicId == it.comicId },
+                        onToggleBookmark = { vm.toggleBookmark(it) },
                         onBack = {
                             vm.closeSeries()
                             tab = Tab.SEARCH
@@ -256,6 +270,15 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 Tab.SETTINGS -> SettingsScreen(
                     settings = settings,
                     onChange = vm::updateSettings
+                )
+
+                Tab.SAVED -> SavedScreen(
+                    items = bookmarks,
+                    onOpen = { item ->
+                        vm.openSaved(item)
+                        tab = Tab.SERIES
+                    },
+                    onRemove = vm::removeBookmark
                 )
             }
 
@@ -506,6 +529,8 @@ private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
 private fun SeriesScreen(
     info: SeriesInfo,
     progress: DownloadProgress,
+    isBookmarked: Boolean,
+    onToggleBookmark: () -> Unit,
     onBack: () -> Unit,
     onDownload: (Chapter) -> Unit
 ) {
@@ -515,7 +540,7 @@ private fun SeriesScreen(
             DownloadPanel(progress, extra)
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
-            item { SeriesHeader(info, extra) }
+            item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark) }
             items(info.chapters, key = { it.chapterId }) { ch ->
                 ChapterRow(ch, progress, onDownload)
             }
@@ -524,7 +549,12 @@ private fun SeriesScreen(
 }
 
 @Composable
-private fun SeriesHeader(info: SeriesInfo, extra: com.trialfetch.app.ui.theme.ExtraColors) {
+private fun SeriesHeader(
+    info: SeriesInfo,
+    extra: com.trialfetch.app.ui.theme.ExtraColors,
+    isBookmarked: Boolean,
+    onToggleBookmark: () -> Unit
+) {
     Surface(
         color = extra.card,
         shape = RoundedCornerShape(16.dp),
@@ -543,12 +573,22 @@ private fun SeriesHeader(info: SeriesInfo, extra: com.trialfetch.app.ui.theme.Ex
             )
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    info.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        info.title,
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    IconButton(onClick = onToggleBookmark) {
+                        Icon(
+                            if (isBookmarked) Icons.Default.Bookmark
+                            else Icons.Default.BookmarkBorder,
+                            contentDescription = if (isBookmarked) "Hapus dari simpanan" else "Simpan series"
+                        )
+                    }
+                }
                 if (info.author.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
                     InfoRow("Penulis", info.author)
@@ -676,6 +716,72 @@ private fun ChapterRow(
         } else {
             IconButton(onClick = { onDownload(chapter) }) {
                 Icon(Icons.Default.Download, contentDescription = "Unduh ${chapter.title}")
+            }
+        }
+    }
+}
+
+/** Daftar series yang disimpan pengguna. Ketuk untuk membuka, ikon tong untuk menghapus. */
+@Composable
+private fun SavedScreen(
+    items: List<SavedSeries>,
+    onOpen: (SavedSeries) -> Unit,
+    onRemove: (SavedSeries) -> Unit
+) {
+    val extra = LocalExtraColors.current
+    if (items.isEmpty()) {
+        Box(Modifier.fillMaxSize(), Alignment.Center) {
+            Text(
+                "Belum ada series tersimpan.\nBuka series lalu ketuk ikon bookmark.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        return
+    }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(items, key = { it.key() }) { item ->
+            BrutalCard(
+                modifier = Modifier.fillMaxWidth(),
+                background = extra.card,
+                onClick = { onOpen(item) }
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(
+                        model = item.coverUrl.ifBlank { null },
+                        contentDescription = "Sampul ${item.title}",
+                        modifier = Modifier
+                            .size(width = 48.dp, height = 64.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(2.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            item.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            item.source.displayName +
+                                (if (item.author.isNotBlank()) " · ${item.author}" else ""),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    IconButton(onClick = { onRemove(item) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Hapus ${item.title}")
+                    }
+                }
             }
         }
     }

@@ -54,8 +54,8 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
         if ("搜索繁忙" in html || "\"code\":-1" in html.replace(" ", "")) {
             throw SourceException(
                 "Manwang sedang membatasi pencarian dari jaringan ini " +
-                    "(server membalas "sibuk"). Tempel URL series Manwang " +
-                    "langsung lewat "Buka dari URL" — itu tetap bisa dibuka."
+                    "(server membalas sibuk). Tempel URL series Manwang " +
+                    "langsung lewat Buka dari URL — itu tetap bisa dibuka."
             )
         }
 
