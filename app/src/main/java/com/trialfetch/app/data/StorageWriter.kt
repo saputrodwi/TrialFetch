@@ -87,7 +87,7 @@ class StorageWriter(private val context: Context) {
             var deleted = 0
             for (id in ids) {
                 val uri = Uri.withAppendedPath(collection, id.toString())
-                if (runCatching { resolver.delete(uri, null, null) > 0 }.getOrDefault(0) > 0) deleted++
+                if (runCatching { resolver.delete(uri, null, null) }.getOrDefault(0) > 0) deleted++
             }
             Log.i(TAG, "bersihkan $relative: menghapus $deleted dari ${ids.size} file")
             deleted
