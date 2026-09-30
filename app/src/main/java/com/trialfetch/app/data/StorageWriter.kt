@@ -199,35 +199,6 @@ class StorageWriter(private val context: Context) {
      * lalu dibungkus jadi satu arsip. Pada Android 10+ file publik tidak
      * punya jalur File biasa, jadi isinya diambil lewat content://.
      */
-    fun readFile(folderPath: String, fileName: String): ByteArray? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val projection = arrayOf(MediaStore.Downloads._ID)
-            val selection =
-                "${MediaStore.Downloads.RELATIVE_PATH}=? AND ${MediaStore.Downloads.DISPLAY_NAME}=?"
-            // Harus sama persis dengan nilai yang dipakai saat menulis,
-            // termasuk garis miring di akhir — kalau tidak, file tidak
-            // akan ditemukan saat pembungkusan ZIP.
-            val args = arrayOf(fullRelativePath(folderPath), fileName)
-            val id = resolver.query(collection, projection, selection, args, null)?.use { c ->
-                if (c.moveToFirst()) c.getLong(0) else null
-            } ?: return null
-
-            // ContentUris.withAppendedId adalah cara baku membuat uri item
-            // dari sebuah collection — MediaStore tidak menyediakan
-            // buildContentUri.
-            val uri = ContentUris.withAppendedId(collection, id)
-            return runCatching {
-                resolver.openInputStream(uri)?.use { it.readBytes() }
-            }.getOrNull()
-        }
-
-        @Suppress("DEPRECATION")
-        val root = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val dir = File(root, folderPath.removePrefix(Environment.DIRECTORY_DOWNLOADS + "/"))
-        val f = File(dir, fileName)
-        return if (f.exists()) f.readBytes() else null
-    }
 
     // ------------------------------------------------------------------- zip
 

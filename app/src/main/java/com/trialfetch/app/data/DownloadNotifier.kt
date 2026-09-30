@@ -90,8 +90,11 @@ class DownloadNotifier(private val context: Context) {
         }
         val n = build(title, text, 100, false)
         manager.notify(NOTIFICATION_ID, n)
-        // Beri waktu user membaca sebelum hilang dari shade.
-        manager.cancel(NOTIFICATION_ID)
+        // JANGAN cancel di sini: notifikasi selesai harus tetap terlihat
+        // sampai user menutupnya sendiri, supaya path hasil unduhan sempat
+        // dibaca. (Sebelumnya ada cancel() persis setelah notify sehingga
+        // notifikasi hilang dalam milidetik.) Notifikasi berjalan (progress)
+        // ditimpa otomatis oleh notify berikutnya dengan ID yang sama.
     }
 
     fun showFailed(title: String, reason: String) {

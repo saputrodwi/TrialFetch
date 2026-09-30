@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import android.util.Log
 import kotlinx.coroutines.withContext
-import java.security.MessageDigest
 
 /** Progres satu chapter yang sedang diunduh. */
 data class DownloadProgress(
@@ -115,7 +114,11 @@ class ComicRepository(
             return@withContext fail(e.message ?: "Gagal membaca chapter")
         }
 
-        val seriesDir = sanitize(series.title)
+        // Nama folder diawali id sumber supaya dua series berjudul sama
+        // dari sumber berbeda (atau 80 karakter awal yang sama) tidak
+        // menumpuk di folder yang sama. Tanpa ini, clearFolder() sebelum
+        // unduhan bisa menghapus file series lain secara diam-diam.
+        val seriesDir = "${series.source.id}_${sanitize(series.title)}"
         val chapterDir = sanitize(chapter.title)
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
 
@@ -209,6 +212,12 @@ class ComicRepository(
                     )
                     notifier.showRunning(chapter.title, done, total)
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // User menekan Batal (atau scope dibatalkan): JANGAN telan.
+                // Kalau diteruskan sebagai halaman gagal, loop terus jalan
+                // sampai akhir lalu menulis info.txt + showDone seolah
+                // unduhan selesai.
+                throw e
             } catch (e: Exception) {
                 failed += img.page
             }

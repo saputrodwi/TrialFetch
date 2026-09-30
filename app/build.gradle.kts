@@ -68,7 +68,9 @@ android {
         applicationId = "com.trialfetch.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
+        // versionCode naik tiap build CI supaya sistem mengenali APK baru
+        // sebagai upgrade. Lokal default 1.
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1)
         versionName = "1.0"
     }
 
@@ -86,12 +88,18 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Kalau signing belum disiapkan, jatuh ke debug key supaya
-            // `assembleRelease` tetap menghasilkan APK yang bisa di-install.
+            // JANGAN fallback diam-diam ke debug key: APK "release" yang
+            // ditandatangani debug bisa ter-install dan berbahaya untuk
+            // distribusi. Gagalkan build dengan pesan jelas bila secret
+            // signing belum dipasang.
             signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                error(
+                    "Release signing belum disiapkan. Pasang secret " +
+                        "TF_STORE_BASE64 (+ TF_STORE_EXT, TF_STORE_PASSWORD, " +
+                        "TF_KEY_ALIAS, TF_KEY_PASSWORD) lalu jalankan ulang."
+                )
             }
         }
         debug {
@@ -160,7 +168,7 @@ dependencies {
     // Pemotong banner memanggil cv.Canny / cv.equalizeHist /
     // cv.matchTemplate secara langsung, bukan implementasi sendiri, supaya
     // hasilnya sama persis dengan acuan.
-    implementation("org.opencv:opencv:4.14.0")
+    implementation(libs.opencv)
 
     debugImplementation(libs.androidx.ui.tooling)
 }

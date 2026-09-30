@@ -33,7 +33,7 @@ object ParamsDecryptor {
 
     data class Decoded(
         val images: List<String>,
-        /** true bila tiap file gambar perlu AES优秀bles (source_id "12"). */
+        /** true bila tiap file gambar perlu AES terenkripsi (source_id "12"). */
         val imageEncrypted: Boolean,
         val comicId: String?,
         val chapterId: String?
