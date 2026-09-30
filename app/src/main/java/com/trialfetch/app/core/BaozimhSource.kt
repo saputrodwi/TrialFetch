@@ -1,20 +1,60 @@
 package com.trialfetch.app.core
 
 /**
- * Baozimh / TW Manga.
+ * Baozimh.
  *
- * Mengambil data dari www.twmanga.com (mirror resmi) karena www.baozimh.com
- * memasang gatekeeper challenge yang menolak request server-side. Struktur
- * keduanya identik.
+ * Dua jalur, yang pertama dipakai duluan:
  *
- * Alur chapter: /user/page_direct?... di-redirect ke
- * /comic/chapter/{slug}/{section}_{chapter-1}.html (chapter 0-indexed di URL).
+ * 1. **API app** (utama, sama seperti versi web). Data chapter diambil dari
+ *    appgb{1,2,3}.baozimh.com memakai header aplikasi resmi. Jalur ini
+ *    dipakai karena HTML web tidak lengkap: untuk satu chapter yang sama,
+ *    HTML hanya memuat sebagian gambar, sedangkan API app memuat semuanya
+ *    beserta nomor halaman (data-index) dan ukuran (data-w/data-h).
+ *
+ * 2. **Scrape HTML www.twmanga.com** (cadangan). Dipakai kalau semua host
+ *    app gagal. twmanga dipakai sebagai mirror resmi karena www.baozimh.com
+ *    memasang gatekeeper challenge yang menolak request server-side.
+ *
+ * Catatan: bzmgapp.com sengaja tidak dicoba. Sertifikat host appgb*.bzmgapp.com
+ * hanya CN=*.baozimh.com tanpa SAN bzmgapp, sehingga verifikasi TLS selalu gagal
+ * (diverifikasi di versi web juga).
  */
 class BaozimhSource(private val http: HttpClient) : ComicSource {
 
     override val source = Source.BAOZIMH
 
     private val base = "https://www.twmanga.com"
+
+    private companion object {
+        /** Host API app, dicoba berurutan sesuai urutan versi web. */
+        val APP_HOSTS = listOf(
+            "appgb1.baozimh.com",
+            "appgb2.baozimh.com",
+            "appgb3.baozimh.com"
+        )
+
+        /**
+         * Header aplikasi Baozimh, sama seperti yang dipakai versi web
+         * (worker.js). Semua kredensial dikumpulkan di sini supaya mudah
+         * ditukar kalau Baozimh Wonderrotasi nilainya.
+         */
+        fun appHeaders(): Map<String, String> = mapOf(
+            "Referer" to "https://appgb.baozimh.com/",
+            "app-id" to "cn.sts.xiaoyun.ordermeals",
+            "device-code" to "6ca052067aa9833084daaa6ffeba0913",
+            "device-id" to "RKQ1.201217.002",
+            "user-agent" to "baozimh_android/1.0.31/gb/adset",
+            "app-version" to "1.0.31"
+        )
+
+        /** <img class="comic-contain__item" ...> milik API app. */
+        val appImgRe = Regex(
+            """<img[^>]*class="comic-contain__item"[^>]*>""",
+            RegexOption.IGNORE_CASE
+        )
+        val dataSrcRe = Regex("""data-src="([^"]+)"""", RegexOption.IGNORE_CASE)
+        val dataIndexRe = Regex("""data-index="(\d+)"""", RegexOption.IGNORE_CASE)
+    }
 
     private val searchRe = Regex(
         """<a href="(/comic/([a-z0-9\-]+))" title="([^"]+)"[^>]*class="comics-card__poster""",
@@ -36,8 +76,15 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
         """href="(/user/page_direct\?comic_id=([^&"]+)&amp;section_slot=(\d+)&amp;chapter_slot=(\d+))""" +
             """[^>]*class="comics-chapters__item"[^>]*>([\s\S]{0,200}?)</a>"""
     )
+    /**
+     * Regex gambar untuk jalur HTML cadangan.
+     *
+     * CDN yang dipakai API app adalah **baozicdn.com**, sedangkan HTML
+     * twmanga menunjuk **bzcdn.net**. Keduanya dicakup supaya jalur
+     * cadangan tetap jalan meski tidak ada host app yang hidup.
+     */
     private val imageRe = Regex(
-        """https://[a-z0-9.\-]*bzcdn\.net/scomic/[^"'\s]+?\.(?:jpg|jpeg|png|webp)""",
+        """https://[a-z0-9.\-]*(?:baozicdn\.com|bzcdn\.net)/scomic/[^"'\s]+?\.(?:jpg|jpeg|png|webp)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -133,7 +180,97 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
         )
     }
 
+    /**
+     * Mengambil daftar gambar satu chapter.
+     *
+     * Jalur utama: API app. Path chapter diturunkan dari query
+     * page_direct menjadi {section}_{chapter}.html, sama seperti versi web.
+     * Kalau semua host app gagal, jatuh ke scrape HTML sebagai cadangan.
+     */
     override suspend fun chapter(url: String): ChapterPage {
+        appChapter(url)?.let { return it }
+        return htmlChapter(url)
+    }
+
+    /** Jalur API app: host dicoba berurutan, yang pertama hidup dipakai. */
+    private suspend fun appChapter(url: String): ChapterPage? {
+        val path = appChapterPath(url) ?: return null
+        val headers = appHeaders()
+        var lastError: Exception? = null
+
+        for (host in APP_HOSTS) {
+            val apiUrl = "https://$host/baozimhapp/comic/chapter$path"
+            val html = try {
+                http.getHtmlWithHeaders(apiUrl, headers)
+            } catch (e: Exception) {
+                lastError = e
+                continue
+            }
+            val page = parseAppChapter(html) ?: run {
+                lastError = SourceException("Respons API app kosong")
+                continue
+            }
+            return page
+        }
+        if (lastError != null) {
+            // Tidak melempar: jalur HTML masih mungkin berhasil.
+            android.util.Log.w("BaozimhSource", "API app gagal, pakai HTML: ${lastError.message}")
+        }
+        return null
+    }
+
+    /**
+     * Mengubah page_direct/comic/chapter menjadi path {section}_{chapter}.html
+     * milik API app.
+     */
+    private fun appChapterPath(url: String): String? {
+        // Sudah dalam bentuk API app: /comic/chapter/{slug}/{x}_{y}.html
+        Regex("""/(?:comic|baozimhapp/comic)/chapter/([a-z0-9\-]+)/([0-9]+_[0-9]+)\.html""",
+            RegexOption.IGNORE_CASE)
+            .find(url)?.let {
+                return "/${it.groupValues[1]}/${it.groupValues[2]}.html"
+            }
+
+        val q = url.substringAfter('?', "")
+        if (q.isBlank()) return null
+        val params = q.split('&').mapNotNull {
+            val i = it.indexOf('=')
+            if (i <= 0) null else it.substring(0, i).lowercase() to it.substring(i + 1)
+        }.toMap()
+
+        val slug = params["comic_id"] ?: return null
+        val section = params["section_slot"] ?: "0"
+        val chapter = params["chapter_slot"] ?: return null
+        return "/$slug/${section}_$chapter.html"
+    }
+
+    /** Memparsing <img class="comic-contain__item"> dari respons API app. */
+    private fun parseAppChapter(html: String): ChapterPage? {
+        val images = appImgRe.findAll(html).mapNotNull { m ->
+            val tag = m.value
+            val url = dataSrcRe.find(tag)?.groupValues?.get(1) ?: return@mapNotNull null
+            val idx = dataIndexRe.find(tag)?.groupValues?.get(1)?.toIntOrNull()
+            ImageRef(url.replace("&amp;", "&"), (idx ?: 0) + 1)
+        }.sortedBy { it.page }
+            .distinctBy { it.url }
+            .toList()
+
+        if (images.isEmpty()) return null
+
+        val pageTitle = Regex("""<title[^>]*>([^<]+)</title>""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.get(1)?.let(::cleanText).orEmpty()
+        val parts = pageTitle.split(" - ").map(::cleanText)
+
+        return ChapterPage(
+            source = source,
+            comicTitle = parts.getOrNull(1)?.takeIf { it.isNotBlank() } ?: pageTitle,
+            chapterTitle = parts.getOrNull(0)?.takeIf { it.isNotBlank() } ?: "Chapter",
+            images = images
+        )
+    }
+
+    /** Jalur cadangan: scrape HTML www.twmanga.com. */
+    private suspend fun htmlChapter(url: String): ChapterPage {
         val absolute = if (url.startsWith("http")) url else "$base$url"
         val html = try {
             // page_direct mem-redirect ke halaman chapter; HttpClient

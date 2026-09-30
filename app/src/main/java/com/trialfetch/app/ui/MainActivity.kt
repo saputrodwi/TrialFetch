@@ -599,7 +599,11 @@ private fun ChapterRow(
     progress: DownloadProgress,
     onDownload: (Chapter) -> Unit
 ) {
-    val busy = progress.state == DownloadProgress.State.RUNNING
+    // Hanya chapter yang sedang diunduh yang tampil spinner. Sebelumnya
+    // pemeriksaannya global, jadi mengunduh satu chapter membuat SEMUA baris
+    // terlihat sedang berjalan.
+    val busy = progress.state == DownloadProgress.State.RUNNING &&
+        progress.chapterTitle == chapter.title
     Row(
         Modifier
             .fillMaxWidth()

@@ -30,7 +30,13 @@ data class DownloadProgress(
     val currentPage: Int = 0,
     val state: State = State.IDLE,
     val error: String? = null,
-    val savedPath: String? = null
+    val savedPath: String? = null,
+    /**
+     * Judul chapter yang sedang dikerjakan. Tanpa ini UI tidak bisa tahu
+     * chapter mana yang sedang diunduh, sehingga semua baris chapter ikut
+     * menampilkan spinner padahal cuma satu yang jalan.
+     */
+    val chapterTitle: String? = null
 ) {
     enum class State { IDLE, RUNNING, DONE, FAILED, CANCELLED }
 
@@ -42,8 +48,8 @@ class ComicRepository(
     private val context: android.content.Context,
     private val http: HttpClient = HttpClient()
 ) {
-    // BannerCropper sengaja object stateless — tak butuh Context.
-    private val bannerCropper = BannerCropper
+    // Cropper butuh Context untuk memuat 4 template banner dari res/raw.
+    private val bannerCropper = BannerCropper(context.applicationContext)
     private val storage = StorageWriter(context)
     private val notifier = DownloadNotifier(context)
 
@@ -118,7 +124,7 @@ class ComicRepository(
 
                 val format = ImageFormat.sniff(raw)
                 val payload = if (settings.cropBanner && series.source == Source.BAOZIMH) {
-                    bannerCropper.crop(raw, format) ?: raw
+                    bannerCropper.crop(raw)
                 } else {
                     raw
                 }
@@ -137,7 +143,8 @@ class ComicRepository(
                 succeeded.let { done ->
                     _progress.value = DownloadProgress(
                         total = total, done = done, currentPage = img.page,
-                        state = DownloadProgress.State.RUNNING
+                        state = DownloadProgress.State.RUNNING,
+                        chapterTitle = chapter.title
                     )
                     notifier.showRunning(chapter.title, done, total)
                 }
@@ -181,7 +188,7 @@ class ComicRepository(
         notifier.showDone(chapter.title, done, savedPath)
         DownloadProgress(
             total = total, done = done, state = DownloadProgress.State.DONE,
-            savedPath = savedPath
+            savedPath = savedPath, chapterTitle = chapter.title
         ).also { _progress.value = it }
     }
 

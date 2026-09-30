@@ -1,187 +1,656 @@
 package com.trialfetch.app.core
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import com.trialfetch.app.R
 import java.io.ByteArrayOutputStream
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * Pemotong banner/watermark Baozimh.
  *
- * BAOZIMH menyisipkan pita **200px** di atas gambar (banner "包子漫畫 /
- * www.baozimh.com"), dan di beberapa mirror pita 200px juga di bawah
- * (watermark "动漫之家 / www.dmzj.com"). Pita hanya ada pada sebagian
- * halaman, jadi tidak bisa dipotong buta — harus dideteksi dulu.
+ * Ini **port** dari mesin yang dipakai Trial Fetch versi web
+ * (index.html, fungsi maybeCropBanner / bannerCheckRegion /
+ * bannerScoreRegion). Versi web memakai OpenCV template matching terhadap
+ * 4 template banner. Di sini algoritmanya dibawa ulang ke Kotlin murni
+ * supaya tidak perlu OpenCV Android SDK yang berukuran besar, tapi
+ * ambang, bobot, dan urutan gerbang keptalnya sama persis.
  *
- * CATATAN PENTING soal metode: template matching terhadap citra banner
- * (yang dipakai versi web lewat OpenCV) TIDAK dipakai di sini.ixaSudah
- * dicoba dan diukur: skor band banner hanya ~0.71 vs ambang 0.75, dan
- * tidak terpisah bersih dari panel komik (0.30-0.62) — karena isi teks
- * banner berubah-ubah tiap unggahan, sehingga pixel match ke template
- * statis rapuh. Yang dipakai malah heuristik struktural di bawah, yang
- * diukur memberi pemisahan jauh lebih baik (banner ~0.95, non-banner
- * ~0.00 pada 9 gambar sampel).
+ * Prinsipnya: pita banner Baozimh selalu setinggi 200px dan bisa muncul
+ * di atas atau di bawah. Pita hanya ada di sebagian halaman, jadi tidak
+ * bisa dipotong buta — wilayah kandidat dibandingkan dengan 4 template
+ * memakai empat sinyal sekaligus (mask, histogram abu, tepi, tinta),
+ * lalu digabung dengan bobot tetap.
  *
- * Tiga ciri yang dipakai:
- *   1. Simetri kiri-kanan tinggi — logo + teks banner terletak di tengah.
- *   2. Tiga zone horizontal (atas/tengah/bawah) sama-sama BERJARANG —
- *      banner punya sedikit tinta, panel komik padat.
- *   3. Konten menumpuk di tengah; dua sisi tepi nyaris kosong.
+ * Kata "template" di sini tidak berarti pixel harus sama persis. Isi
+ * teks banner berubah tiap unggahan, jadi yang dibandingkan adalah
+ * struktur citra, bukan warnanya.
  */
-object BannerCropper {
+class BannerCropper(private val context: Context) {
 
-    /** Tinggi pita banner, sesuai template banner_*.jpg (tinggi tepat 200). */
-    const val BANNER_HEIGHT = 200
+    /** Hasil pemeriksaan satu wilayah kandidat. */
+    private data class RegionScore(
+        val isBanner: Boolean,
+        val isFullPage: Boolean,
+        val score: Double
+    )
 
-    private const val GRAY_THRESHOLD = 240
-    private const val ZONE_THRESHOLD_MID = 140
-    private const val MIN_SYMMETRY = 0.30f
+    /** Fitur satu template banner, dihitung sekali lalu dipakai ulang. */
+    private class Template(
+        val id: String,
+        val width: Int,
+        val raw: Gray,
+        val gray: Gray,
+        val edge: Gray,
+        val dark: Gray,
+        val mask: Gray,
+        val edgePixels: Int,
+        val darkPixels: Int
+    )
 
-    private const val ZONE_TOP_MIN = 0.01f
-    private const val ZONE_TOP_MAX = 0.15f
-    private const val ZONE_MID_MIN = 0.02f
-    private const val ZONE_MID_MAX = 0.20f
-
-    private const val EDGE_MAX_CONTENT = 0.05f
-    private const val CENTER_MIN_CONTENT = 0.03f
-
-    /** Ambang "ini banner". Pemisahan hasil uji: 0.95 (banner) vs 0.00 (bukan). */
-    private const val SCORE_THRESHOLD = 0.75f
-
-    private const val EDGE_FRACTION = 0.25f
-    private const val CENTER_FRACTION = 0.50f
-
-    data class Result(
-        val hasTop: Boolean,
-        val hasBottom: Boolean,
-        val topScore: Float,
-        val bottomScore: Float
-    ) {
-        val isChanged: Boolean get() = hasTop || hasBottom
+    /** Citra abu-abu sederhana: nilai 0..255 per piksel. */
+    private class Gray(val w: Int, val h: Int, val px: IntArray) {
+        val count: Int get() = w * h
     }
 
-    fun detect(bitmap: Bitmap): Result {
-        val h = bitmap.height
-        if (h <= BANNER_HEIGHT) return Result(false, false, 0f, 0f)
-        val top = scoreRegion(bitmap, 0)
-        val bottom = scoreRegion(bitmap, h - BANNER_HEIGHT)
-        return Result(
-            hasTop = top >= SCORE_THRESHOLD,
-            hasBottom = bottom >= SCORE_THRESHOLD,
-            topScore = top,
-            bottomScore = bottom
+    private companion object {
+        const val BANNER_HEIGHT = 200
+        const val WIDTH_MATCH_TOLERANCE = 0.25
+        const val MATCH_THRESHOLD = 0.58
+
+        /** Bobot gabungan, sama seperti bannerScoreRegion di web. */
+        const val W_MASK = 0.25
+        const val W_GRAY = 0.30
+        const val W_EDGE = 0.18
+        const val W_DARK = 0.25
+        const val W_DIFF = 0.02
+
+        const val DARK_THRESHOLD = 135
+        const val MASK_THRESHOLD = 246
+        const val CANNY_LOW = 45
+        const val CANNY_HIGH = 135
+        const val JPEG_QUALITY = 94
+
+        val TEMPLATE_RES = intArrayOf(
+            R.raw.banner_690, R.raw.banner_800, R.raw.banner_1280, R.raw.banner_2000
         )
     }
 
-    /** Deteksi + potong. Null kalau tidak ada yang perlu dipotong. */
-    fun crop(bytes: ByteArray, format: ImageFormat): ByteArray? {
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
-        val result = detect(bitmap)
-        if (!result.isChanged) {
-            bitmap.recycle()
-            return null
-        }
-        val top = if (result.hasTop) BANNER_HEIGHT else 0
-        val bottom = if (result.hasBottom) BANNER_HEIGHT else 0
-        val newHeight = bitmap.height - top - bottom
-        if (newHeight <= 0) {
-            bitmap.recycle()
-            return null
-        }
-        val cropped = Bitmap.createBitmap(bitmap, 0, top, bitmap.width, newHeight)
-        bitmap.recycle()
+    private var templates: List<Template>? = null
 
-        val out = ByteArrayOutputStream()
-        val compress = when (format) {
-            ImageFormat.PNG -> Bitmap.CompressFormat.PNG
-            ImageFormat.WEBP -> Bitmap.CompressFormat.WEBP
-            else -> Bitmap.CompressFormat.JPEG
+    /**
+     * Memotong banner kalau terdeteksi.
+     *
+     * Tidak pernah melempar exception dan tidak pernah menghilangkan
+     * halaman: kalau decode atau penilaian gagal, byte asli dikembalikan
+     * apa adanya. Ini mengikuti perilaku web.
+     */
+    fun crop(raw: ByteArray): ByteArray {
+        return try {
+            val cut = detectCut(raw)
+            if (cut == null) raw else cutBytes(raw, cut)
+        } catch (e: Throwable) {
+            raw
         }
-        cropped.compress(compress, if (format == ImageFormat.PNG) 100 else 95, out)
-        cropped.recycle()
-        return out.toByteArray()
     }
 
-    /** Skor 0..1 untuk pita 200px mulai di baris [startY]; 0 = bukan banner. */
-    private fun scoreRegion(bitmap: Bitmap, startY: Int): Float {
-        val w = bitmap.width
-        val h = BANNER_HEIGHT
-        if (w < 100 || startY + h > bitmap.height) return 0f
+    private enum class Side { TOP, BOTTOM }
 
-        val pixels = IntArray(w * h)
-        bitmap.getPixels(pixels, 0, w, 0, startY, w, h)
-        val lum = IntArray(pixels.size) { i ->
-            val c = pixels[i]
-            (0.299 * (c shr 16 and 0xFF) +
-                0.587 * (c shr 8 and 0xFF) +
-                0.114 * (c and 0xFF)).toInt()
+    /** menentukan pita mana yang perlu dipotong, atau null kalau tidak ada. */
+    private fun detectCut(raw: ByteArray): Side? {
+        val bmp = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return null
+        return try {
+            val w = bmp.width
+            val h = bmp.height
+            if (w <= 0 || h <= 0) return null
+
+            if (h <= 250) {
+                // Halaman kecil: bisa jadi banner utuh satu halaman. Baik
+                // yang terdeteksi maupun tidak, halamannya dibiarkan utuh
+                // supaya tidak ikut terpotong separuh.
+                detectFullPage(bmp)
+                return null
+            }
+            if (h <= BANNER_HEIGHT) return null
+
+            val top = checkRegion(bmp, Side.TOP)
+            val bottom = checkRegion(bmp, Side.BOTTOM)
+
+            return when {
+                top.isFullPage && top.isBanner -> null
+                top.isBanner && bottom.isBanner ->
+                    if (top.score >= bottom.score) Side.TOP else Side.BOTTOM
+                top.isBanner -> Side.TOP
+                bottom.isBanner -> Side.BOTTOM
+                else -> null
+            }
+        } finally {
+            bmp.recycle()
         }
+    }
 
-        // (1) Simetri kiri-kanan.
-        val half = w / 2
-        if (half <= 0) return 0f
-        var symDiff = 0L
+    /** Halaman berukuran kecil yang seluruh isinya banner. */
+    private fun detectFullPage(bmp: Bitmap): Boolean {
+        val w = bmp.width
+        val h = bmp.height
+        if (h > 250 || h < 150 || w < 300) return false
+        val g = toGray(bmp, 0, 0, w, h) ?: return false
+
+        var white = 0
+        for (v in g.px) if (v > 245) white++
+        val whiteRatio = white.toDouble() / g.count
+        if (whiteRatio < 0.80 || whiteRatio > 0.99) return false
+
+        // Simetri kiri-kanan: logo dan teks banner berada di tengah.
+        val halfW = w / 2
+        var diffSum = 0L
         for (y in 0 until h) {
+            for (x in 0 until halfW) {
+                val l = g.px[y * w + x]
+                val r = g.px[y * w + (w - 1 - x)]
+                diffSum += abs(l - r)
+            }
+        }
+        val sym = clamp01(1.0 - (diffSum.toDouble() / (halfW * h) / 255.0))
+        if (sym < 0.30) return false
+
+        // Tiga zone horizontal harus sama-sama jarang berisi tinta.
+        val thirdH = h / 3
+        var validZones = 0
+        val specs = listOf(Triple(0, 240, 0.01..0.15), Triple(thirdH, 140, 0.02..0.20), Triple(2 * thirdH, 140, 0.01..0.15))
+        for ((y0, thr, range) in specs) {
+            if (thirdH <= 0 || y0 + thirdH > h) continue
+            var ink = 0
+            for (y in y0 until y0 + thirdH) {
+                for (x in 0 until w) {
+                    if (g.px[y * w + x] <= thr) ink++
+                }
+            }
+            val ratio = ink.toDouble() / (w.toDouble() * thirdH)
+            if (ratio >= range.first && ratio <= range.last) validZones++
+        }
+        return validZones >= 2
+    }
+
+    /** Menilai wilayah kandidat 200px di atas atau di bawah. */
+    private fun checkRegion(bmp: Bitmap, side: Side): RegionScore {
+        val w = bmp.width
+        val h = bmp.height
+        if (h <= BANNER_HEIGHT) return RegionScore(false, false, 0.0)
+
+        val sy = if (side == Side.TOP) 0 else h - BANNER_HEIGHT
+        val regionGray = toGray(bmp, 0, sy, w, BANNER_HEIGHT) ?: return RegionScore(false, false, 0.0)
+
+        val blurred = gaussianBlur3(regionGray)
+        val edge = canny(blurred, CANNY_LOW, CANNY_HIGH)
+        val dark = darkMask(regionGray)
+        val edgePixels = countNonZero(edge)
+        val darkPixels = countNonZero(dark)
+
+        val best = scoreAgainstTemplates(regionGray, edge, dark, w, edgePixels, darkPixels)
+
+        // Gerbang yang sama seperti bannerCheckRegion di web.
+        val shape = best.grayScore >= 0.30 || best.edgeScore >= 0.18 || best.darkScore >= 0.28
+        val widthOk = best.widthDiff <= 0.50
+        val strongText = best.darkScore >= 0.42 &&
+            (best.grayScore >= 0.22 || best.edgeScore >= 0.12 || best.maskScore >= 0.88)
+        val veryHigh = best.maskScore >= 0.93 && best.grayScore >= 0.45
+        val normal = best.score >= MATCH_THRESHOLD && shape && widthOk
+        val isBanner = normal || strongText || veryHigh
+
+        return RegionScore(isBanner, false, best.score)
+    }
+
+    private class Best(
+        val score: Double,
+        val grayScore: Double,
+        val edgeScore: Double,
+        val maskScore: Double,
+        val darkScore: Double,
+        val widthDiff: Double
+    )
+
+    private fun scoreAgainstTemplates(
+        regionRaw: Gray,
+        regionEdge: Gray,
+        regionDark: Gray,
+        regionWidth: Int,
+        regionEdgePixels: Int,
+        regionDarkPixels: Int
+    ): Best {
+        var bestScore = 0.0
+        var bestGray = 0.0
+        var bestEdge = 0.0
+        var bestMask = 0.0
+        var bestDark = 0.0
+        var bestWidthDiff = Double.MAX_VALUE
+
+        for (t in loadTemplates()) {
+            val widthDiff = abs(regionWidth - t.width).toDouble() / regionWidth
+            val widthConf = when {
+                widthDiff <= WIDTH_MATCH_TOLERANCE -> 1.0
+                widthDiff <= 0.50 -> 0.7
+                else -> 0.4
+            }
+
+            val rRaw = resizeArea(regionRaw, t.width, t.raw.h)
+            val rGray = equalizeHist(rRaw)
+            val rEdge = resizeNearest(regionEdge, t.width, t.edge.h)
+            val rDark = resizeNearest(regionDark, t.width, t.dark.h)
+
+            val maskScore = meanAbsDiff(rRaw, t.raw, t.mask)
+            val grayScore = tmCoeffNormed(rGray, t.gray)
+            val diffScore = meanAbsDiff(rRaw, t.raw, null)
+            val edgeScore =
+                if (regionEdgePixels > 60 && t.edgePixels > 60) tmCoeffNormed(rEdge, t.edge) else 0.0
+            val darkScore = darkSimilarity(rDark, t.dark, regionDarkPixels, t.darkPixels)
+
+            val combined = clamp01(
+                maskScore * W_MASK + grayScore * W_GRAY + edgeScore * W_EDGE +
+                    darkScore * W_DARK + diffScore * W_DIFF
+            )
+            val adjusted = combined * widthConf
+
+            if (adjusted > bestScore) {
+                bestScore = adjusted
+                bestGray = grayScore
+                bestEdge = edgeScore
+                bestMask = maskScore
+                bestDark = darkScore
+                bestWidthDiff = widthDiff
+            }
+        }
+        return Best(bestScore, bestGray, bestEdge, bestMask, bestDark, bestWidthDiff)
+    }
+
+    private fun loadTemplates(): List<Template> {
+        templates?.let { return it }
+        val list = ArrayList<Template>(4)
+        for (res in TEMPLATE_RES) {
+            val bytes = runCatching {
+                context.resources.openRawResource(res).use { it.readBytes() }
+            }.getOrNull() ?: continue
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: continue
+            val g = toGray(bmp, 0, 0, bmp.width, bmp.height)
+            bmp.recycle()
+            if (g == null) continue
+
+            val eq = equalizeHist(g)
+            val edge = canny(gaussianBlur3(eq), CANNY_LOW, CANNY_HIGH)
+            val dark = darkMask(g)
+            val mask = maskOf(g)
+            list += Template(
+                id = "banner",
+                width = g.w,
+                raw = g,
+                gray = eq,
+                edge = edge,
+                dark = dark,
+                mask = mask,
+                edgePixels = countNonZero(edge),
+                darkPixels = countNonZero(dark)
+            )
+        }
+        templates = list
+        return list
+    }
+
+    // ------------------------------------------------------------- pemotongan
+
+    private fun cutBytes(raw: ByteArray, side: Side): ByteArray {
+        val bmp = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return raw
+        return try {
+            val w = bmp.width
+            val h = bmp.height
+            val cut = min(BANNER_HEIGHT, max(1, h - 1))
+            val cropped = if (side == Side.TOP) {
+                Bitmap.createBitmap(bmp, 0, cut, w, h - cut)
+            } else {
+                Bitmap.createBitmap(bmp, 0, 0, w, h - cut)
+            }
+            val out = ByteArrayOutputStream()
+            // Web selalu menulis ulang ke JPEG 94; sama supaya hasil file
+            // di app dan di web tidak berbeda.
+            cropped.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+            cropped.recycle()
+            out.toByteArray()
+        } catch (e: Throwable) {
+            raw
+        } finally {
+            bmp.recycle()
+        }
+    }
+
+    // ------------------------------------------------------------ utilitas citra
+
+    private fun toGray(bmp: Bitmap, sx: Int, sy: Int, w: Int, h: Int): Gray? {
+        if (sx < 0 || sy < 0 || sx + w > bmp.width || sy + h > bmp.height) return null
+        val px = IntArray(w * h)
+        val row = IntArray(w)
+        for (y in 0 until h) {
+            bmp.getPixels(row, 0, w, sx, sy + y, w, 1)
             val base = y * w
-            for (x in 0 until half) {
-                symDiff += abs(lum[base + x] - lum[base + w - 1 - x]).toLong()
+            for (x in 0 until w) {
+                val c = row[x]
+                val r = (c shr 16) and 0xFF
+                val g = (c shr 8) and 0xFF
+                val b = c and 0xFF
+                px[base + x] = (r * 77 + g * 150 + b * 29) shr 8
             }
         }
-        val symmetry = (1f - (symDiff.toFloat() / (half * h)) / 255f).coerceIn(0f, 1f)
-        if (symmetry < MIN_SYMMETRY) return 0f
-
-        // (2) Ketiga zone horizontal harus jarang.
-        val third = h / 3
-        if (third <= 0) return 0f
-        val zones = listOf(
-            Triple(0, third, GRAY_THRESHOLD),
-            Triple(third, third, ZONE_THRESHOLD_MID),
-            Triple(2 * third, h - 2 * third, GRAY_THRESHOLD)
-        )
-        val ranges = listOf(
-            ZONE_TOP_MIN to ZONE_TOP_MAX,
-            ZONE_MID_MIN to ZONE_MID_MAX,
-            ZONE_TOP_MIN to ZONE_TOP_MAX
-        )
-        for ((i, z) in zones.withIndex()) {
-            val ratio = darkRatio(lum, w, 0, w, z.third, z.second, z.first)
-            val (lo, hi) = ranges[i]
-            if (ratio < lo || ratio > hi) return 0f
-        }
-
-        // (3) Konten di tengah, tepi nyaris kosong.
-        val centerW = (w * CENTER_FRACTION).toInt()
-        val edgeW = (w * EDGE_FRACTION).toInt()
-        val centerX = (w - centerW) / 2
-        val centerContent = darkRatio(lum, w, centerX, centerW, GRAY_THRESHOLD, h)
-        val leftContent = darkRatio(lum, w, 0, edgeW, GRAY_THRESHOLD, h)
-        val rightContent = darkRatio(lum, w, w - edgeW, edgeW, GRAY_THRESHOLD, h)
-        if (!(leftContent < EDGE_MAX_CONTENT && rightContent < EDGE_MAX_CONTENT &&
-                centerContent > CENTER_MIN_CONTENT)
-        ) return 0f
-
-        val whiteRatio = 1f - darkRatio(lum, w, 0, w, GRAY_THRESHOLD, h)
-        return (whiteRatio * 0.25f + symmetry * 0.20f + 0.55f).coerceIn(0f, 1f)
+        return Gray(w, h, px)
     }
 
-    /** Porsi piksel lebih gelap dari [threshold] di area [xOffset, +areaWidth). */
-    private fun darkRatio(
-        lum: IntArray, stride: Int,
-        xOffset: Int, areaWidth: Int, threshold: Int, areaHeight: Int,
-        startRow: Int = 0
-    ): Float {
-        if (areaWidth <= 0 || areaHeight <= 0) return 0f
-        val x0 = xOffset.coerceAtLeast(0)
-        val x1 = (xOffset + areaWidth).coerceAtMost(stride)
-        if (x1 <= x0) return 0f
-        var dark = 0
-        for (y in startRow until (startRow + areaHeight)) {
-            if (y < 0 || y >= areaHeight) continue
-            val rowBase = y * stride
-            for (x in x0 until x1) {
-                if (lum[rowBase + x] < threshold) dark++
+    /** Kernel [1 2 1] satu dimensi, sama seperti GaussianBlur 3x3 OpenCV. */
+    private fun gaussianBlur3(src: Gray): Gray {
+        val tmp = IntArray(src.count)
+        val out = IntArray(src.count)
+        for (y in 0 until src.h) {
+            val base = y * src.w
+            for (x in 0 until src.w) {
+                val l = if (x > 0) src.px[base + x - 1] else src.px[base + x]
+                val c = src.px[base + x]
+                val r = if (x < src.w - 1) src.px[base + x + 1] else src.px[base + x]
+                tmp[base + x] = (l + 2 * c + r) / 4
             }
         }
-        return dark.toFloat() / ((x1 - x0).toLong() * areaHeight).toFloat()
+        for (x in 0 until src.w) {
+            for (y in 0 until src.h) {
+                val u = if (y > 0) tmp[(y - 1) * src.w + x] else tmp[y * src.w + x]
+                val c = tmp[y * src.w + x]
+                val d = if (y < src.h - 1) tmp[(y + 1) * src.w + x] else tmp[y * src.w + x]
+                out[y * src.w + x] = (u + 2 * c + d) / 4
+            }
+        }
+        return Gray(src.w, src.h, out)
     }
+
+    /** Canny sederhana: Sobel + non-maximum suppression + hysteresis. */
+    private fun canny(src: Gray, low: Int, high: Int): Gray {
+        val w = src.w
+        val h = src.h
+        val gx = IntArray(src.count)
+        val gy = IntArray(src.count)
+        for (y in 1 until h - 1) {
+            for (x in 1 until w - 1) {
+                val i = y * w + x
+                val tl = src.px[i - w - 1]; val tc = src.px[i - w]; val tr = src.px[i - w + 1]
+                val ml = src.px[i - 1]; val mr = src.px[i + 1]
+                val bl = src.px[i + w - 1]; val bc = src.px[i + w]; val br = src.px[i + w + 1]
+                gx[i] = (tr + 2 * mr + br) - (tl + 2 * ml + bl)
+                gy[i] = (bl + 2 * bc + br) - (tl + 2 * tc + tr)
+            }
+        }
+        val mag = IntArray(src.count)
+        var maxMag = 1
+        for (i in src.count.indices) {
+            val m = abs(gx[i]) + abs(gy[i])
+            mag[i] = m
+            if (m > maxMag) maxMag = m
+        }
+        val strong = BooleanArray(src.count)
+        val weak = BooleanArray(src.count)
+        for (y in 1 until h - 1) {
+            for (x in 1 until w - 1) {
+                val i = y * w + x
+                val gxv = gx[i]
+                val gyv = gy[i]
+                val dir = when {
+                    gxv > 0 && gyv > 0 -> if (gxv > gyv) 1 else 2
+                    gxv < 0 && gyv < 0 -> if (gxv > gyv) 3 else 2
+                    gxv >= 0 -> 0
+                    else -> 0
+                }
+                val m = mag[i]
+                val n1 = neighbor(dir, mag, w, h, x, y, 1)
+                val n2 = neighbor(dir, mag, w, h, x, y, 2)
+                if (m >= n1 && m >= n2) {
+                    val tHigh = high.toDouble() / 255.0 * maxMag
+                    val tLow = low.toDouble() / 255.0 * maxMag
+                    if (m >= tHigh) strong[i] = true else if (m >= tLow) weak[i] = true
+                }
+            }
+        }
+        val stack = ArrayDeque<Int>()
+        for (i in strong.indices) if (strong[i]) stack.addLast(i)
+        while (stack.isNotEmpty()) {
+            val i = stack.removeLast()
+            val x = i % w
+            val y = i / w
+            for (dy in -1..1) {
+                for (dx in -1..1) {
+                    val nx = x + dx
+                    val ny = y + dy
+                    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
+                    val j = ny * w + nx
+                    if (weak[j]) {
+                        weak[j] = false
+                        strong[j] = true
+                        stack.addLast(j)
+                    }
+                }
+            }
+        }
+        val out = IntArray(src.count)
+        for (i in strong.indices) out[i] = if (strong[i]) 255 else 0
+        return Gray(w, h, out)
+    }
+
+    private fun neighbor(dir: Int, mag: IntArray, w: Int, h: Int, x: Int, y: Int, step: Int): Int {
+        val nx = when (dir) {
+            0 -> x + step
+            1 -> x + step
+            2 -> x
+            3 -> x - step
+            else -> x - step
+        }
+        val ny = when (dir) {
+            0 -> y
+            1 -> y + step
+            2 -> y - step
+            3 -> y
+            else -> y
+        }
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return 0
+        return mag[ny * w + nx]
+    }
+
+    /** threshold 135 inv, morphological open 3x3, lalu dilate 3x3. */
+    private fun darkMask(g: Gray): Gray {
+        var cur = thresholdInv(g, DARK_THRESHOLD)
+        cur = erode3(cur)
+        cur = dilate(cur, 3)
+        cur = dilate(cur, 3)
+        return cur
+    }
+
+    /** threshold 246 inv lalu dilate 5x5. */
+    private fun maskOf(g: Gray): Gray {
+        val t = thresholdInv(g, MASK_THRESHOLD)
+        return dilate(t, 5)
+    }
+
+    private fun thresholdInv(g: Gray, t: Int): Gray {
+        val out = IntArray(g.count)
+        for (i in g.count.indices) out[i] = if (g.px[i] <= t) 255 else 0
+        return Gray(g.w, g.h, out)
+    }
+
+    private fun dilate(src: Gray, k: Int): Gray {
+        val r = k / 2
+        val out = IntArray(src.count)
+        for (y in 0 until src.h) {
+            for (x in 0 until src.w) {
+                var v = 0
+                for (dy in -r..r) {
+                    val ny = y + dy
+                    if (ny < 0 || ny >= src.h) continue
+                    for (dx in -r..r) {
+                        val nx = x + dx
+                        if (nx < 0 || nx >= src.w) continue
+                        if (src.px[ny * src.w + nx] != 0) {
+                            v = 255
+                        }
+                    }
+                }
+                out[y * src.w + x] = v
+            }
+        }
+        return Gray(src.w, src.h, out)
+    }
+
+    private fun erode3(src: Gray): Gray {
+        val out = IntArray(src.count)
+        for (y in 0 until src.h) {
+            for (x in 0 until src.w) {
+                var v = 255
+                for (dy in -1..1) {
+                    val ny = y + dy
+                    if (ny < 0 || ny >= src.h) { v = 0; continue }
+                    for (dx in -1..1) {
+                        val nx = x + dx
+                        if (nx < 0 || nx >= src.w || src.px[ny * src.w + nx] == 0) {
+                            v = 0
+                        }
+                    }
+                }
+                out[y * src.w + x] = v
+            }
+        }
+        return Gray(src.w, src.h, out)
+    }
+
+    private fun equalizeHist(src: Gray): Gray {
+        val hist = IntArray(256)
+        for (v in src.px) hist[v]++
+        val out = IntArray(src.count)
+        val total = src.count
+        var acc = 0
+        val lut = IntArray(256)
+        for (i in 0..255) {
+            acc += hist[i]
+            lut[i] = ((acc - hist[i] / 2).toDouble() / total * 255.0).roundToInt().coerceIn(0, 255)
+        }
+        for (i in src.count.indices) out[i] = lut[src.px[i]]
+        return Gray(src.w, src.h, out)
+    }
+
+    /** Resize rata-rata area, setara cv.INTER_AREA. */
+    private fun resizeArea(src: Gray, dw: Int, dh: Int): Gray {
+        if (src.w == dw && src.h == dh) return src
+        val out = IntArray(dw * dh)
+        val xr = src.w.toDouble() / dw
+        val yr = src.h.toDouble() / dh
+        for (y in 0 until dh) {
+            val y0 = (y * yr).toInt()
+            val y1 = max(y0 + 1, ((y + 1) * yr).toInt())
+            for (x in 0 until dw) {
+                val x0 = (x * xr).toInt()
+                val x1 = max(x0 + 1, ((x + 1) * xr).toInt())
+                var sum = 0L
+                var n = 0
+                for (yy in y0 until min(y1, src.h)) {
+                    val base = yy * src.w
+                    for (xx in x0 until min(x1, src.w)) {
+                        sum += src.px[base + xx]
+                        n++
+                    }
+                }
+                out[y * dw + x] = if (n == 0) 0 else (sum / n).toInt()
+            }
+        }
+        return Gray(dw, dh, out)
+    }
+
+    private fun resizeNearest(src: Gray, dw: Int, dh: Int): Gray {
+        if (src.w == dw && src.h == dh) return src
+        val out = IntArray(dw * dh)
+        val xr = if (dw > 0) src.w.toDouble() / dw else 1.0
+        val yr = if (dh > 0) src.h.toDouble() / dh else 1.0
+        for (y in 0 until dh) {
+            val sy = min(src.h - 1, (y * yr).toInt())
+            for (x in 0 until dw) {
+                val sx = min(src.w - 1, (x * xr).toInt())
+                out[y * dw + x] = src.px[sy * src.w + sx]
+            }
+        }
+        return Gray(dw, dh, out)
+    }
+
+    private fun countNonZero(g: Gray): Int {
+        var n = 0
+        for (v in g.px) if (v != 0) n++
+        return n
+    }
+
+    /** 1 - rata-rata selisih absolut, opsional hanya dihitung pada mask. */
+    private fun meanAbsDiff(a: Gray, b: Gray, mask: Gray?): Double {
+        var sum = 0L
+        var n = 0
+        for (i in a.count.indices) {
+            if (mask != null && mask.px[i] == 0) continue
+            sum += abs(a.px[i] - b.px[i])
+            n++
+        }
+        val mean = if (n == 0) 255.0 else sum.toDouble() / n
+        return clamp01(1.0 - (mean / 255.0))
+    }
+
+    /**
+     * Setara cv.TM_CCOEFF_NORMED untuk dua citra berukuran sama: pada
+     * ukuran sama hanya ada satu posisi, jadi hasilnya simply koefisien
+     * korelasi kedua citra.
+     */
+    private fun tmCoeffNormed(a: Gray, b: Gray): Double {
+        val n = a.count
+        if (n == 0 || b.count != n) return 0.0
+        var sumA = 0L
+        var sumB = 0L
+        for (i in 0 until n) {
+            sumA += a.px[i]
+            sumB += b.px[i]
+        }
+        val meanA = sumA.toDouble() / n
+        val meanB = sumB.toDouble() / n
+        var num = 0.0
+        var da = 0.0
+        var db = 0.0
+        for (i in 0 until n) {
+            val va = a.px[i] - meanA
+            val vb = b.px[i] - meanB
+            num += va * vb
+            da += va * va
+            db += vb * vb
+        }
+        val den = sqrt(da) * sqrt(db)
+        if (den <= 1e-9) return 0.0
+        return clamp01(abs(num) / den)
+    }
+
+    /** Kemirupan mask tinta lewat F1 dari irisan dan gabungan. */
+    private fun darkSimilarity(regionDark: Gray, tmplDark: Gray, rPx: Int, tPx: Int): Double {
+        if (rPx <= 0 || tPx <= 0) return 0.0
+        var inter = 0
+        var union = 0
+        for (i in regionDark.count.indices) {
+            val a = regionDark.px[i] != 0
+            val b = tmplDark.px[i] != 0
+            if (a && b) inter++
+            if (a || b) union++
+        }
+        if (union == 0) return 0.0
+        val recall = inter.toDouble() / tPx
+        val precision = inter.toDouble() / rPx
+        val iou = inter.toDouble() / union
+        val f1 = if (precision + recall > 0) 2 * precision * recall / (precision + recall) else 0.0
+        // Web menggabungkan F1 dan IoU dengan bobot 0.75/0.25; ditiru apa adanya.
+        return clamp01(f1 * 0.75 + iou * 0.25)
+    }
+
+    private fun clamp01(v: Double): Double = if (v < 0.0) 0.0 else if (v > 1.0) 1.0 else v
 }

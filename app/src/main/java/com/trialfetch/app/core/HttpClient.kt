@@ -64,6 +64,24 @@ class HttpClient(
         }
     }
 
+    /**
+     * Ambil HTML dengan header bebas.
+     *
+     * Diperlukan oleh API app Baozimh (appgb*.baozimh.com) yang menolak
+     * request tanpa header aplikasi. Versi web memakai header yang sama.
+     */
+    suspend fun getHtmlWithHeaders(
+        url: String,
+        headers: Map<String, String>
+    ): String = withContext(Dispatchers.IO) {
+        val builder = Request.Builder().url(url)
+        for ((k, v) in headers) builder.header(k, v)
+        client.newCall(builder.build()).execute().use { res ->
+            if (!res.isSuccessful) throw HttpException(res.code, url)
+            res.body?.string() ?: throw HttpException(-1, url)
+        }
+    }
+
     /** Ambil file biner (gambar), mengikuti header yang diminta sumber. */
     suspend fun getBytes(
         url: String,
