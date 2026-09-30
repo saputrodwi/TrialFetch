@@ -6,8 +6,10 @@ import android.graphics.BitmapFactory
 import com.trialfetch.app.R
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
+import org.opencv.core.Core
 import org.opencv.core.Mat
 import org.opencv.core.MatOfByte
+import org.opencv.core.MatOfInt
 import org.opencv.core.Size
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
@@ -189,16 +191,16 @@ class BannerCropper(private val context: Context) {
 
             val whiteMask = Mat()
             Imgproc.threshold(band, whiteMask, 245.0, 255.0, Imgproc.THRESH_BINARY)
-            val white = Imgproc.countNonZero(whiteMask) / total.toDouble()
+            val white = Core.countNonZero(whiteMask) / total.toDouble()
             whiteMask.release()
 
             val faintMask = Mat()
             Imgproc.threshold(band, faintMask, 200.0, 255.0, Imgproc.THRESH_BINARY)
-            val faintHigh = Imgproc.countNonZero(faintMask)
+            val faintHigh = Core.countNonZero(faintMask)
             faintMask.release()
             val faintLowMask = Mat()
             Imgproc.threshold(band, faintLowMask, 250.0, 255.0, Imgproc.THRESH_BINARY)
-            val faint = (faintHigh - Imgproc.countNonZero(faintLowMask)) / total.toDouble()
+            val faint = (faintHigh - Core.countNonZero(faintLowMask)) / total.toDouble()
             faintLowMask.release()
 
             return StripStats(white, faint)
@@ -220,8 +222,8 @@ class BannerCropper(private val context: Context) {
         val edge = Mat()
         Imgproc.Canny(blurred, edge, CANNY_LOW.toDouble(), CANNY_HIGH.toDouble())
         val dark = darkMask(regionGray)
-        val edgePixels = Imgproc.countNonZero(edge)
-        val darkPixels = Imgproc.countNonZero(dark)
+        val edgePixels = Core.countNonZero(edge)
+        val darkPixels = Core.countNonZero(dark)
 
         val best = scoreAgainstTemplates(regionGray, edge, dark, src.cols(), edgePixels, darkPixels)
 
@@ -333,9 +335,8 @@ class BannerCropper(private val context: Context) {
                 context.resources.openRawResource(res).use { it.readBytes() }
             }.getOrNull() ?: continue
             val buf = MatOfByte(*bytes)
-            val bmp = Imgcodecs.imdecode(buf, Imgcodecs.IMREAD_COLOR)
-            if (bmp.empty()) continue
-            val m = bmpToMat(bmp)
+            val m = Imgcodecs.imdecode(buf, Imgcodecs.IMREAD_COLOR)
+            if (m.empty()) continue
             val gray = Mat()
             Imgproc.cvtColor(m, gray, Imgproc.COLOR_RGBA2GRAY)
 
@@ -355,8 +356,8 @@ class BannerCropper(private val context: Context) {
             list += Template(
                 raw = gray, gray = eq, edge = edge, dark = dark, mask = mask,
                 width = gray.cols(),
-                edgePixels = Imgproc.countNonZero(edge),
-                darkPixels = Imgproc.countNonZero(dark)
+                edgePixels = Core.countNonZero(edge),
+                darkPixels = Core.countNonZero(dark)
             )
             blurred.release()
             m.release()
@@ -400,9 +401,9 @@ class BannerCropper(private val context: Context) {
     private fun CoreMinMaxLoc(m: Mat): Double {
         val minVal = DoubleArray(1)
         val maxVal = DoubleArray(1)
-        val minLoc = org.opencv.core.MatOfInt()
-        val maxLoc = org.opencv.core.MatOfInt()
-        org.opencv.core.Core.minMaxLoc(m, minVal, maxVal, minLoc, maxLoc)
+        val minLoc = MatOfInt()
+        val maxLoc = MatOfInt()
+        Core.minMaxLoc(m, minVal, maxVal, minLoc, maxLoc)
         minLoc.release()
         maxLoc.release()
         return maxVal[0]
@@ -412,7 +413,7 @@ class BannerCropper(private val context: Context) {
     private fun meanAbsDiff(a: Mat, b: Mat, mask: Mat?): Double {
         val diff = Mat()
         Imgproc.absdiff(a, b, diff)
-        val mean = org.opencv.core.Core.mean(diff, mask)[0]
+        val mean = if (mask == null) Core.mean(diff)[0] else Core.mean(diff, mask)[0]
         diff.release()
         return clamp01(1.0 - (if (mean.isNaN()) 255.0 else mean) / 255.0)
     }
@@ -424,8 +425,8 @@ class BannerCropper(private val context: Context) {
         val union = Mat()
         Imgproc.bitwise_and(regionDark, templateDark, inter)
         Imgproc.bitwise_or(regionDark, templateDark, union)
-        val interCount = Imgproc.countNonZero(inter)
-        val unionCount = Imgproc.countNonZero(union)
+        val interCount = Core.countNonZero(inter)
+        val unionCount = Core.countNonZero(union)
         inter.release(); union.release()
         if (unionCount == 0) return 0.0
         val recall = interCount.toDouble() / tPx
