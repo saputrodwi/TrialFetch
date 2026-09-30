@@ -82,6 +82,11 @@ class ComicRepository(
         _progress.value = DownloadProgress()
     }
 
+    /** Tandai dibatalkan (panel menampilkan status batal + tombol tutup). */
+    fun cancelProgress() {
+        _progress.value = _progress.value.copy(state = DownloadProgress.State.CANCELLED)
+    }
+
     fun canWriteStorage(): Boolean = storage.canWrite()
 
     suspend fun search(source: Source, query: String): List<SearchResult> =
@@ -146,25 +151,47 @@ class ComicRepository(
             storage.clearFolder(parentPath)
             leftoverFiles = storage.countFiles(parentPath)
         }
-        // written hanya dipakai mode ZIP. Untuk mode Folder, file langsung
-        // ditulis ke MediaStore lalu agak dihapus dari daftar, jadi penghitung
-        // sukses harus terpisah. Sebelumnya done diambil dari written.size,
-        // sehingga di mode Folder selalu 0: progress bar tidak bergerak dan
-        // hasil akhir salah melaporkan "semua gambar gagal".
-        val written = mutableListOf<Pair<String, ByteArray>>()
+        // Mode ZIP menulis langsung ke arsip via ZipSink (streaming, tidak
+        // menampung di RAM). Mode Folder menulis per file seperti biasa.
+        // Penghitung sukses terpisah untuk kedua mode.
+        val zipSink = if (settings.outputMode == OutputMode.ZIP) {
+            storage.openZip(seriesDir, "$chapterDir.zip")
+                ?: return@withContext fail(
+                    "Tidak bisa membuat arsip ZIP di folder Download. " +
+                        "Periksa izin penyimpanan."
+                )
+        } else {
+            null
+        }
         var succeeded = 0
         val failed = mutableListOf<Int>()
 
+        try {
         for (img in page.images) {
             try {
-                val raw = http.getBytes(
-                    url = img.url,
-                    referer = originOf(img.url),
-                    // Sebagian CDN memuat gambar dengan referrerpolicy
-                    // "no-referrer" di HTML aslinya — meniru itu lebih
-                    // aman daripada mengarang Referer.
-                    sendNoReferer = series.source == Source.KOUDAIMH
-                )
+                // Sekali retry dengan jeda pendek: CDN kadang membalas
+                // 429/timeout sesaat padahal request berikutnya lolos.
+                // Tanpa ini satu kedip jaringan = satu halaman hilang.
+                var raw: ByteArray? = null
+                var fetchError: Exception? = null
+                for (attempt in 0..1) {
+                    try {
+                        raw = http.getBytes(
+                            url = img.url,
+                            referer = originOf(img.url),
+                            // Sebagian CDN memuat gambar dengan referrerpolicy
+                            // "no-referrer" di HTML aslinya — meniru itu lebih
+                            // aman daripada mengarang Referer.
+                            sendNoReferer = series.source == Source.KOUDAIMH
+                        )
+                        fetchError = null
+                        break
+                    } catch (e: Exception) {
+                        fetchError = e
+                        if (attempt == 0) kotlinx.coroutines.delay(1500)
+                    }
+                }
+                val bytes = raw ?: throw fetchError ?: SourceException("Gagal mengunduh halaman ${img.page}")
 
                 // Gambar terenkripsi (Manwang/Rumanhua source_id 12) WAJIB
                 // didekripsi dulu. Flag needsDecrypt sebelumnya diabaikan
@@ -173,14 +200,14 @@ class ComicRepository(
                 var decryptFailed = false
                 val plain = if (img.needsDecrypt) {
                     try {
-                        ImageCrypto.decrypt(raw, IMAGE_KEY_MANWANG_RUMAN)
+                        ImageCrypto.decrypt(bytes, IMAGE_KEY_MANWANG_RUMAN)
                     } catch (e: Exception) {
                         Log.w("ComicRepository", "dekripsi halaman ${img.page} gagal: ${e.message}")
                         decryptFailed = true
-                        raw
+                        bytes
                     }
                 } else {
-                    raw
+                    bytes
                 }
                 if (decryptFailed) {
                     failed += img.page
@@ -197,10 +224,15 @@ class ComicRepository(
                 val fileName = settings.naming.fileName(img.page, finalFormat.extension)
 
                 if (settings.outputMode == OutputMode.ZIP) {
-                    // Ditunda sampai semua gambar terkumpul, supaya tidak
-                    // menulis file lalu menghapusnya lagi.
-                    written += fileName to payload
-                    succeeded++
+                    // Streaming: langsung jadi entry arsip, RAM hanya
+                    // menampung satu gambar dalam satu waktu.
+                    try {
+                        zipSink!!.put("$chapterDir/$fileName", payload)
+                        succeeded++
+                    } catch (e: Exception) {
+                        Log.w("ComicRepository", "tulis ZIP halaman ${img.page} gagal: ${e.message}")
+                        failed += img.page
+                    }
                 } else {
                     if (storage.writeFile(parentPath, fileName, payload)) succeeded++
                 }
@@ -222,9 +254,15 @@ class ComicRepository(
                 failed += img.page
             }
         }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Arsip setengah jadi tidak ditinggalkan di Download.
+            zipSink?.abort()
+            throw e
+        }
 
         val done = succeeded
         if (done == 0) {
+            zipSink?.abort()
             return@withContext fail("Semua $total gambar gagal diunduh")
         }
 
@@ -259,10 +297,11 @@ class ComicRepository(
             }
             OutputMode.ZIP -> {
                 // Entry ZIP memakai path relatif di dalam arsip supaya
-                // saat diekstrak tetap rapi dan tidak bercampur.
+                // saat diekstrak tetap rapi dan tidak bercampur
+                // (ditulis streaming per gambar di loop di atas).
                 val zipName = "$chapterDir.zip"
-                val entries = written.map { (name, data) -> "$chapterDir/$name" to data }
-                storage.createZip(seriesDir, zipName, entries)
+                zipSink?.commit()
+                    ?: return@withContext fail("Gagal menyelesaikan arsip ZIP.")
                 storage.writeText(seriesDir, "$chapterDir.info.txt", info)
                 storage.displayPath("$seriesDir/$zipName")
             }

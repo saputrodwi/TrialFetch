@@ -54,6 +54,9 @@ jobs:
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
+      - name: Unit test (JVM)
+        run: gradle :app:testDebugUnitTest --stacktrace --no-daemon
+
       - name: Build release APK
         run: gradle :app:assembleRelease --stacktrace --no-daemon
 

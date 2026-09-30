@@ -178,5 +178,8 @@ dependencies {
     // hasilnya sama persis dengan acuan.
     implementation(libs.opencv)
 
+    // Unit test JVM murni (UrlParser, NamingRule, cleanText — tanpa API Android).
+    testImplementation(libs.junit4)
+
     debugImplementation(libs.androidx.ui.tooling)
 }

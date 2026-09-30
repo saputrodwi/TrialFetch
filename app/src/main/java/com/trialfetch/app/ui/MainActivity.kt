@@ -183,7 +183,20 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
 
     val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* hasilnya tidak dipakai; notifikasi tetap jalan bila diizinkan */ }
+    ) { grants ->
+        // Kalau user menolak izin notifikasi, unduhan tetap jalan tapi
+        // tanpa indikator — beri tahu sekali supaya tidak bingung.
+        val denied = grants.entries.any { (perm, ok) ->
+            perm == Manifest.permission.POST_NOTIFICATIONS && !ok
+        }
+        if (denied) {
+            Toast.makeText(
+                context,
+                "Izin notifikasi ditolak — progres unduhan tidak akan tampil",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
     LaunchedEffect(Unit) {
         StoragePermission.required()?.let { storageLauncher.launch(it) }
@@ -671,6 +684,8 @@ private fun DownloadPanel(
                             "Selesai: ${progress.done}/${progress.total} halaman"
                         DownloadProgress.State.FAILED ->
                             progress.error ?: "Gagal"
+                        DownloadProgress.State.CANCELLED ->
+                            "Unduhan dibatalkan (${progress.done}/${progress.total} halaman tersimpan)"
                         else -> ""
                     },
                     Modifier.weight(1f),

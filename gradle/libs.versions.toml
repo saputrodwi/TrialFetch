@@ -12,6 +12,7 @@ kotlinxSerialization = "1.7.3"
 okhttp = "4.12.0"
 opencv = "4.14.0"
 coroutines = "1.9.0"
+junit = "4.13.2"
 splashscreen = "1.0.1"
 
 [libraries]
@@ -35,6 +36,7 @@ okhttp-dnsoverhttps = { group = "com.squareup.okhttp3", name = "okhttp-dnsoverht
 opencv = { group = "org.opencv", name = "opencv", version.ref = "opencv" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
+junit4 = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

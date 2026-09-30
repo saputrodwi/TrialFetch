@@ -30,7 +30,7 @@ class StorageWriter(private val context: Context) {
         const val TAG = "StorageWriter"
     }
 
-    private val resolver = context.contentResolver
+    internal val resolver = context.contentResolver
 
     /**>true kalau aplikasi boleh menulis ke Download publik. */
     fun canWrite(): Boolean =
@@ -206,6 +206,93 @@ class StorageWriter(private val context: Context) {
      * Menggabungkan sekumpulan file menjadi satu arsip zip di folder
      * [zipFolderPath] dengan nama [zipName].
      */
+    /**
+     * Menulis arsip ZIP langsung ke MediaStore tanpa menampung di RAM.
+     *
+     * Sebelumnya seluruh gambar chapter ditampung sebagai
+     * List<Pair<String, ByteArray>> lalu digandakan lagi oleh
+     * ByteArrayOutputStream — chapter 60 halaman bisa makan ~100 MB heap
+     * dan OOM di perangkat entry-level. Sekarang tiap gambar ditulis
+     * sebagai entry segera setelah tiba, jadi memori yang dipakai hanya
+     * satu gambar dalam satu waktu.
+     *
+     * Alurnya: [openZip] dulu (entri IS_PENDING), [ZipSink.put] per gambar,
+     * lalu [ZipSink.commit] bila sukses atau [ZipSink.abort] bila gagal /
+     * dibatalkan (file setengah jadi dihapus, tidak ditinggalkan).
+     */
+    fun openZip(zipFolderPath: String, zipName: String): ZipSink? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val relative = fullRelativePath(zipFolderPath)
+        // Timpa dulu bila ada sisa unduhan sebelumnya (lihat writeFile).
+        findExisting(collection, zipName, relative)?.let { old ->
+            runCatching { resolver.delete(old, null, null) }
+        }
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, zipName)
+            put(MediaStore.Downloads.MIME_TYPE, "application/zip")
+            put(MediaStore.Downloads.RELATIVE_PATH, relative)
+            put(MediaStore.Downloads.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(collection, values) ?: return null
+        return try {
+            val out = resolver.openOutputStream(uri, "wt") ?: run {
+                runCatching { resolver.delete(uri, null, null) }
+                return null
+            }
+            ZipSink(this, uri, out)
+        } catch (e: Exception) {
+            runCatching { resolver.delete(uri, null, null) }
+            Log.w(TAG, "openZip gagal: ${e.message}")
+            null
+        }
+    }
+
+    /** Penulis ZIP streaming. WAJIB commit atau abort, tidak boleh dibiarkan. */
+    class ZipSink(
+        private val owner: StorageWriter,
+        private val uri: Uri,
+        out: java.io.OutputStream
+    ) {
+        private val zos = ZipOutputStream(out)
+        private var closed = false
+
+        fun put(entryName: String, data: ByteArray) {
+            check(!closed) { "ZipSink sudah ditutup" }
+            zos.putNextEntry(ZipEntry(entryName))
+            zos.write(data)
+            zos.closeEntry()
+            zos.flush()
+        }
+
+        /** Selesai: tutup stream dan buka kunci IS_PENDING supaya terlihat. */
+        fun commit(): Uri? {
+            if (closed) return uri
+            closed = true
+            return runCatching {
+                zos.close()
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.IS_PENDING, 0)
+                }
+                owner.resolver.update(uri, values, null, null)
+                uri
+            }.getOrNull()
+        }
+
+        /** Gagal/dibatalkan: tutup dan hapus file setengah jadi. */
+        fun abort() {
+            if (closed) return
+            closed = true
+            runCatching { zos.close() }
+            runCatching { owner.resolver.delete(uri, null, null) }
+            Log.i(TAG, "zip dibatalkan, file setengah jadi dihapus")
+        }
+    }
+
+    @Deprecated(
+        "Menampung semua gambar di RAM (risiko OOM). Pakai openZip.",
+        ReplaceWith("openZip(zipFolderPath, zipName)")
+    )
     fun createZip(zipFolderPath: String, zipName: String, entries: List<Pair<String, ByteArray>>): Uri? {
         val bytes = java.io.ByteArrayOutputStream()
         ZipOutputStream(bytes).use { zos ->

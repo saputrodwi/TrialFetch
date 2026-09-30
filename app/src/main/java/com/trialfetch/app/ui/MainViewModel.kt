@@ -217,7 +217,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         downloadJob?.cancel()
         downloadJob = null
         downloading.set(false)
-        repo.resetProgress()
+        repo.cancelProgress()
     }
 
     /** Tutup panel hasil (selesai/gagal) tanpa membatalkan apa pun. */
