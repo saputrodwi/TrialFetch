@@ -117,12 +117,14 @@ class ComicRepository(
         }
 
         // Mode Folder: bersihkan isi folder chapter lebih dulu supaya
-        // unduhan ulang tidak menghasilkan "nama(1).ext". File sisa dari
-        // pemasangan aplikasi sebelumnya bisa saja tidak terlihat oleh
-        // aplikasi, jadi jumlahnya ikut dilaporkan.
-        var staleFiles = 0
+        // unduhan ulang tidak menghasilkan "nama(1).ext". clearFolder
+        // mengembalikan jumlah yang berhasil dihapus; yang dilaporkan ke
+        // pengguna adalah SISANYA (file yang tidak terlihat oleh aplikasi
+        // sehingga tidak bisa dihapus, mis. sisa pemasangan sebelumnya).
+        var leftoverFiles = 0
         if (settings.outputMode == OutputMode.FOLDER) {
-            staleFiles = storage.clearFolder(parentPath)
+            storage.clearFolder(parentPath)
+            leftoverFiles = storage.countFiles(parentPath)
         }
         // written hanya dipakai mode ZIP. Untuk mode Folder, file langsung
         // ditulis ke MediaStore lalu agak dihapus dari daftar, jadi penghitung
@@ -144,7 +146,6 @@ class ComicRepository(
                     sendNoReferer = series.source == Source.KOUDAIMH
                 )
 
-                val format = ImageFormat.sniff(raw)
                 val payload = if (settings.cropBanner && series.source == Source.BAOZIMH) {
                     bannerCropper.crop(raw)
                 } else {
@@ -193,9 +194,10 @@ class ComicRepository(
                         (if (bannerCropper.failed > 0) ", ${bannerCropper.failed} gagal diperiksa" else "")
                 )
             }
-            if (staleFiles > 0) {
+            if (leftoverFiles > 0) {
                 appendLine(
-                    "PERINGATAN: $staleFiles file lama tidak bisa dihapus oleh aplikasi. " +
+                    "PERINGATAN: $leftoverFiles file lama tidak terlihat oleh aplikasi " +
+                        "sehingga tidak bisa dihapus atau ditimpa. " +
                         "Hapus manual folder ini agar tidak muncul berkas '(1)'."
                 )
             }

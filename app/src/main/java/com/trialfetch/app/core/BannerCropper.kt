@@ -392,7 +392,11 @@ class BannerCropper(private val context: Context) {
             }.getOrNull() ?: continue
             val buf = MatOfByte(*bytes)
             val m = Imgcodecs.imdecode(buf, Imgcodecs.IMREAD_COLOR)
-            if (m.empty()) continue
+            buf.release()
+            if (m.empty()) {
+                m.release()
+                continue
+            }
             // imdecode dengan IMREAD_COLOR menghasilkan Mat 3 channel BGR,
             // bukan RGBA. Memakai COLOR_RGBA2GRAY di sini melempar exception.
             val gray = Mat()
