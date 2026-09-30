@@ -15,6 +15,10 @@ import kotlinx.coroutines.launch
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +43,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,6 +65,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -83,7 +89,9 @@ import com.trialfetch.app.data.ComicRepository
 import com.trialfetch.app.data.DownloadProgress
 import com.trialfetch.app.ui.theme.LocalExtraColors
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import com.trialfetch.app.data.ThemeMode
 import com.trialfetch.app.data.SavedSeries
 import androidx.compose.foundation.border
@@ -170,6 +178,8 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val urlLoading by vm.urlLoading.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
+    val readerReq by vm.reader.collectAsStateWithLifecycle()
+    val readerImages by vm.readerImages.collectAsStateWithLifecycle()
     val extra = LocalExtraColors.current
 
     // Izin penyimpanan: dibutuhkan hanya di Android 9 ke bawah. Android 10+
@@ -273,6 +283,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                         onToggleBookmark = { vm.toggleBookmark(it) },
                         onDismissProgress = vm::dismissProgress,
                         onCancelDownload = vm::cancelDownload,
+                        onRead = { ch -> vm.openReader(it, ch) },
                         onBack = {
                             vm.closeSeries()
                             tab = Tab.SEARCH
@@ -305,6 +316,21 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 }
             }
         }
+    }
+
+    // Reader menutupi seluruh layar di atas tab apa pun.
+    readerReq?.let { req ->
+        ReaderScreen(
+            title = req.chapter.title,
+            images = readerImages,
+            onClose = vm::closeReader,
+            onDownload = {
+                if (storageGranted) {
+                    series?.let { info -> vm.download(info, req.chapter) }
+                }
+                vm.closeReader()
+            }
+        )
     }
 }
 
@@ -550,7 +576,8 @@ private fun SeriesScreen(
     onDismissProgress: () -> Unit,
     onCancelDownload: () -> Unit,
     onBack: () -> Unit,
-    onDownload: (Chapter) -> Unit
+    onDownload: (Chapter) -> Unit,
+    onRead: (Chapter) -> Unit
 ) {
     val extra = LocalExtraColors.current
     Column(Modifier.fillMaxSize()) {
@@ -560,7 +587,7 @@ private fun SeriesScreen(
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
             item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark) }
             items(info.chapters, key = { it.chapterId }) { ch ->
-                ChapterRow(ch, progress, onDownload)
+                ChapterRow(ch, progress, onDownload, onRead)
             }
         }
     }
@@ -735,7 +762,8 @@ private fun DownloadPanel(
 private fun ChapterRow(
     chapter: Chapter,
     progress: DownloadProgress,
-    onDownload: (Chapter) -> Unit
+    onDownload: (Chapter) -> Unit,
+    onRead: (Chapter) -> Unit
 ) {
     // Hanya chapter yang sedang diunduh yang tampil spinner. Sebelumnya
     // pemeriksaannya global, jadi mengunduh satu chapter membuat SEMUA baris
@@ -760,6 +788,9 @@ private fun ChapterRow(
         if (busy) {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         } else {
+            IconButton(onClick = { onRead(chapter) }) {
+                Icon(Icons.Default.MenuBook, contentDescription = "Baca ${chapter.title}")
+            }
             IconButton(onClick = { onDownload(chapter) }) {
                 Icon(Icons.Default.Download, contentDescription = "Unduh ${chapter.title}")
             }
@@ -827,6 +858,130 @@ private fun SavedScreen(
                     IconButton(onClick = { onRemove(item) }) {
                         Icon(Icons.Default.Delete, contentDescription = "Hapus ${item.title}")
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Pembaca komik bawaan: geser halaman, cubit untuk zoom.
+ *
+ * Membaca file lokal hasil unduhan (folder atau hasil ekstrak ZIP),
+ * jadi bisa offline penuh. [images] null = masih dimuat; kosong =
+ * chapter belum diunduh (tampilkan ajakan unduh).
+ */
+@Composable
+private fun ReaderScreen(
+    title: String,
+    images: List<android.net.Uri>?,
+    onClose: () -> Unit,
+    onDownload: () -> Unit
+) {
+    BackHandler(onBack = onClose)
+    // Kunci geser pager saat ada halaman yang di-zoom, supaya cubit
+    // horizontal tidak malah pindah halaman.
+    var pagerLocked by remember { mutableStateOf(false) }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        when {
+            images == null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+            images.isEmpty() -> Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Default.MenuBook,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Chapter ini belum diunduh.",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Unduh dulu supaya bisa dibaca offline.",
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(20.dp))
+                TextButton(onClick = onDownload) {
+                    Text("Unduh sekarang", color = Color.White)
+                }
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = onClose) {
+                    Text("Tutup", color = Color.White.copy(alpha = 0.7f))
+                }
+            }
+            else -> {
+                val list = images
+                val pagerState = rememberPagerState(pageCount = { list.size })
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    userScrollEnabled = !pagerLocked
+                ) { page ->
+                    var scale by remember(page) { mutableFloatStateOf(1f) }
+                    var offset by remember(page) { mutableStateOf(Offset.Zero) }
+                    val transform = rememberTransformableState { zoom, pan, _ ->
+                        val next = (scale * zoom).coerceIn(1f, 4f)
+                        scale = next
+                        offset = if (next <= 1f) Offset.Zero else offset + pan
+                        pagerLocked = next > 1f
+                    }
+                    val active = pagerState.currentPage == page
+                    AsyncImage(
+                        model = list[page],
+                        contentDescription = "Halaman ${page + 1}",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(
+                                scaleX = if (active) scale else 1f,
+                                scaleY = if (active) scale else 1f,
+                                translationX = if (active) offset.x else 0f,
+                                translationY = if (active) offset.y else 0f
+                            )
+                            .transformable(transform)
+                    )
+                }
+                // Bilah atas + penghitung halaman.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White)
+                    }
+                    Text(
+                        title,
+                        Modifier.weight(1f),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "${pagerState.currentPage + 1}/${list.size}",
+                        color = Color.White.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
                 }
             }
         }

@@ -94,6 +94,18 @@ class StorageWriter(private val context: Context) {
         }.getOrDefault(0)
     }
 
+    /** true bila file bernama ada di folder (tanpa membaca isinya). */
+    fun hasFile(folderPath: String, fileName: String): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            val root = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS
+            )
+            return java.io.File(root, "${OutputPaths.ROOT}/${folderPath.trim('/')}/$fileName").exists()
+        }
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        return findExisting(collection, fileName, fullRelativePath(folderPath)) != null
+    }
+
     /** Berapa file yang masih ada di folder, untuk dipakai sebagai peringatan. */
     fun countFiles(folderPath: String): Int {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
@@ -107,6 +119,115 @@ class StorageWriter(private val context: Context) {
             )?.use { c -> while (c.moveToNext()) n++ }
             n
         }.getOrDefault(0)
+    }
+
+    /**
+     * Daftar gambar di dalam satu folder chapter, terurut nama file.
+     *
+     * Dipakai reader bawaan. Hanya file gambar (info.txt dilewati).
+     * Mengembalikan Uri MediaStore yang bisa langsung dimuat Coil.
+     */
+    fun listImages(folderPath: String): List<Uri> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return listImagesLegacy(folderPath)
+        }
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val relative = fullRelativePath(folderPath)
+        return runCatching {
+            val out = ArrayList<Pair<String, Uri>>()
+            resolver.query(
+                collection,
+                arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME),
+                "${MediaStore.Downloads.RELATIVE_PATH} = ?",
+                arrayOf(relative),
+                "${MediaStore.Downloads.DISPLAY_NAME} ASC"
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val name = c.getString(1) ?: continue
+                    if (!isImageName(name)) continue
+                    val uri = Uri.withAppendedPath(collection, c.getLong(0).toString())
+                    out += name to uri
+                }
+            }
+            out.sortedBy { it.first }.map { it.second }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun isImageName(name: String): Boolean {
+        val n = name.lowercase()
+        return n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png") ||
+            n.endsWith(".webp") || n.endsWith(".gif") || n.endsWith(".bmp")
+    }
+
+    private fun listImagesLegacy(folderPath: String): List<Uri> {
+        return runCatching {
+            val root = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS
+            )
+            val dir = java.io.File(root, "${OutputPaths.ROOT}/${folderPath.trim('/')}")
+            (dir.listFiles() ?: emptyArray())
+                .filter { it.isFile && isImageName(it.name) }
+                .sortedBy { it.name }
+                .map { Uri.fromFile(it) }
+        }.getOrDefault(emptyList())
+    }
+
+    /**
+     * Ekstrak arsip ZIP chapter ke cache internal untuk dibaca.
+     *
+     * Reader butuh file per halaman; ZIP tidak bisa dibaca langsung per
+     * halaman tanpa ekstrak. Hasil cache dipakai ulang bila jumlah file
+     * sudah cocok sehingga buka kedua tidak mengekstrak lagi.
+     *
+     * @return daftar File gambar terurut, atau kosong bila gagal.
+     */
+    fun extractZipForRead(seriesDir: String, zipName: String): List<java.io.File> {
+        val safeSeries = seriesDir.trim('/')
+        val cacheDir = java.io.File(context.cacheDir, "reader/$safeSeries/${zipName.removeSuffix(".zip")}")
+        val cached = runCatching {
+            cacheDir.listFiles()?.filter { it.isFile && isImageName(it.name) }
+                ?.sortedBy { it.name }.orEmpty()
+        }.getOrDefault(emptyList())
+        if (cached.isNotEmpty()) return cached
+
+        // Cari file ZIP di Download lalu ekstrak entri gambar saja.
+        val zipBytes = readZipBytes(seriesDir, zipName) ?: return emptyList()
+        return runCatching {
+            cacheDir.mkdirs()
+            // Bersihkan sisa gagal sebelumnya supaya tidak tercampur.
+            cacheDir.listFiles()?.forEach { if (it.isFile) it.delete() }
+            val zis = java.util.zip.ZipInputStream(zipBytes.inputStream())
+            var e = zis.nextEntry
+            while (e != null) {
+                val entryName = e.name.substringAfterLast("/")
+                if (!e.isDirectory && isImageName(entryName)) {
+                    val out = java.io.File(cacheDir, entryName)
+                    out.outputStream().use { o -> zis.copyTo(o) }
+                }
+                zis.closeEntry()
+                e = zis.nextEntry
+            }
+            zis.close()
+            cacheDir.listFiles()?.filter { it.isFile && isImageName(it.name) }
+                ?.sortedBy { it.name }.orEmpty()
+        }.getOrDefault(emptyList())
+    }
+
+    private fun readZipBytes(seriesDir: String, zipName: String): ByteArray? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return runCatching {
+                val root = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                )
+                java.io.File(root, "${OutputPaths.ROOT}/${seriesDir.trim('/')}/$zipName")
+                    .takeIf { it.exists() }?.readBytes()
+            }.getOrNull()
+        }
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = findExisting(collection, zipName, fullRelativePath(seriesDir)) ?: return null
+        return runCatching {
+            resolver.openInputStream(uri)?.use { it.readBytes() }
+        }.getOrNull()
     }
 
     // ---------------------------------------------------------------- folder

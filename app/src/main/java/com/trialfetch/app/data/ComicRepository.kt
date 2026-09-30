@@ -77,6 +77,42 @@ class ComicRepository(
     private val _progress = MutableStateFlow(DownloadProgress())
     val progress: StateFlow<DownloadProgress> = _progress.asStateFlow()
 
+    /**
+     * Daftar gambar chapter yang sudah terunduh, siap dibaca reader.
+     *
+     * Mode Folder: langsung dari Download. Mode ZIP: diekstrak dulu ke
+     * cache internal (dipakai ulang bila sudah ada).
+     */
+    fun getReadableImages(
+        series: SeriesInfo,
+        chapter: Chapter,
+        settings: DownloadSettings
+    ): List<android.net.Uri> {
+        val seriesDir = sanitize(series.title)
+        val chapterDir = sanitize(chapter.title)
+        return if (settings.outputMode == OutputMode.ZIP) {
+            storage.extractZipForRead(seriesDir, "$chapterDir.zip")
+                .map { android.net.Uri.fromFile(it) }
+        } else {
+            storage.listImages(listOf(seriesDir, chapterDir).joinToString("/"))
+        }
+    }
+
+    /** true bila chapter sudah terunduh (ringan, tanpa membaca isi). */
+    fun isDownloaded(
+        series: SeriesInfo,
+        chapter: Chapter,
+        settings: DownloadSettings
+    ): Boolean {
+        val seriesDir = sanitize(series.title)
+        val chapterDir = sanitize(chapter.title)
+        return if (settings.outputMode == OutputMode.ZIP) {
+            storage.hasFile(seriesDir, "$chapterDir.zip")
+        } else {
+            storage.countFiles(listOf(seriesDir, chapterDir).joinToString("/")) > 0
+        }
+    }
+
     /** Kembalikan progres ke IDLE (menutup panel unduhan). */
     fun resetProgress() {
         _progress.value = DownloadProgress()

@@ -16,6 +16,8 @@ import com.trialfetch.app.core.HttpClient
 import com.trialfetch.app.data.BookmarkStore
 import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.data.SavedSeries
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.trialfetch.app.data.SettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -106,6 +108,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         )
         _bookmarks.value = cur
         bookmarkStore.saveAll(cur)
+    }
+
+    // --- Reader bawaan ---
+    data class ReaderRequest(
+        val series: com.trialfetch.app.core.SeriesInfo,
+        val chapter: com.trialfetch.app.core.Chapter
+    )
+
+    private val _reader = MutableStateFlow<ReaderRequest?>(null)
+    val reader: StateFlow<ReaderRequest?> = _reader.asStateFlow()
+
+    private val _readerImages = MutableStateFlow<List<android.net.Uri>?>(null)
+    val readerImages: StateFlow<List<android.net.Uri>?> = _readerImages.asStateFlow()
+
+    fun openReader(series: com.trialfetch.app.core.SeriesInfo, chapter: com.trialfetch.app.core.Chapter) {
+        _reader.value = ReaderRequest(series, chapter)
+        _readerImages.value = null
+        viewModelScope.launch {
+            val uris = withContext(Dispatchers.IO) {
+                repo.getReadableImages(series, chapter, _settings.value)
+            }
+            // Abaikan bila user sudah menutup sebelum selesai dimuat.
+            if (_reader.value?.chapter?.chapterId == chapter.chapterId) {
+                _readerImages.value = uris
+            }
+        }
+    }
+
+    fun closeReader() {
+        _reader.value = null
+        _readerImages.value = null
     }
 
     fun removeBookmark(item: SavedSeries) {
