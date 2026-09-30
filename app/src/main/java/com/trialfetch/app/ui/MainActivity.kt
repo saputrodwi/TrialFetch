@@ -5,7 +5,11 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import android.app.Activity
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -42,6 +46,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -117,6 +124,36 @@ private enum class Tab { SEARCH, SERIES, SETTINGS }
 fun AppRoot(vm: MainViewModel = viewModel()) {
     val context = LocalContext.current
     var tab by remember { mutableStateOf(Tab.SEARCH) }
+    var exitArmed by remember { mutableStateOf(false) }
+    val uiScope = rememberCoroutineScope()
+
+    // Tombol back sistem: dari Series/Pengaturan kembali ke daftar,
+    // bukan keluar aplikasi. Di beranda perlu tekan 2x untuk keluar.
+    BackHandler {
+        when (tab) {
+            Tab.SERIES -> {
+                vm.closeSeries()
+                tab = Tab.SEARCH
+            }
+            Tab.SETTINGS -> tab = Tab.SEARCH
+            Tab.SEARCH -> {
+                if (exitArmed) {
+                    (context as? Activity)?.finish()
+                } else {
+                    exitArmed = true
+                    Toast.makeText(
+                        context,
+                        "Tekan kembali sekali lagi untuk keluar",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    uiScope.launch {
+                        delay(2000)
+                        exitArmed = false
+                    }
+                }
+            }
+        }
+    }
 
     val seriesState by vm.series.collectAsStateWithLifecycle()
     val searchState by vm.search.collectAsStateWithLifecycle()
@@ -277,6 +314,8 @@ private fun SearchScreen(
     onOpenUrl: () -> Unit
 ) {
     val extra = LocalExtraColors.current
+    // URL disembunyikan dulu supaya tampilan bersih; dibuka bila perlu.
+    var urlExpanded by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxSize()
@@ -342,14 +381,27 @@ private fun SearchScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {
-                        UrlInputCard(
-                            value = urlInput,
-                            loading = urlLoading,
-                            accent = extra.blue,
-                            card = extra.card,
-                            onChange = onUrlChange,
-                            onOpen = onOpenUrl
-                        )
+                        TextButton(onClick = { urlExpanded = !urlExpanded }) {
+                            Icon(
+                                if (urlExpanded) Icons.Default.ExpandLess
+                                else Icons.Default.ExpandMore,
+                                contentDescription = null
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (urlExpanded) "Sembunyikan input URL" else "Buka dari URL")
+                        }
+                    }
+                    if (urlExpanded) {
+                        item {
+                            UrlInputCard(
+                                value = urlInput,
+                                loading = urlLoading,
+                                accent = extra.blue,
+                                card = extra.card,
+                                onChange = onUrlChange,
+                                onOpen = onOpenUrl
+                            )
+                        }
                     }
                     items(state.results, key = { it.comicId }) { r ->
                         ResultRow(r) { onPick(r) }

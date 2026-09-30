@@ -46,6 +46,19 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
             throw SourceException("Gagal mencari di Manwang: ${e.message}", e)
         }
 
+        // Manwang menolak pencarian dari sebagian IP/jaringan dengan pesan
+        // "搜索繁忙" (server sibuk). Bukan halaman hasil, jadi regex tidak
+        // akan menemukan apa pun. Deteksi eksplisit supaya pesannya jelas
+        // dan mengarahkan ke tempel URL langsung (yang tetap didukung),
+        // bukan "tidak ada hasil" yang membingungkan.
+        if ("搜索繁忙" in html || "\"code\":-1" in html.replace(" ", "")) {
+            throw SourceException(
+                "Manwang sedang membatasi pencarian dari jaringan ini " +
+                    "(server membalas "sibuk"). Tempel URL series Manwang " +
+                    "langsung lewat "Buka dari URL" — itu tetap bisa dibuka."
+            )
+        }
+
         val byPath = linkedMapOf<String, SearchResult>()
         fun put(path: String, id: String, title: String, cover: String, author: String) {
             if (byPath.containsKey(path)) return
