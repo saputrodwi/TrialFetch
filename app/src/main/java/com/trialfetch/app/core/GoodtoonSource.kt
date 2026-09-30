@@ -86,9 +86,9 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
             val inner = m.groupValues[2]
             val cover = cardCoverRe.find(inner)
             val subject = cardSubjectRe.find(inner)?.groupValues?.get(1)?.trim().orEmpty()
-            val title = (cover?.groupValues?.get(2)?.trim().orEmpty())
-                .ifBlank { subject }
-                .ifBlank { continue }
+            var title = cover?.groupValues?.get(2)?.trim().orEmpty()
+            if (title.isBlank()) title = subject
+            if (title.isBlank()) continue
             val slug = Regex("""/manga/([^/?#]+)""").find(pageUrl)?.groupValues?.get(1)
                 ?: continue
             out += SearchResult(

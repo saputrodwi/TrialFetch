@@ -56,15 +56,6 @@ class ComicRepository(
     // Cropper butuh Context untuk memuat 4 template banner dari res/raw.
     private val bannerCropper = BannerCropper(context.applicationContext)
     private val storage = StorageWriter(context)
-    private companion object {
-        /**
-         * Kunci gambar Manwang/Rumanhua (source_id 12). Sama untuk keduanya
-         * karena backend-nya sama; IV = key (lihat worker.js RUMANHUA_IMAGE_KEY,
-         * dan ImageCrypto.decrypt default IV ke key).
-         */
-        const val IMAGE_KEY_MANWANG_RUMAN = "my2ecret782ecret"
-    }
-
     private val notifier = DownloadNotifier(context)
 
     private val sources: Map<Source, ComicSource> = mapOf(
@@ -307,6 +298,13 @@ class ComicRepository(
     }.getOrDefault(url)
 
     companion object {
+        /**
+         * Kunci gambar Manwang/Rumanhua (source_id 12). Sama untuk keduanya
+         * karena backend-nya sama; IV = key (lihat worker.js RUMANHUA_IMAGE_KEY,
+         * dan ImageCrypto.decrypt default IV ke key).
+         */
+        const val IMAGE_KEY_MANWANG_RUMAN = "my2ecret782ecret"
+
         /** Nama folder aman untuk judul yang mengandung karakter ilegal. */
         fun sanitize(name: String): String =
             name.replace(Regex("""[\\/:*?"<>|\r\n]"""), "_").trim().take(80)
