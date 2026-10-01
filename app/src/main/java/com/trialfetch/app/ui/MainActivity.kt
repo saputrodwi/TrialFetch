@@ -19,9 +19,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -987,21 +989,28 @@ private fun ReaderScreen(
             else -> {
                 val list = pages
                 val hState = rememberPagerState(pageCount = { list.size })
-                val vState = rememberPagerState(pageCount = { list.size })
+                val vList = rememberLazyListState()
                 val setLock: (Boolean) -> Unit = { locked ->
                     if (locked != pagerLocked) pagerLocked = locked
                 }
                 if (mode == ReaderMode.WEBTOON) {
-                    VerticalPager(
-                        state = vState,
+                    // Aliran kontinu tanpa sekat: tiap gambar selebar layar
+                    // dengan tinggi mengikuti aspek aslinya. VerticalPager
+                    // TIDAK dipakai di sini karena memaksa tiap halaman
+                    // setinggi viewport sehingga gambar pendek mengambang
+                    // dengan pita hitam di atas/bawah.
+                    LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         userScrollEnabled = !pagerLocked
-                    ) { page ->
-                        ZoomablePage(
-                            item = list[page],
-                            active = vState.currentPage == page,
-                            onLockChange = setLock
-                        )
+                    ) {
+                        items(list, key = { it.uri }) { item ->
+                            ZoomablePage(
+                                item = item,
+                                active = true,
+                                flow = true,
+                                onLockChange = setLock
+                            )
+                        }
                     }
                 } else {
                     HorizontalPager(
@@ -1017,7 +1026,7 @@ private fun ReaderScreen(
                     }
                 }
                 val currentPage =
-                    if (mode == ReaderMode.WEBTOON) vState.currentPage else hState.currentPage
+                    if (mode == ReaderMode.WEBTOON) vList.firstVisibleItemIndex else hState.currentPage
                 // Bilah atas.
                 Row(
                     Modifier
@@ -1108,22 +1117,30 @@ private fun ReaderScreen(
 
 /**
  * Satu halaman yang bisa dicubit-zoom. Dipakai ulang oleh pager
- * horizontal maupun vertikal.
+ * horizontal maupun aliran vertikal webtoon.
+ *
+ * [flow] = true berarti gambar mengisi lebar layar dengan tinggi
+ * mengikuti aspek aslinya (tanpa pita kosong), sehingga beberapa gambar
+ * tersambung mulus seperti webtoon.
  */
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
 private fun ZoomablePage(
     item: ReaderPage,
     active: Boolean,
-    onLockChange: (Boolean) -> Unit
+    onLockChange: (Boolean) -> Unit,
+    flow: Boolean = false
 ) {
     val context = LocalContext.current
     var scale by remember(item.uri) { mutableFloatStateOf(1f) }
     var offset by remember(item.uri) { mutableStateOf(Offset.Zero) }
+    // Aspek asli diketahui setelah gambar termuat; sebelum itu pakai
+    // placeholder ramping agar tidak ada lompatan besar.
+    var aspect by remember(item.uri) { mutableStateOf<Float?>(null) }
     val transform = rememberTransformableState { zoom, pan, _ ->
         var next = (scale * zoom).coerceIn(1f, 4f)
         // Snap: cegah drift float (mis. 1,0003 dari jitter jari)
-        // yang mengunci pager selamanya.
+        // yang mengunci gulir selamanya.
         if (next < 1.02f) next = 1f
         scale = next
         offset = if (next <= 1f) Offset.Zero else offset + pan
@@ -1140,12 +1157,31 @@ private fun ZoomablePage(
             item.uri
         }
     }
+    val sizeMod = if (flow) {
+        val a = aspect
+        if (a != null && a > 0f) {
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(a)
+        } else {
+            Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 240.dp)
+        }
+    } else {
+        Modifier.fillMaxSize()
+    }
     AsyncImage(
         model = model,
         contentDescription = "Halaman",
-        contentScale = ContentScale.Fit,
-        modifier = Modifier
-            .fillMaxSize()
+        contentScale = if (flow) ContentScale.FillWidth else ContentScale.Fit,
+        onSuccess = {
+            val s = it.painter.intrinsicSize
+            if (s.isSpecified && s.height > 0f) {
+                aspect = s.width / s.height
+            }
+        },
+        modifier = sizeMod
             .graphicsLayer(
                 scaleX = if (active) scale else 1f,
                 scaleY = if (active) scale else 1f,
@@ -1153,7 +1189,7 @@ private fun ZoomablePage(
                 translationY = if (active) offset.y else 0f
             )
             // canPan (pola dokumen resmi): saat belum zoom, pan TIDAK
-            // dikonsumsi sehingga pager menerima geseran. Cubit-zoom
+            // dikonsumsi sehingga pager/kolom menerima geseran. Cubit-zoom
             // tetap jalan karena zoom bukan pan.
             .transformable(
                 state = transform,
