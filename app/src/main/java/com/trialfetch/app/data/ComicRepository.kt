@@ -22,6 +22,7 @@ import com.trialfetch.app.core.SourceException
 import com.trialfetch.app.core.WmanhuaSource
 import com.trialfetch.app.core.UrlParser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -148,7 +149,11 @@ class ComicRepository(
     suspend fun downloadChapter(
         series: SeriesInfo,
         chapter: Chapter,
-        settings: DownloadSettings = DownloadSettings()
+        settings: DownloadSettings = DownloadSettings(),
+        // Hook untuk manajer antrian: progres per gambar + jeda kooperatif.
+        // Default no-op sehingga pemanggil lama tidak berubah perilaku.
+        onImage: ((done: Int, total: Int) -> Unit)? = null,
+        isPaused: () -> Boolean = { false }
     ): DownloadProgress = withContext(Dispatchers.IO) {
         val page = try {
             chapter(series.source, chapter.url)
@@ -201,9 +206,14 @@ class ComicRepository(
         }
         var succeeded = 0
         val failed = mutableListOf<Int>()
+        onImage?.invoke(0, total)
 
         try {
         for (img in page.images) {
+            // Jeda kooperatif untuk tombol Jeda antrian: berhenti di batas
+            // gambar (bukan di tengah unduhan) supaya tidak ada file setengah.
+            // CancellationException dari delay diteruskan oleh catch luar.
+            while (isPaused()) delay(250)
             try {
                 // Sekali retry dengan jeda pendek: CDN kadang membalas
                 // 429/timeout sesaat padahal request berikutnya lolos.
@@ -279,6 +289,7 @@ class ComicRepository(
                         chapterTitle = chapter.title
                     )
                     notifier.showRunning(chapter.title, done, total)
+                    onImage?.invoke(done, total)
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 // User menekan Batal (atau scope dibatalkan): JANGAN telan.

@@ -10,6 +10,8 @@ import com.trialfetch.app.core.Source
 import com.trialfetch.app.core.SourceException
 import com.trialfetch.app.data.ComicRepository
 import com.trialfetch.app.data.DownloadProgress
+import com.trialfetch.app.data.DownloadQueueManager
+import com.trialfetch.app.data.QueueItem
 import android.util.Log
 import com.trialfetch.app.core.DohConfig
 import com.trialfetch.app.core.HttpClient
@@ -257,37 +259,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _series.value = SeriesUiState()
     }
 
-    // Penanda yang sedang ada, terpisah dari progress. Flag progress baru
-    // berubah ke RUNNING setelah gambar pertama selesai, jadi dua tap cepat
-    // bisa sama-sama lolos guard dari progress dan mengunduh chapter yang sama
-    // dua kali. Flag ini disetel seketika sebelum coroutine mulai.
-    private val downloading = java.util.concurrent.atomic.AtomicBoolean(false)
-    private var downloadJob: kotlinx.coroutines.Job? = null
+    // Semua unduhan (satuan maupun banyak) lewat satu antrian supaya
+    // berurutan dan bisa dijeda. Guard double-tap lama tidak perlu lagi:
+    // manajer menolak duplikat QUEUED/ACTIVE dengan kunci yang sama.
+    val queue = DownloadQueueManager(viewModelScope, repo) { _settings.value }
+    val queueItems: StateFlow<List<QueueItem>> = queue.items
+    val queuePaused: StateFlow<Boolean> = queue.paused
 
     fun download(info: SeriesInfo, chapter: Chapter) {
-        if (!downloading.compareAndSet(false, true)) return
-        downloadJob = viewModelScope.launch {
-            try {
-                repo.downloadChapter(info, chapter, _settings.value)
-            } finally {
-                downloading.set(false)
-                downloadJob = null
-            }
-        }
+        queue.enqueue(info, listOf(chapter))
+    }
+
+    fun enqueueChapters(info: SeriesInfo, chapters: List<Chapter>) {
+        queue.enqueue(info, chapters)
     }
 
     /** Batalkan unduhan yang sedang berjalan lalu tutup panelnya. */
     fun cancelDownload() {
-        downloadJob?.cancel()
-        downloadJob = null
-        downloading.set(false)
+        queue.cancelCurrent()
         repo.cancelProgress()
     }
 
     /** Tutup panel hasil (selesai/gagal) tanpa membatalkan apa pun. */
     fun dismissProgress() {
         // Jangan tutup saat masih berjalan; pakai cancelDownload untuk itu.
-        if (downloading.get()) return
+        if (queue.isBusy()) return
         repo.resetProgress()
     }
 }

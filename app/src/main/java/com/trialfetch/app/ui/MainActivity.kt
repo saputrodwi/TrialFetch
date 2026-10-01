@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -110,6 +111,9 @@ import com.trialfetch.app.data.ReaderMode
 import com.trialfetch.app.data.ThemeMode
 import com.trialfetch.app.data.SavedSeries
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import com.trialfetch.app.data.QueueItem
+import com.trialfetch.app.data.QueueItemState
 import com.trialfetch.app.ui.theme.BrutalCard
 import com.trialfetch.app.ui.theme.PolkaDotBackground
 import com.trialfetch.app.ui.theme.TrialFetchTheme
@@ -193,6 +197,8 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val urlLoading by vm.urlLoading.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
+    val queueItems by vm.queueItems.collectAsStateWithLifecycle()
+    val queuePaused by vm.queuePaused.collectAsStateWithLifecycle()
     val readerReq by vm.reader.collectAsStateWithLifecycle()
     val readerPages by vm.readerPages.collectAsStateWithLifecycle()
     val readerError by vm.readerError.collectAsStateWithLifecycle()
@@ -306,7 +312,18 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                         },
                         onDownload = { chapter ->
                             if (storageGranted) vm.download(it, chapter)
-                        }
+                        },
+                        queueItems = queueItems,
+                        queuePaused = queuePaused,
+                        onEnqueue = { chapters ->
+                            if (storageGranted) vm.enqueueChapters(it, chapters)
+                        },
+                        onPauseAll = vm.queue::pauseAll,
+                        onResumeAll = vm.queue::resumeAll,
+                        onCancelQueueItem = vm.queue::cancelItem,
+                        onRemoveQueueItem = vm.queue::removeItem,
+                        onRetryQueueItem = vm.queue::retryItem,
+                        onClearFinished = vm.queue::clearFinished
                     )
                 }
 
@@ -607,18 +624,213 @@ private fun SeriesScreen(
     onCancelDownload: () -> Unit,
     onBack: () -> Unit,
     onDownload: (Chapter) -> Unit,
-    onRead: (Chapter) -> Unit
+    onRead: (Chapter) -> Unit,
+    queueItems: List<QueueItem>,
+    queuePaused: Boolean,
+    onEnqueue: (List<Chapter>) -> Unit,
+    onPauseAll: () -> Unit,
+    onResumeAll: () -> Unit,
+    onCancelQueueItem: (Long) -> Unit,
+    onRemoveQueueItem: (Long) -> Unit,
+    onRetryQueueItem: (Long) -> Unit,
+    onClearFinished: () -> Unit
 ) {
     val extra = LocalExtraColors.current
+    var selecting by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+    // Kalau pindah series, reset pilihan.
+    LaunchedEffect(info.comicId, info.source) {
+        selecting = false
+        selectedIds = emptySet()
+    }
     Column(Modifier.fillMaxSize()) {
         if (progress.state != DownloadProgress.State.IDLE) {
             DownloadPanel(progress, extra, onDismissProgress, onCancelDownload)
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
             item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark) }
-            items(info.chapters, key = { it.chapterId }) { ch ->
-                ChapterRow(ch, progress, onDownload, onRead)
+            if (queueItems.isNotEmpty()) {
+                item {
+                    QueueCard(
+                        items = queueItems,
+                        paused = queuePaused,
+                        onPauseAll = onPauseAll,
+                        onResumeAll = onResumeAll,
+                        onCancelItem = onCancelQueueItem,
+                        onRemoveItem = onRemoveQueueItem,
+                        onRetryItem = onRetryQueueItem,
+                        onClearFinished = onClearFinished
+                    )
+                }
             }
+            item {
+                // Baris aksi daftar chapter: pilih banyak vs unduh biasa.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Chapter (${info.chapters.size})",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (selecting) {
+                        TextButton(onClick = {
+                            selectedIds = if (selectedIds.size == info.chapters.size) {
+                                emptySet()
+                            } else {
+                                info.chapters.map { it.chapterId }.toSet()
+                            }
+                        }) {
+                            Text(if (selectedIds.size == info.chapters.size) "Batal semua" else "Semua")
+                        }
+                        TextButton(onClick = {
+                            val picked = info.chapters.filter { it.chapterId in selectedIds }
+                            if (picked.isNotEmpty()) onEnqueue(picked)
+                            selecting = false
+                            selectedIds = emptySet()
+                        }) {
+                            Text("Unduh (${selectedIds.size})")
+                        }
+                        TextButton(onClick = {
+                            selecting = false
+                            selectedIds = emptySet()
+                        }) {
+                            Text("Batal")
+                        }
+                    } else {
+                        TextButton(onClick = { selecting = true }) {
+                            Text("Pilih")
+                        }
+                    }
+                }
+            }
+            items(info.chapters, key = { it.chapterId }) { ch ->
+                ChapterRow(
+                    chapter = ch,
+                    progress = progress,
+                    onDownload = onDownload,
+                    onRead = onRead,
+                    selecting = selecting,
+                    selected = ch.chapterId in selectedIds,
+                    onToggleSelect = { c ->
+                        selectedIds = if (c.chapterId in selectedIds) {
+                            selectedIds - c.chapterId
+                        } else {
+                            selectedIds + c.chapterId
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Kartu antrian unduhan: daftar chapter yang menunggu/berjalan/selesai,
+ * dengan jeda global, batal per item, ulangi yang gagal, dan bersihkan
+ * yang sudah terminal.
+ */
+@Composable
+private fun QueueCard(
+    items: List<QueueItem>,
+    paused: Boolean,
+    onPauseAll: () -> Unit,
+    onResumeAll: () -> Unit,
+    onCancelItem: (Long) -> Unit,
+    onRemoveItem: (Long) -> Unit,
+    onRetryItem: (Long) -> Unit,
+    onClearFinished: () -> Unit
+) {
+    val extra = LocalExtraColors.current
+    val activeCount = items.count { it.state == QueueItemState.ACTIVE }
+    val queuedCount = items.count { it.state == QueueItemState.QUEUED }
+    val doneCount = items.count { it.state == QueueItemState.DONE }
+    BrutalCard(modifier = Modifier.fillMaxWidth(), background = extra.card) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Antrian ($doneCount/${items.size} selesai)",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f)
+            )
+            if (paused) {
+                TextButton(onClick = onResumeAll) { Text("Lanjut") }
+            } else {
+                TextButton(onClick = onPauseAll) { Text("Jeda") }
+            }
+            TextButton(onClick = onClearFinished) { Text("Bersih") }
+        }
+        Spacer(Modifier.height(8.dp))
+        if (paused && (activeCount > 0 || queuedCount > 0)) {
+            Text(
+                "Dijeda — unduhan lanjut dari gambar terakhir saat dilanjutkan.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        items.forEach { item ->
+            QueueRow(
+                item = item,
+                onCancel = { onCancelItem(item.id) },
+                onRemove = { onRemoveItem(item.id) },
+                onRetry = { onRetryItem(item.id) }
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+    }
+}
+
+@Composable
+private fun QueueRow(
+    item: QueueItem,
+    onCancel: () -> Unit,
+    onRemove: () -> Unit,
+    onRetry: () -> Unit
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    item.chapter.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    when (item.state) {
+                        QueueItemState.QUEUED -> "Menunggu"
+                        QueueItemState.ACTIVE ->
+                            if (item.total > 0) "Mengunduh ${item.done}/${item.total}" else "Mengunduh…"
+                        QueueItemState.DONE -> "Selesai"
+                        QueueItemState.FAILED -> "Gagal${item.error?.let { ": $it" } ?: ""}"
+                        QueueItemState.CANCELLED -> "Dibatalkan"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            when (item.state) {
+                QueueItemState.ACTIVE -> TextButton(onClick = onCancel) { Text("Batal") }
+                QueueItemState.QUEUED -> TextButton(onClick = onRemove) { Text("Hapus") }
+                QueueItemState.FAILED -> {
+                    TextButton(onClick = onRetry) { Text("Ulangi") }
+                    TextButton(onClick = onRemove) { Text("Hapus") }
+                }
+                QueueItemState.DONE, QueueItemState.CANCELLED ->
+                    TextButton(onClick = onRemove) { Text("Hapus") }
+            }
+        }
+        if (item.state == QueueItemState.ACTIVE && item.total > 0) {
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { (item.done.toFloat() / item.total).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -793,7 +1005,10 @@ private fun ChapterRow(
     chapter: Chapter,
     progress: DownloadProgress,
     onDownload: (Chapter) -> Unit,
-    onRead: (Chapter) -> Unit
+    onRead: (Chapter) -> Unit,
+    selecting: Boolean = false,
+    selected: Boolean = false,
+    onToggleSelect: ((Chapter) -> Unit)? = null
 ) {
     // Hanya chapter yang sedang diunduh yang tampil spinner. Sebelumnya
     // pemeriksaannya global, jadi mengunduh satu chapter membuat SEMUA baris
@@ -803,9 +1018,21 @@ private fun ChapterRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .then(
+                if (selecting && onToggleSelect != null) {
+                    Modifier.clickable { onToggleSelect(chapter) }
+                } else Modifier
+            )
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (selecting) {
+            Checkbox(
+                checked = selected,
+                onCheckedChange = { onToggleSelect?.invoke(chapter) }
+            )
+            Spacer(Modifier.width(4.dp))
+        }
         Column(Modifier.weight(1f)) {
             Text(
                 chapter.title,
@@ -817,7 +1044,7 @@ private fun ChapterRow(
         Spacer(Modifier.width(8.dp))
         if (busy) {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-        } else {
+        } else if (!selecting) {
             IconButton(onClick = { onRead(chapter) }) {
                 Icon(Icons.Default.MenuBook, contentDescription = "Baca ${chapter.title}")
             }
