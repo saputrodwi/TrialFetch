@@ -140,8 +140,10 @@ internal fun DownloadPanel(
                         else -> ""
                     },
                     Modifier.weight(1f),
-                    color = if (progress.state == DownloadProgress.State.FAILED)
-                        MaterialTheme.colorScheme.onErrorContainer else ink,
+                    // Kuning terang di kedua mode, jadi teks gagal pun
+                    // memakai tinta gelap (onErrorContainer terang akan
+                    // hilang di atas kuning pada mode terang).
+                    color = ink,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold
                 )

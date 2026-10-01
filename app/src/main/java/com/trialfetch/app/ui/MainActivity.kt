@@ -44,7 +44,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import com.trialfetch.app.data.HistoryEntry
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
@@ -208,6 +210,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val readerReq by vm.reader.collectAsStateWithLifecycle()
     val readerPages by vm.readerPages.collectAsStateWithLifecycle()
     val readerError by vm.readerError.collectAsStateWithLifecycle()
+    val readerInitialPage by vm.readerInitialPage.collectAsStateWithLifecycle()
     val extra = LocalExtraColors.current
 
     // Izin penyimpanan: dibutuhkan hanya di Android 9 ke bawah. Android 10+
@@ -359,7 +362,8 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                         onOpenHistory = vm::openHistory,
                         onPick = { r ->
                             nav.navigate(Routes.series(r.source.id, r.comicId))
-                        }
+                        },
+                        storageGranted = storageGranted
                     )
                 }
                 composable(
@@ -435,6 +439,10 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 isStreaming = streaming,
                 mode = settings.readerMode,
                 onModeChange = { vm.updateSettings(settings.copy(readerMode = it)) },
+                initialPage = readerInitialPage,
+                onPageChange = { page, total ->
+                    vm.recordReadProgress(req.series, req.chapter, page, total)
+                },
                 prevChapter = prev,
                 nextChapter = next,
                 onNavigate = { vm.openReader(req.series, it) },
@@ -483,8 +491,9 @@ private fun SeriesRoute(
     val seriesState by vm.series.collectAsStateWithLifecycle()
     val downloadState by vm.progress.collectAsStateWithLifecycle()
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
+    val history by vm.history.collectAsStateWithLifecycle()
+    val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
     val queueItems by vm.queueItems.collectAsStateWithLifecycle()
-    val queuePaused by vm.queuePaused.collectAsStateWithLifecycle()
 
     LaunchedEffect(sourceId, comicId) {
         val src = Source.from(sourceId)
@@ -511,29 +520,34 @@ private fun SeriesRoute(
         }
         info != null -> {
             val infoNow = info
+            // Refresh badge unduhan saat series dibuka dan tiap ada
+            // chapter yang selesai diunduh.
+            val doneSig = queueItems
+                .filter { it.state == QueueItemState.DONE }
+                .map { it.chapter.chapterId }
+                .toSet()
+            LaunchedEffect(infoNow.source, infoNow.comicId, doneSig) {
+                vm.refreshDownloaded(infoNow)
+            }
+            val readMap = remember(history, infoNow.source, infoNow.comicId) {
+                history.filter {
+                    it.source == infoNow.source && it.comicId == infoNow.comicId
+                }.associateBy { it.chapterId }
+            }
             SeriesScreen(
                 info = infoNow,
                 progress = downloadState,
                 isBookmarked = bookmarks.any { b -> b.source == infoNow.source && b.comicId == infoNow.comicId },
                 onToggleBookmark = { vm.toggleBookmark(infoNow) },
-                onDismissProgress = vm::dismissProgress,
-                onCancelDownload = vm::cancelDownload,
-                onBack = { },
                 onDownload = { chapter ->
                     if (storageGranted) vm.download(infoNow, chapter)
                 },
                 onRead = { ch -> vm.openReader(infoNow, ch) },
-                queueItems = queueItems,
-                queuePaused = queuePaused,
                 onEnqueue = { chapters ->
                     if (storageGranted) vm.enqueueChapters(infoNow, chapters)
                 },
-                onPauseAll = vm.queue::pauseAll,
-                onResumeAll = vm.queue::resumeAll,
-                onCancelQueueItem = vm.queue::cancelItem,
-                onRemoveQueueItem = vm.queue::removeItem,
-                onRetryQueueItem = vm.queue::retryItem,
-                onClearFinished = vm.queue::clearFinished
+                downloadedIds = downloadedIds,
+                readMap = readMap
             )
         }
     }
@@ -575,20 +589,11 @@ private fun SeriesScreen(
     progress: DownloadProgress,
     isBookmarked: Boolean,
     onToggleBookmark: () -> Unit,
-    onDismissProgress: () -> Unit,
-    onCancelDownload: () -> Unit,
-    onBack: () -> Unit,
     onDownload: (Chapter) -> Unit,
     onRead: (Chapter) -> Unit,
-    queueItems: List<QueueItem>,
-    queuePaused: Boolean,
     onEnqueue: (List<Chapter>) -> Unit,
-    onPauseAll: () -> Unit,
-    onResumeAll: () -> Unit,
-    onCancelQueueItem: (Long) -> Unit,
-    onRemoveQueueItem: (Long) -> Unit,
-    onRetryQueueItem: (Long) -> Unit,
-    onClearFinished: () -> Unit
+    downloadedIds: Set<String>,
+    readMap: Map<String, HistoryEntry>
 ) {
     val extra = LocalExtraColors.current
     var selecting by remember { mutableStateOf(false) }
@@ -599,25 +604,8 @@ private fun SeriesScreen(
         selectedIds = emptySet()
     }
     Column(Modifier.fillMaxSize()) {
-        if (progress.state != DownloadProgress.State.IDLE) {
-            DownloadPanel(progress, extra, onDismissProgress, onCancelDownload)
-        }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
             item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark) }
-            if (queueItems.isNotEmpty()) {
-                item {
-                    QueueCard(
-                        items = queueItems,
-                        paused = queuePaused,
-                        onPauseAll = onPauseAll,
-                        onResumeAll = onResumeAll,
-                        onCancelItem = onCancelQueueItem,
-                        onRemoveItem = onRemoveQueueItem,
-                        onRetryItem = onRetryQueueItem,
-                        onClearFinished = onClearFinished
-                    )
-                }
-            }
             item {
                 // Baris aksi daftar chapter: pilih banyak vs unduh biasa.
                 Row(
@@ -663,9 +651,16 @@ private fun SeriesScreen(
                 }
             }
             items(info.chapters, key = { it.chapterId }) { ch ->
+                val entry = readMap[ch.chapterId]
                 ChapterRow(
                     chapter = ch,
                     progress = progress,
+                    downloaded = ComicRepository.sanitize(ch.title) in downloadedIds,
+                    readText = entry?.let {
+                        val f = it.fraction
+                        if (f != null && it.totalPages > 0) "Terakhir: hal ${it.page}/${it.totalPages}"
+                        else "Terakhir: ${it.chapterTitle}"
+                    },
                     onDownload = onDownload,
                     onRead = onRead,
                     selecting = selecting,
@@ -739,6 +734,9 @@ private fun SeriesHeader(
                 Spacer(Modifier.height(6.dp))
                 Surface(
                     color = extra.blue,
+                    // Eksplisit (jangan andalkan bawaan): biru pastel di
+                    // kedua mode sehingga teksnya harus gelap.
+                    contentColor = extra.onAccent,
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
@@ -773,23 +771,28 @@ private fun InfoRow(label: String, value: String) {
 private fun ChapterRow(
     chapter: Chapter,
     progress: DownloadProgress,
+    downloaded: Boolean,
+    readText: String?,
     onDownload: (Chapter) -> Unit,
     onRead: (Chapter) -> Unit,
     selecting: Boolean = false,
     selected: Boolean = false,
     onToggleSelect: ((Chapter) -> Unit)? = null
 ) {
-    // Hanya chapter yang sedang diunduh yang tampil spinner. Sebelumnya
-    // pemeriksaannya global, jadi mengunduh satu chapter membuat SEMUA baris
-    // terlihat sedang berjalan.
+    // Spinner hanya untuk chapter yang sedang berjalan (state diset
+    // seketika saat unduhan mulai, jadi tidak ada delay animasi).
     val busy = progress.state == DownloadProgress.State.RUNNING &&
         progress.chapterTitle == chapter.title
     Row(
         Modifier
             .fillMaxWidth()
             .then(
-                if (selecting && onToggleSelect != null) {
-                    Modifier.clickable { onToggleSelect(chapter) }
+                // Ketuk baris = baca langsung (tanpa tombol baca terpisah).
+                // Mode pilih: ketuk = centang.
+                if (onToggleSelect != null) {
+                    Modifier.clickable {
+                        if (selecting) onToggleSelect(chapter) else onRead(chapter)
+                    }
                 } else Modifier
             )
             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -803,20 +806,41 @@ private fun ChapterRow(
             Spacer(Modifier.width(4.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(
-                chapter.title,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    chapter.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                // Badge "sudah diunduh" — terdeteksi dari folder/zip lokal,
+                // berlaku lintas sumber selama judulnya sama.
+                if (downloaded && !busy) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Sudah diunduh",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            if (readText != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    readText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         Spacer(Modifier.width(8.dp))
         if (busy) {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         } else if (!selecting) {
-            IconButton(onClick = { onRead(chapter) }) {
-                Icon(Icons.Default.MenuBook, contentDescription = "Baca ${chapter.title}")
-            }
             IconButton(onClick = { onDownload(chapter) }) {
                 Icon(Icons.Default.Download, contentDescription = "Unduh ${chapter.title}")
             }
@@ -904,6 +928,8 @@ private fun ReaderScreen(
     pages: List<ReaderPage>?,
     error: String?,
     isStreaming: Boolean,
+    initialPage: Int = 0,
+    onPageChange: (Int, Int) -> Unit = { _, _ -> },
     mode: ReaderMode,
     onModeChange: (ReaderMode) -> Unit,
     prevChapter: Chapter?,
@@ -986,6 +1012,26 @@ private fun ReaderScreen(
                 val list = pages
                 val hState = rememberPagerState(pageCount = { list.size })
                 val vList = rememberLazyListState()
+                // Lompat ke halaman terakhir dibaca (dari riwayat).
+                LaunchedEffect(list.size) {
+                    val target = initialPage.coerceIn(0, (list.size - 1).coerceAtLeast(0))
+                    if (target > 0) {
+                        try {
+                            hState.scrollToPage(target)
+                        } catch (_: Exception) {
+                        }
+                        try {
+                            vList.scrollToItem(target)
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+                // Laporkan posisi agar tersimpan ke riwayat.
+                val currentPage =
+                    if (mode == ReaderMode.WEBTOON) vList.firstVisibleItemIndex else hState.currentPage
+                LaunchedEffect(currentPage, list.size) {
+                    onPageChange(currentPage, list.size)
+                }
                 val setLock: (Boolean) -> Unit = { locked ->
                     if (locked != pagerLocked) pagerLocked = locked
                 }
@@ -1021,8 +1067,6 @@ private fun ReaderScreen(
                         )
                     }
                 }
-                val currentPage =
-                    if (mode == ReaderMode.WEBTOON) vList.firstVisibleItemIndex else hState.currentPage
                 // Bilah atas.
                 Row(
                     Modifier

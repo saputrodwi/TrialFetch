@@ -74,7 +74,8 @@ fun HomeScreen(
     onOpenUrl: () -> Unit,
     history: List<HistoryEntry>,
     onOpenHistory: (HistoryEntry) -> Unit,
-    onPick: (SearchResult) -> Unit
+    onPick: (SearchResult) -> Unit,
+    storageGranted: Boolean
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
 
@@ -86,7 +87,6 @@ fun HomeScreen(
                 UrlInputCard(
                     value = urlInput,
                     loading = urlLoading,
-                    accent = LocalExtraColors.current.blue,
                     card = LocalExtraColors.current.cardLight,
                     onChange = onUrlChange,
                     onOpen = {
@@ -106,6 +106,28 @@ fun HomeScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
+        // Teks ditulis eksplisit dengan tinta gelap: kuning terang di
+        // kedua mode sehingga warisan onSurface (terang di dark mode)
+        // tidak terbaca.
+        val warnInk = LocalExtraColors.current.onAccent
+        if (!storageGranted) {
+            Surface(
+                color = LocalExtraColors.current.yellow,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+            ) {
+                Text(
+                    "Izin penyimpanan belum diberikan — unduhan tidak bisa " +
+                        "menulis ke folder Download.",
+                    Modifier.padding(12.dp),
+                    color = warnInk,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = query,
@@ -252,7 +274,6 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
 private fun UrlInputCard(
     value: String,
     loading: Boolean,
-    accent: androidx.compose.ui.graphics.Color,
     card: androidx.compose.ui.graphics.Color,
     onChange: (String) -> Unit,
     onOpen: () -> Unit
@@ -260,7 +281,7 @@ private fun UrlInputCard(
     Surface(color = card, shape = RoundedCornerShape(14.dp)) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Link, contentDescription = null, tint = accent)
+                Icon(Icons.Default.Link, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground)
                 Spacer(Modifier.width(8.dp))
                 Text("Tempel URL series", style = MaterialTheme.typography.titleSmall)
             }

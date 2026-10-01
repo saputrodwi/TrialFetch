@@ -174,6 +174,15 @@ class ComicRepository(
         onImage: ((done: Int, total: Int) -> Unit)? = null,
         isPaused: () -> Boolean = { false }
     ): DownloadProgress = withContext(Dispatchers.IO) {
+        // Tandai RUNNING seketika supaya spinner di baris chapter langsung
+        // muncul — sebelumnya baru berubah setelah metadata + gambar pertama
+        // selesai sehingga terasa delay.
+        _progress.value = DownloadProgress(
+            total = 0, done = 0, currentPage = 0,
+            state = DownloadProgress.State.RUNNING,
+            chapterTitle = chapter.title
+        )
+        notifier.showRunning(chapter.title, 0, 0)
         val page = try {
             chapter(series.source, chapter.url)
         } catch (e: Exception) {
