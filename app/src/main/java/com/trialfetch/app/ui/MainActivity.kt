@@ -1177,7 +1177,7 @@ private fun ZoomablePage(
         contentScale = if (flow) ContentScale.FillWidth else ContentScale.Fit,
         onSuccess = {
             val s = it.painter.intrinsicSize
-            if (s.isSpecified && s.height > 0f) {
+            if (s.width.isFinite() && s.height.isFinite() && s.height > 0f) {
                 aspect = s.width / s.height
             }
         },
