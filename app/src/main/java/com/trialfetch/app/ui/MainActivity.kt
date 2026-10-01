@@ -952,10 +952,17 @@ private fun ReaderScreen(
                     var scale by remember(page) { mutableFloatStateOf(1f) }
                     var offset by remember(page) { mutableStateOf(Offset.Zero) }
                     val transform = rememberTransformableState { zoom, pan, _ ->
-                        val next = (scale * zoom).coerceIn(1f, 4f)
+                        var next = (scale * zoom).coerceIn(1f, 4f)
+                        // Snap: cegah drift float (mis. 1,0003 dari jitter
+                        // jari) yang mengunci pager selamanya.
+                        if (next < 1.02f) next = 1f
                         scale = next
                         offset = if (next <= 1f) Offset.Zero else offset + pan
-                        pagerLocked = next > 1f
+                        val locked = next > 1f
+                        // Tulis hanya saat berubah: tulis state luar dari
+                        // callback gestur tiap frame memicu recomposition
+                        // beruntun yang membuat input macet.
+                        if (locked != pagerLocked) pagerLocked = locked
                     }
                     val active = pagerState.currentPage == page
                     // URL remote dimuat dengan header penangkal hotlink
@@ -982,7 +989,15 @@ private fun ReaderScreen(
                                 translationX = if (active) offset.x else 0f,
                                 translationY = if (active) offset.y else 0f
                             )
-                            .transformable(transform)
+                            // canPan (pola dokumen resmi): saat belum zoom, pan
+                            // TIDAK dikonsumsi sehingga pager menerima geseran
+                            // dan bisa pindah halaman. Cubit-zoom tetap jalan
+                            // karena zoom bukan pan. Tanpa ini transformable
+                            // melahap semua drag dan geser pager mati total.
+                            .transformable(
+                                state = transform,
+                                canPan = { scale > 1f }
+                            )
                     )
                 }
                 // Bilah atas + penghitung halaman.
