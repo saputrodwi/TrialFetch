@@ -14,6 +14,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -876,6 +877,7 @@ private fun SavedScreen(
  * chapter belum diunduh (tampilkan ajakan unduh).
  */
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun ReaderScreen(
     title: String,
     pages: List<ReaderPage>?,
