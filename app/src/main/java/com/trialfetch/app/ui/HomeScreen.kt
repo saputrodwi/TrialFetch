@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,7 +79,8 @@ fun HomeScreen(
     history: List<HistoryEntry>,
     onOpenHistory: (HistoryEntry) -> Unit,
     onPick: (SearchResult) -> Unit,
-    storageGranted: Boolean
+    storageGranted: Boolean,
+    onReset: () -> Unit
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
 
@@ -87,19 +89,50 @@ fun HomeScreen(
             onDismissRequest = { showUrlDialog = false },
             title = { Text("Buka dari URL", style = MaterialTheme.typography.titleMedium) },
             text = {
-                UrlInputCard(
-                    value = urlInput,
-                    loading = urlLoading,
-                    card = LocalExtraColors.current.cardLight,
-                    onChange = onUrlChange,
-                    onOpen = {
-                        onOpenUrl()
-                        showUrlDialog = false
+                Column {
+                    Text(
+                        "Tempel link series atau chapter dari situs yang didukung.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = urlInput,
+                        onValueChange = onUrlChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("manwang.net/book/…") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = {
+                            if (!urlLoading && urlInput.isNotBlank()) {
+                                onOpenUrl()
+                                showUrlDialog = false
+                            }
+                        })
+                    )
+                    if (urlLoading) {
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                        }
                     }
-                )
+                }
             },
             confirmButton = {
-                TextButton(onClick = { showUrlDialog = false }) { Text("Tutup") }
+                TextButton(
+                    onClick = {
+                        onOpenUrl()
+                        showUrlDialog = false
+                    },
+                    enabled = !urlLoading && urlInput.isNotBlank()
+                ) { Text("Buka") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUrlDialog = false }) { Text("Batal") }
             }
         )
     }
@@ -158,10 +191,21 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(4.dp))
-        TextButton(onClick = { showUrlDialog = true }) {
-            Icon(Icons.Default.Link, contentDescription = null)
-            Spacer(Modifier.width(4.dp))
-            Text("Buka dari URL")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { showUrlDialog = true }) {
+                Icon(Icons.Default.Link, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("Buka dari URL")
+            }
+            Spacer(Modifier.weight(1f))
+            // Reset: hapus query + hasil cari + error + URL sekaligus.
+            if (query.isNotBlank() || results.isNotEmpty() || error != null || urlInput.isNotBlank()) {
+                TextButton(onClick = onReset) {
+                    Icon(Icons.Default.Refresh, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Reset")
+                }
+            }
         }
 
         error?.let {
@@ -257,10 +301,16 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                entry.fraction?.let { f ->
+                if (entry.totalPages > 0) {
                     Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Hal ${entry.page} dari ${entry.totalPages}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
                     LinearProgressIndicator(
-                        progress = { f },
+                        progress = { entry.fraction ?: 0f },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -270,46 +320,6 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
 }
 
 @Composable
-private fun UrlInputCard(
-    value: String,
-    loading: Boolean,
-    card: androidx.compose.ui.graphics.Color,
-    onChange: (String) -> Unit,
-    onOpen: () -> Unit
-) {
-    Surface(color = card, shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Link, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground)
-                Spacer(Modifier.width(8.dp))
-                Text("Tempel URL series", style = MaterialTheme.typography.titleSmall)
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onChange,
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("manwang.net/book/…") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = {
-                        if (!loading && value.isNotBlank()) onOpen()
-                    })
-                )
-                Spacer(Modifier.width(8.dp))
-                IconButton(onClick = onOpen, enabled = !loading && value.isNotBlank()) {
-                    if (loading) {
-                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Default.Link, contentDescription = "Buka URL")
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun ResultRow(r: SearchResult, onClick: () -> Unit) {

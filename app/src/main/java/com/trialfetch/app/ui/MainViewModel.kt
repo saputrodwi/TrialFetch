@@ -223,6 +223,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _search.value = _search.value.copy(query = q, error = null)
     }
 
+    /** Reset beranda: hapus query, hasil cari, error, dan URL. Sumber tetap. */
+    fun clearSearch() {
+        val src = _search.value.source
+        _search.value = SearchUiState(source = src)
+        _urlInput.value = ""
+        _urlLoading.value = false
+    }
+
     fun onSourceChange(s: Source) {
         _search.value = _search.value.copy(source = s, results = emptyList(), error = null)
     }

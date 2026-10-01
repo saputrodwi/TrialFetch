@@ -90,15 +90,17 @@ fun DownloadsScreen(
 @Composable
 private fun BoxEmpty(text: String) {
     androidx.compose.foundation.layout.Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 48.dp),
+        // fillParentMaxSize (bukan fillMaxSize) agar benar-benar
+        // tengah layar di dalam LazyColumn.
+        Modifier.fillParentMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 32.dp)
         )
     }
 }

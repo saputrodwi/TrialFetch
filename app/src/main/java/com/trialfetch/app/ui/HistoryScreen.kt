@@ -106,10 +106,16 @@ fun HistoryScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        h.fraction?.let { f ->
+                        if (h.totalPages > 0) {
                             Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Terakhir dibaca: hal ${h.page} dari ${h.totalPages}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(4.dp))
                             LinearProgressIndicator(
-                                progress = { f },
+                                progress = { h.fraction ?: 0f },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }

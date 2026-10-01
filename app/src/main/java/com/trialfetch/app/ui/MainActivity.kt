@@ -366,7 +366,8 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                         onPick = { r ->
                             nav.navigate(Routes.series(r.source.id, r.comicId))
                         },
-                        storageGranted = storageGranted
+                        storageGranted = storageGranted,
+                        onReset = vm::clearSearch
                     )
                 }
                 composable(
@@ -601,7 +602,9 @@ private fun SeriesScreen(
                     Text(
                         "Chapter (${info.chapters.size})",
                         style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     IconButton(onClick = { newestFirst = !newestFirst }) {
                         Icon(
@@ -868,7 +871,9 @@ private fun SavedScreen(
             Text(
                 "Belum ada series tersimpan.\nBuka series lalu ketuk ikon bookmark.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
             )
         }
         return
