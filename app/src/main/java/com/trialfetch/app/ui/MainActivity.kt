@@ -770,8 +770,6 @@ private fun InfoRow(label: String, value: String) {
 }
 
 @Composable
-
-@Composable
 private fun ChapterRow(
     chapter: Chapter,
     progress: DownloadProgress,
