@@ -4,8 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -181,6 +184,7 @@ fun BrutalButton(
 }
 
 /** Deretan tombol pilihan aktif/nonaktif, gaya pil di web. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BrutalChoiceRow(
     options: List<String>,
@@ -193,12 +197,16 @@ fun BrutalChoiceRow(
     val borderColor = MaterialTheme.colorScheme.onBackground
     val onAccent = LocalExtraColors.current.onAccent
 
-    Row(modifier = modifier) {
+    // FlowRow agar opsi banyak/tulisan panjang tidak terpotong di layar sempit.
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         options.forEachIndexed { index, option ->
             val selected = index == selectedIndex
             Box(
                 modifier = Modifier
-                    .padding(end = 8.dp)
                     .hardShadow(shadowColor, 2.dp, PillShape)
                     .background(if (selected) accent else Color.Transparent, PillShape)
                     .border(InkWidth, borderColor, PillShape)
