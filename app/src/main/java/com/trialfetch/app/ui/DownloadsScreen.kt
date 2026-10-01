@@ -81,18 +81,22 @@ fun DownloadsScreen(
         }
         if (progress.state == DownloadProgress.State.IDLE && queueItems.isEmpty()) {
             item {
-                BoxEmpty("Belum ada unduhan.\nPilih chapter dari series untuk mulai.")
+                BoxEmpty(
+                    "Belum ada unduhan.\nPilih chapter dari series untuk mulai.",
+                    Modifier.fillParentMaxSize()
+                )
             }
         }
     }
 }
 
 @Composable
-private fun BoxEmpty(text: String) {
+private fun BoxEmpty(text: String, modifier: Modifier = Modifier) {
     androidx.compose.foundation.layout.Box(
-        // fillParentMaxSize (bukan fillMaxSize) agar benar-benar
-        // tengah layar di dalam LazyColumn.
-        Modifier.fillParentMaxSize(),
+        // Modifier dari call site (fillParentMaxSize) agar benar-benar
+        // tengah layar di dalam LazyColumn. Tidak bisa dipanggil di sini
+        // karena hanya tersedia dalam scope item LazyColumn.
+        modifier,
         contentAlignment = Alignment.Center
     ) {
         Text(

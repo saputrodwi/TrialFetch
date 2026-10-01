@@ -320,8 +320,6 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
 }
 
 @Composable
-
-@Composable
 private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
     val extra = LocalExtraColors.current
     BrutalCard(
