@@ -16,6 +16,8 @@ import android.util.Log
 import com.trialfetch.app.core.DohConfig
 import com.trialfetch.app.core.HttpClient
 import com.trialfetch.app.data.BookmarkStore
+import com.trialfetch.app.data.HistoryEntry
+import com.trialfetch.app.data.ReadHistoryStore
 import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.data.SavedSeries
 import kotlinx.coroutines.Dispatchers
@@ -132,10 +134,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * streaming langsung dari URL seperti versi web (tanpa wajib unduh).
      * Chapter terenkripsi (URL-nya ciphertext) tetap wajib diunduh dulu.
      */
-    fun openReader(series: com.trialfetch.app.core.SeriesInfo, chapter: com.trialfetch.app.core.Chapter) {
+    private val _readerInitialPage = MutableStateFlow(0)
+    val readerInitialPage: StateFlow<Int> = _readerInitialPage.asStateFlow()
+
+    fun openReader(
+        series: com.trialfetch.app.core.SeriesInfo,
+        chapter: com.trialfetch.app.core.Chapter,
+        initialPage: Int = 0
+    ) {
         _reader.value = ReaderRequest(series, chapter)
         _readerPages.value = null
         _readerError.value = null
+        _readerInitialPage.value = initialPage.coerceAtLeast(0)
         viewModelScope.launch {
             val local = withContext(Dispatchers.IO) {
                 repo.getReadableImages(series, chapter, _settings.value)
@@ -231,12 +241,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Buka entri riwayat: muat series, lompat ke chapter + halaman terakhir. */
+    fun openHistory(entry: HistoryEntry) {
+        _series.value = SeriesUiState(loading = true)
+        viewModelScope.launch {
+            try {
+                val info = repo.series(entry.source, entry.comicId)
+                _series.value = SeriesUiState(info = info)
+                val ch = info.chapters.firstOrNull { it.chapterId == entry.chapterId }
+                if (ch != null) {
+                    openReader(info, ch, entry.page)
+                }
+            } catch (e: Exception) {
+                _series.value = SeriesUiState(error = e.message ?: "Gagal memuat series")
+            }
+        }
+    }
+
     fun openSaved(item: SavedSeries) {
         _series.value = SeriesUiState(loading = true)
         viewModelScope.launch {
             try {
                 val info = repo.series(item.source, item.comicId)
                 _series.value = SeriesUiState(info = info)
+                refreshDownloaded(info)
             } catch (e: Exception) {
                 _series.value = SeriesUiState(error = e.message ?: "Gagal memuat series")
             }
@@ -244,16 +272,85 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openSeries(result: SearchResult) {
+        openSeriesById(result.source, result.comicId)
+    }
+
+    /** Buka series dari route navigasi (source + id string). */
+    fun openSeriesById(source: com.trialfetch.app.core.Source, comicId: String) {
         _series.value = SeriesUiState(loading = true)
         viewModelScope.launch {
             try {
-                val info = repo.series(result.source, result.comicId)
+                val info = repo.series(source, comicId)
                 _series.value = SeriesUiState(info = info)
+                refreshDownloaded(info)
             } catch (e: Exception) {
                 _series.value = SeriesUiState(error = e.message ?: "Gagal memuat series")
             }
         }
     }
+
+    // --- Riwayat baca ---
+    private val historyStore = ReadHistoryStore(app)
+
+    private val _history = MutableStateFlow(historyStore.load())
+    val history: StateFlow<List<HistoryEntry>> = _history.asStateFlow()
+
+    /** Catat posisi baca; dipanggil tiap ganti halaman di reader. */
+    fun recordReadProgress(
+        series: com.trialfetch.app.core.SeriesInfo,
+        chapter: com.trialfetch.app.core.Chapter,
+        page: Int,
+        totalPages: Int
+    ) {
+        val entry = HistoryEntry(
+            source = series.source,
+            comicId = series.comicId,
+            title = series.title,
+            coverUrl = series.coverUrl,
+            chapterId = chapter.chapterId,
+            chapterTitle = chapter.title,
+            page = page,
+            totalPages = totalPages
+        )
+        historyStore.record(entry)
+        _history.value = historyStore.load()
+    }
+
+    fun removeHistory(key: String) {
+        historyStore.remove(key)
+        _history.value = historyStore.load()
+    }
+
+    fun clearHistory() {
+        historyStore.clear()
+        _history.value = emptyList()
+    }
+
+    // --- Status unduhan per chapter (satu query per series) ---
+    private val _downloadedIds = MutableStateFlow(emptySet<String>())
+    val downloadedIds: StateFlow<Set<String>> = _downloadedIds.asStateFlow()
+
+    /** Muat ulang himpunan nama folder chapter yang sudah terunduh. */
+    fun refreshDownloaded(series: com.trialfetch.app.core.SeriesInfo) {
+        viewModelScope.launch {
+            val set = withContext(Dispatchers.IO) {
+                repo.listDownloadedChapters(series, _settings.value)
+            }
+            // Hanya terapkan bila series yang terbuka masih sama.
+            if (_series.value.info?.let { it.source == series.source && it.comicId == series.comicId } == true) {
+                _downloadedIds.value = set
+            }
+        }
+    }
+
+    fun isChapterDownloaded(chapter: com.trialfetch.app.core.Chapter): Boolean {
+        val info = _series.value.info ?: return false
+        return sanitizeName(chapter.title) in _downloadedIds.value ||
+            _downloadedIds.value.any { it.equals(chapter.title.trim(), ignoreCase = true) }
+    }
+
+    private fun sanitizeName(title: String): String =
+        ComicRepository.sanitize(title)
 
     fun closeSeries() {
         _series.value = SeriesUiState()

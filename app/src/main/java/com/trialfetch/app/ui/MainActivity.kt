@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -46,6 +47,18 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Badge
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.SkipNext
@@ -151,41 +164,33 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Tab { SEARCH, SERIES, SAVED, SETTINGS }
+private const val EXIT_PRESS_WINDOW_MS = 2000L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppRoot(vm: MainViewModel = viewModel()) {
     val context = LocalContext.current
-    var tab by remember { mutableStateOf(Tab.SEARCH) }
+    val nav = rememberNavController()
+    val backStack by nav.currentBackStackEntryAsState()
+    val route = backStack?.destination?.route
+    val onHome = route == null || route == Routes.HOME
+
     var exitArmed by remember { mutableStateOf(false) }
     val uiScope = rememberCoroutineScope()
-
-    // Tombol back sistem: dari Series/Pengaturan kembali ke daftar,
-    // bukan keluar aplikasi. Di beranda perlu tekan 2x untuk keluar.
-    BackHandler {
-        when (tab) {
-            Tab.SERIES -> {
-                vm.closeSeries()
-                tab = Tab.SEARCH
-            }
-            Tab.SETTINGS -> tab = Tab.SEARCH
-            Tab.SAVED -> tab = Tab.SEARCH
-            Tab.SEARCH -> {
-                if (exitArmed) {
-                    (context as? Activity)?.finish()
-                } else {
-                    exitArmed = true
-                    Toast.makeText(
-                        context,
-                        "Tekan kembali sekali lagi untuk keluar",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    uiScope.launch {
-                        delay(2000)
-                        exitArmed = false
-                    }
-                }
+    // Keluar 2x hanya di beranda. Di layar lain, back = kembali (nav default).
+    BackHandler(enabled = onHome) {
+        if (exitArmed) {
+            (context as? Activity)?.finish()
+        } else {
+            exitArmed = true
+            Toast.makeText(
+                context,
+                "Tekan kembali sekali lagi untuk keluar",
+                Toast.LENGTH_SHORT
+            ).show()
+            uiScope.launch {
+                delay(EXIT_PRESS_WINDOW_MS)
+                exitArmed = false
             }
         }
     }
@@ -197,6 +202,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val urlLoading by vm.urlLoading.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
+    val history by vm.history.collectAsStateWithLifecycle()
     val queueItems by vm.queueItems.collectAsStateWithLifecycle()
     val queuePaused by vm.queuePaused.collectAsStateWithLifecycle()
     val readerReq by vm.reader.collectAsStateWithLifecycle()
@@ -236,9 +242,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     }
 
     val series = seriesState.info
-    LaunchedEffect(series) {
-        if (series != null) tab = Tab.SERIES
-    }
+    val activeDownloads = queueItems.count { it.state == QueueItemState.ACTIVE }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -250,11 +254,14 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 ),
                 title = {
                     Text(
-                        when (tab) {
-                            Tab.SEARCH -> "Trial Fetch"
-                            Tab.SERIES -> series?.title ?: "Trial Fetch"
-                            Tab.SAVED -> "Tersimpan"
-                            Tab.SETTINGS -> "Pengaturan"
+                        when {
+                            route == null || route == Routes.HOME -> "Trial Fetch"
+                            route.startsWith(Routes.SERIES) -> series?.title ?: "Series"
+                            route == Routes.SAVED -> "Tersimpan"
+                            route == Routes.HISTORY -> "Riwayat"
+                            route == Routes.DOWNLOADS -> "Unduhan"
+                            route == Routes.SETTINGS -> "Pengaturan"
+                            else -> "Trial Fetch"
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -262,96 +269,156 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                     )
                 },
                 navigationIcon = {
-                    if (tab == Tab.SETTINGS || tab == Tab.SAVED) {
-                        IconButton(onClick = { tab = Tab.SEARCH }) {
+                    if (!onHome) {
+                        IconButton(onClick = { nav.popBackStack() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
-                        }
-                    }
-                },
-                actions = {
-                    if (tab == Tab.SEARCH) {
-                        IconButton(onClick = { tab = Tab.SAVED }) {
-                            Icon(Icons.Default.Bookmark, contentDescription = "Tersimpan")
-                        }
-                        IconButton(onClick = { tab = Tab.SETTINGS }) {
-                            Icon(Icons.Default.Settings, contentDescription = "Pengaturan")
                         }
                     }
                 }
             )
+        },
+        bottomBar = {
+            NavigationBar {
+                BottomTab(
+                    selected = onHome,
+                    onClick = {
+                        nav.navigate(Routes.HOME) {
+                            popUpTo(Routes.HOME) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    },
+                    icon = Icons.Default.Home,
+                    label = "Beranda"
+                )
+                BottomTab(
+                    selected = route == Routes.SAVED,
+                    onClick = {
+                        nav.navigate(Routes.SAVED) {
+                            popUpTo(Routes.HOME)
+                            launchSingleTop = true
+                        }
+                    },
+                    icon = Icons.Default.Bookmark,
+                    label = "Simpan"
+                )
+                BottomTab(
+                    selected = route == Routes.HISTORY,
+                    onClick = {
+                        nav.navigate(Routes.HISTORY) {
+                            popUpTo(Routes.HOME)
+                            launchSingleTop = true
+                        }
+                    },
+                    icon = Icons.Default.History,
+                    label = "Riwayat"
+                )
+                BottomTab(
+                    selected = route == Routes.DOWNLOADS,
+                    onClick = {
+                        nav.navigate(Routes.DOWNLOADS) {
+                            popUpTo(Routes.HOME)
+                            launchSingleTop = true
+                        }
+                    },
+                    icon = Icons.Default.Download,
+                    label = "Unduhan",
+                    badgeCount = activeDownloads
+                )
+                BottomTab(
+                    selected = route == Routes.SETTINGS,
+                    onClick = {
+                        nav.navigate(Routes.SETTINGS) {
+                            popUpTo(Routes.HOME)
+                            launchSingleTop = true
+                        }
+                    },
+                    icon = Icons.Default.Settings,
+                    label = "Atur"
+                )
+            }
         }
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
-            when (tab) {
-                Tab.SEARCH -> SearchScreen(
-                    state = searchState,
-                    sources = vm.repo.availableSources,
-                    urlInput = urlInput,
-                    urlLoading = urlLoading,
-                    storageGranted = storageGranted,
-                    onQueryChange = vm::onQueryChange,
-                    onSourceChange = vm::onSourceChange,
-                    onSearch = vm::doSearch,
-                    onPick = vm::openSeries,
-                    onUrlChange = vm::onUrlChange,
-                    onOpenUrl = vm::openFromUrl
-                )
-
-                Tab.SERIES -> series?.let {
-                    SeriesScreen(
-                        info = it,
+            NavHost(nav, startDestination = Routes.HOME) {
+                composable(Routes.HOME) {
+                    HomeScreen(
+                        query = searchState.query,
+                        onQueryChange = vm::onQueryChange,
+                        onSearch = vm::doSearch,
+                        searching = searchState.loading,
+                        sources = vm.repo.availableSources,
+                        source = searchState.source,
+                        onSourceChange = vm::onSourceChange,
+                        results = searchState.results,
+                        error = seriesState.error,
+                        urlInput = urlInput,
+                        urlLoading = urlLoading,
+                        onUrlChange = vm::onUrlChange,
+                        onOpenUrl = vm::openFromUrl,
+                        history = history,
+                        onOpenHistory = vm::openHistory,
+                        onPick = { r ->
+                            nav.navigate(Routes.series(r.source.id, r.comicId))
+                        }
+                    )
+                }
+                composable(
+                    "${Routes.SERIES}?${Routes.ARG_SOURCE}={${Routes.ARG_SOURCE}}&${Routes.ARG_COMIC_ID}={${Routes.ARG_COMIC_ID}}",
+                    arguments = listOf(
+                        navArgument(Routes.ARG_SOURCE) { type = NavType.StringType; defaultValue = "" },
+                        navArgument(Routes.ARG_COMIC_ID) { type = NavType.StringType; defaultValue = "" }
+                    )
+                ) { entry ->
+                    SeriesRoute(
+                        sourceId = entry.arguments?.getString(Routes.ARG_SOURCE).orEmpty(),
+                        comicId = entry.arguments?.getString(Routes.ARG_COMIC_ID).orEmpty(),
+                        vm = vm,
+                        storageGranted = storageGranted
+                    )
+                }
+                composable(Routes.SAVED) {
+                    SavedScreen(
+                        items = bookmarks,
+                        onOpen = { item ->
+                            nav.navigate(Routes.series(item.source.id, item.comicId))
+                        },
+                        onRemove = vm::removeBookmark
+                    )
+                }
+                composable(Routes.HISTORY) {
+                    HistoryScreen(
+                        items = history,
+                        onOpen = vm::openHistory,
+                        onRemove = vm::removeHistory,
+                        onClear = vm::clearHistory
+                    )
+                }
+                composable(Routes.DOWNLOADS) {
+                    DownloadsScreen(
                         progress = downloadState,
-                        isBookmarked = bookmarks.any { b -> b.source == it.source && b.comicId == it.comicId },
-                        onToggleBookmark = { vm.toggleBookmark(it) },
                         onDismissProgress = vm::dismissProgress,
                         onCancelDownload = vm::cancelDownload,
-                        onRead = { ch -> vm.openReader(it, ch) },
-                        onBack = {
-                            vm.closeSeries()
-                            tab = Tab.SEARCH
-                        },
-                        onDownload = { chapter ->
-                            if (storageGranted) vm.download(it, chapter)
-                        },
                         queueItems = queueItems,
                         queuePaused = queuePaused,
-                        onEnqueue = { chapters ->
-                            if (storageGranted) vm.enqueueChapters(it, chapters)
-                        },
                         onPauseAll = vm.queue::pauseAll,
                         onResumeAll = vm.queue::resumeAll,
-                        onCancelQueueItem = vm.queue::cancelItem,
-                        onRemoveQueueItem = vm.queue::removeItem,
-                        onRetryQueueItem = vm.queue::retryItem,
+                        onCancelItem = vm.queue::cancelItem,
+                        onRemoveItem = vm.queue::removeItem,
+                        onRetryItem = vm.queue::retryItem,
                         onClearFinished = vm.queue::clearFinished
                     )
                 }
-
-                Tab.SETTINGS -> SettingsScreen(
-                    settings = settings,
-                    onChange = vm::updateSettings
-                )
-
-                Tab.SAVED -> SavedScreen(
-                    items = bookmarks,
-                    onOpen = { item ->
-                        vm.openSaved(item)
-                        tab = Tab.SERIES
-                    },
-                    onRemove = vm::removeBookmark
-                )
-            }
-
-            // Error dari URL manual muncul di layar pencarian.
-            if (seriesState.error != null && tab == Tab.SEARCH) {
-                ErrorBanner(seriesState.error!!, extra.pinkDeep, extra.card) {
-                    vm.closeSeries()
+                composable(Routes.SETTINGS) {
+                    SettingsScreen(
+                        settings = settings,
+                        onChange = vm::updateSettings
+                    )
                 }
             }
         }
     }
 
-    // Reader menutupi seluruh layar di atas tab apa pun.
+    // Reader menutupi seluruh layar di atas route apa pun.
     readerReq?.let { req ->
         val streaming = readerPages?.firstOrNull()?.uri?.startsWith("http") == true
         // Index chapter sesuai urutan daftar yang tampil di layar series.
@@ -376,6 +443,97 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                     if (storageGranted) vm.download(req.series, req.chapter)
                 },
                 onRetry = { vm.openReader(req.series, req.chapter) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.BottomTab(
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    badgeCount: Int = 0
+) {
+    NavigationBarItem(
+        selected = selected,
+        onClick = onClick,
+        icon = {
+            if (badgeCount > 0) {
+                BadgedBox(badge = { Badge { Text("$badgeCount") } }) {
+                    Icon(icon, contentDescription = label)
+                }
+            } else {
+                Icon(icon, contentDescription = label)
+            }
+        },
+        label = { Text(label) }
+    )
+}
+
+/** Bungkus layar series: muat dari argumen route, teruskan semua aksi. */
+@Composable
+private fun SeriesRoute(
+    sourceId: String,
+    comicId: String,
+    vm: MainViewModel,
+    storageGranted: Boolean
+) {
+    val seriesState by vm.series.collectAsStateWithLifecycle()
+    val downloadState by vm.progress.collectAsStateWithLifecycle()
+    val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
+    val queueItems by vm.queueItems.collectAsStateWithLifecycle()
+    val queuePaused by vm.queuePaused.collectAsStateWithLifecycle()
+
+    LaunchedEffect(sourceId, comicId) {
+        val src = Source.from(sourceId)
+        if (src != null && comicId.isNotBlank()) {
+            vm.openSeriesById(src, comicId)
+        }
+    }
+
+    val info = seriesState.info
+    when {
+        seriesState.loading || info == null && seriesState.error == null -> {
+            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        seriesState.error != null && info == null -> {
+            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                Text(
+                    seriesState.error ?: "Gagal memuat series",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        info != null -> {
+            val infoNow = info
+            SeriesScreen(
+                info = infoNow,
+                progress = downloadState,
+                isBookmarked = bookmarks.any { b -> b.source == infoNow.source && b.comicId == infoNow.comicId },
+                onToggleBookmark = { vm.toggleBookmark(infoNow) },
+                onDismissProgress = vm::dismissProgress,
+                onCancelDownload = vm::cancelDownload,
+                onBack = { },
+                onDownload = { chapter ->
+                    if (storageGranted) vm.download(infoNow, chapter)
+                },
+                onRead = { ch -> vm.openReader(infoNow, ch) },
+                queueItems = queueItems,
+                queuePaused = queuePaused,
+                onEnqueue = { chapters ->
+                    if (storageGranted) vm.enqueueChapters(infoNow, chapters)
+                },
+                onPauseAll = vm.queue::pauseAll,
+                onResumeAll = vm.queue::resumeAll,
+                onCancelQueueItem = vm.queue::cancelItem,
+                onRemoveQueueItem = vm.queue::removeItem,
+                onRetryQueueItem = vm.queue::retryItem,
+                onClearFinished = vm.queue::clearFinished
             )
         }
     }
@@ -411,207 +569,6 @@ private fun ErrorBanner(message: String, accent: androidx.compose.ui.graphics.Co
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SearchScreen(
-    state: SearchUiState,
-    sources: List<Source>,
-    urlInput: String,
-    urlLoading: Boolean,
-    storageGranted: Boolean,
-    onQueryChange: (String) -> Unit,
-    onSourceChange: (Source) -> Unit,
-    onSearch: () -> Unit,
-    onPick: (SearchResult) -> Unit,
-    onUrlChange: (String) -> Unit,
-    onOpenUrl: () -> Unit
-) {
-    val extra = LocalExtraColors.current
-    // URL disembunyikan dulu supaya tampilan bersih; dibuka bila perlu.
-    var urlExpanded by remember { mutableStateOf(false) }
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-    ) {
-        if (!storageGranted) {
-            Surface(
-                color = extra.yellow,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp)
-            ) {
-                Text(
-                    "Izin penyimpanan belum diberikan — unduhan tidak bisa " +
-                        "menulis ke folder Download.",
-                    Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = state.query,
-            onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Cari judul komik") },
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            trailingIcon = {
-                IconButton(onClick = onSearch, enabled = !state.loading) {
-                    Icon(Icons.Default.Search, contentDescription = "Cari")
-                }
-            }
-        )
-
-        Spacer(Modifier.height(10.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(sources) { s ->
-                FilterChip(
-                    selected = state.source == s,
-                    onClick = { onSourceChange(s) },
-                    label = { Text(s.displayName) }
-                )
-            }
-        }
-
-        state.error?.let {
-            Spacer(Modifier.height(12.dp))
-            Text(it, color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium)
-        }
-
-        when {
-            state.loading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            else -> {
-                LazyColumn(
-                    Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    item {
-                        TextButton(onClick = { urlExpanded = !urlExpanded }) {
-                            Icon(
-                                if (urlExpanded) Icons.Default.ExpandLess
-                                else Icons.Default.ExpandMore,
-                                contentDescription = null
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(if (urlExpanded) "Sembunyikan input URL" else "Buka dari URL")
-                        }
-                    }
-                    if (urlExpanded) {
-                        item {
-                            UrlInputCard(
-                                value = urlInput,
-                                loading = urlLoading,
-                                accent = extra.blue,
-                                card = extra.card,
-                                onChange = onUrlChange,
-                                onOpen = onOpenUrl
-                            )
-                        }
-                    }
-                    items(state.results, key = { it.comicId }) { r ->
-                        ResultRow(r) { onPick(r) }
-                    }
-                    if (!state.loading && state.results.isEmpty()) {
-                        item {
-                            Text(
-                                "Cari judul, atau tempel link series di atas.\n" +
-                                    "Contoh: 被校花分手后，我直接武道通神",
-                                Modifier.padding(top = 24.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun UrlInputCard(
-    value: String,
-    loading: Boolean,
-    accent: androidx.compose.ui.graphics.Color,
-    card: androidx.compose.ui.graphics.Color,
-    onChange: (String) -> Unit,
-    onOpen: () -> Unit
-) {
-    Surface(color = card, shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Link, contentDescription = null, tint = accent)
-                Spacer(Modifier.width(8.dp))
-                Text("Tempel URL series", style = MaterialTheme.typography.titleSmall)
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onChange,
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("manwang.net/book/…") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                IconButton(onClick = onOpen, enabled = !loading && value.isNotBlank()) {
-                    if (loading) {
-                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Default.Link, contentDescription = "Buka URL")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
-    val extra = LocalExtraColors.current
-    BrutalCard(
-        modifier = Modifier.fillMaxWidth(),
-        background = extra.card,
-        onClick = onClick
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = r.coverUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(width = 56.dp, height = 76.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(2.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    r.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (r.author.isNotBlank()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        r.author,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -734,106 +691,8 @@ private fun SeriesScreen(
  * yang sudah terminal.
  */
 @Composable
-private fun QueueCard(
-    items: List<QueueItem>,
-    paused: Boolean,
-    onPauseAll: () -> Unit,
-    onResumeAll: () -> Unit,
-    onCancelItem: (Long) -> Unit,
-    onRemoveItem: (Long) -> Unit,
-    onRetryItem: (Long) -> Unit,
-    onClearFinished: () -> Unit
-) {
-    val extra = LocalExtraColors.current
-    val activeCount = items.count { it.state == QueueItemState.ACTIVE }
-    val queuedCount = items.count { it.state == QueueItemState.QUEUED }
-    val doneCount = items.count { it.state == QueueItemState.DONE }
-    BrutalCard(modifier = Modifier.fillMaxWidth(), background = extra.card) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Antrian ($doneCount/${items.size} selesai)",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f)
-            )
-            if (paused) {
-                TextButton(onClick = onResumeAll) { Text("Lanjut") }
-            } else {
-                TextButton(onClick = onPauseAll) { Text("Jeda") }
-            }
-            TextButton(onClick = onClearFinished) { Text("Bersih") }
-        }
-        Spacer(Modifier.height(8.dp))
-        if (paused && (activeCount > 0 || queuedCount > 0)) {
-            Text(
-                "Dijeda — unduhan lanjut dari gambar terakhir saat dilanjutkan.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-        items.forEach { item ->
-            QueueRow(
-                item = item,
-                onCancel = { onCancelItem(item.id) },
-                onRemove = { onRemoveItem(item.id) },
-                onRetry = { onRetryItem(item.id) }
-            )
-            Spacer(Modifier.height(6.dp))
-        }
-    }
-}
 
 @Composable
-private fun QueueRow(
-    item: QueueItem,
-    onCancel: () -> Unit,
-    onRemove: () -> Unit,
-    onRetry: () -> Unit
-) {
-    Column(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    item.chapter.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    when (item.state) {
-                        QueueItemState.QUEUED -> "Menunggu"
-                        QueueItemState.ACTIVE ->
-                            if (item.total > 0) "Mengunduh ${item.done}/${item.total}" else "Mengunduh…"
-                        QueueItemState.DONE -> "Selesai"
-                        QueueItemState.FAILED -> "Gagal${item.error?.let { ": $it" } ?: ""}"
-                        QueueItemState.CANCELLED -> "Dibatalkan"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            when (item.state) {
-                QueueItemState.ACTIVE -> TextButton(onClick = onCancel) { Text("Batal") }
-                QueueItemState.QUEUED -> TextButton(onClick = onRemove) { Text("Hapus") }
-                QueueItemState.FAILED -> {
-                    TextButton(onClick = onRetry) { Text("Ulangi") }
-                    TextButton(onClick = onRemove) { Text("Hapus") }
-                }
-                QueueItemState.DONE, QueueItemState.CANCELLED ->
-                    TextButton(onClick = onRemove) { Text("Hapus") }
-            }
-        }
-        if (item.state == QueueItemState.ACTIVE && item.total > 0) {
-            Spacer(Modifier.height(4.dp))
-            LinearProgressIndicator(
-                progress = { (item.done.toFloat() / item.total).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
 
 @Composable
 private fun SeriesHeader(
@@ -922,84 +781,7 @@ private fun InfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun DownloadPanel(
-    progress: DownloadProgress,
-    extra: com.trialfetch.app.ui.theme.ExtraColors,
-    onDismiss: () -> Unit,
-    onCancel: () -> Unit
-) {
-    // Teks ditulis dengan warna gelap eksplisit, BUKAN warisan onSurface.
-    // Surface kustom tidak menghitung contentColor otomatis, jadi di dark
-    // mode teks ikut terang di atas kuning terang dan tidak terbaca.
-    // onAccent gelap di kedua mode sehingga aman dipakai di sini.
-    val ink = extra.onAccent
-    Surface(
-        color = extra.yellow,
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            3.dp, MaterialTheme.colorScheme.onBackground
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    when (progress.state) {
-                        DownloadProgress.State.RUNNING ->
-                            "Mengunduh halaman ${progress.done}/${progress.total}"
-                        DownloadProgress.State.DONE ->
-                            "Selesai: ${progress.done}/${progress.total} halaman"
-                        DownloadProgress.State.FAILED ->
-                            progress.error ?: "Gagal"
-                        DownloadProgress.State.CANCELLED ->
-                            "Unduhan dibatalkan (${progress.done}/${progress.total} halaman tersimpan)"
-                        else -> ""
-                    },
-                    Modifier.weight(1f),
-                    color = if (progress.state == DownloadProgress.State.FAILED)
-                        MaterialTheme.colorScheme.onErrorContainer else ink,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (progress.state == DownloadProgress.State.RUNNING) {
-                    TextButton(onClick = onCancel) {
-                        Text("Batal", color = ink)
-                    }
-                } else {
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = ink)
-                    }
-                }
-            }
-            when (progress.state) {
-                DownloadProgress.State.RUNNING -> {
-                    Spacer(Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { progress.fraction },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = ink,
-                        trackColor = ink.copy(alpha = 0.25f)
-                    )
-                }
-                DownloadProgress.State.DONE -> {
-                    progress.savedPath?.let {
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            it,
-                            color = ink.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                else -> Unit
-            }
-        }
-    }
-}
+
 @Composable
 private fun ChapterRow(
     chapter: Chapter,

@@ -125,6 +125,25 @@ class ComicRepository(
         _progress.value = _progress.value.copy(state = DownloadProgress.State.CANCELLED)
     }
 
+    /**
+     * Nama folder chapter yang sudah terunduh untuk satu series.
+     *
+     * Dipakai badge "sudah diunduh" — satu panggilan untuk seluruh series.
+     * Mode ZIP: nama zip tanpa ekstensi. Catatan jujur: folder tidak
+     * menyimpan info sumber, jadi judul kembar beda sumber berbagi status.
+     */
+    fun listDownloadedChapters(
+        series: SeriesInfo,
+        settings: DownloadSettings
+    ): Set<String> {
+        val seriesDir = sanitize(series.title)
+        return if (settings.outputMode == OutputMode.ZIP) {
+            storage.listZipNames(seriesDir)
+        } else {
+            storage.listChapterDirs(seriesDir)
+        }
+    }
+
     fun canWriteStorage(): Boolean = storage.canWrite()
 
     suspend fun search(source: Source, query: String): List<SearchResult> =

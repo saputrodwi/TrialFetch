@@ -106,6 +106,82 @@ class StorageWriter(private val context: Context) {
         return findExisting(collection, fileName, fullRelativePath(folderPath)) != null
     }
 
+    /**
+     * Nama subfolder langsung di dalam folder series (nama chapter untuk
+     * mode Folder). Dipakai badge "sudah diunduh" di daftar chapter —
+     * satu query untuk seluruh series, bukan satu query per chapter.
+     */
+    fun listChapterDirs(seriesDir: String): Set<String> {
+        // RELATIVE_PATH MediaStore selalu diawali "Download/...".
+        val cleaned = fullRelativePath(seriesDir)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return runCatching {
+                val root = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                )
+                java.io.File(root, cleaned).listFiles()
+                    ?.filter { it.isDirectory }
+                    ?.map { it.name }
+                    .orEmpty().toSet()
+            }.getOrDefault(emptySet())
+        }
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        return runCatching {
+            val out = HashSet<String>()
+            resolver.query(
+                collection,
+                arrayOf(MediaStore.Downloads.RELATIVE_PATH),
+                "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
+                arrayOf("$cleaned%"),
+                null
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val rel = c.getString(0) ?: continue
+                    val rest = rel.removePrefix(cleaned).trim('/')
+                    if (rest.isNotEmpty() && !rest.contains('/')) out += rest
+                }
+            }
+            out.toSet()
+        }.getOrDefault(emptySet())
+    }
+
+    /**
+     * Nama arsip .zip langsung di dalam folder series (tanpa ekstensi).
+     * Pasangan [listChapterDirs] untuk mode ZIP.
+     */
+    fun listZipNames(seriesDir: String): Set<String> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return runCatching {
+                val root = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                )
+                java.io.File(root, "${OutputPaths.ROOT}/${seriesDir.trim('/')}/").listFiles()
+                    ?.filter { it.isFile && it.name.endsWith(".zip", true) }
+                    ?.map { it.name.removeSuffix(".zip").removeSuffix(".ZIP") }
+                    .orEmpty().toSet()
+            }.getOrDefault(emptySet())
+        }
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        return runCatching {
+            val out = HashSet<String>()
+            resolver.query(
+                collection,
+                arrayOf(MediaStore.Downloads.DISPLAY_NAME),
+                "${MediaStore.Downloads.RELATIVE_PATH} = ?",
+                arrayOf(fullRelativePath(seriesDir)),
+                null
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val name = c.getString(0) ?: continue
+                    if (name.endsWith(".zip", true)) {
+                        out += name.substring(0, name.length - 4)
+                    }
+                }
+            }
+            out.toSet()
+        }.getOrDefault(emptySet())
+    }
+
     /** Berapa file yang masih ada di folder, untuk dipakai sebagai peringatan. */
     fun countFiles(folderPath: String): Int {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
