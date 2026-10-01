@@ -104,7 +104,7 @@ private fun BoxEmpty(text: String) {
 }
 
 @Composable
-private fun DownloadPanel(
+internal fun DownloadPanel(
     progress: DownloadProgress,
     extra: com.trialfetch.app.ui.theme.ExtraColors,
     onDismiss: () -> Unit,
@@ -184,7 +184,7 @@ private fun DownloadPanel(
 }
 
 @Composable
-private fun QueueCard(
+internal fun QueueCard(
     items: List<QueueItem>,
     paused: Boolean,
     onPauseAll: () -> Unit,
@@ -234,7 +234,7 @@ private fun QueueCard(
 }
 
 @Composable
-private fun QueueRow(
+internal fun QueueRow(
     item: QueueItem,
     onCancel: () -> Unit,
     onRemove: () -> Unit,

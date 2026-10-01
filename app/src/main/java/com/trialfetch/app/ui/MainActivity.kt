@@ -569,8 +569,6 @@ private fun ErrorBanner(message: String, accent: androidx.compose.ui.graphics.Co
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SeriesScreen(
     info: SeriesInfo,
