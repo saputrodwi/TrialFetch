@@ -683,15 +683,6 @@ private fun SeriesScreen(
     }
 }
 
-/**
- * Kartu antrian unduhan: daftar chapter yang menunggu/berjalan/selesai,
- * dengan jeda global, batal per item, ulangi yang gagal, dan bersihkan
- * yang sudah terminal.
- */
-@Composable
-
-@Composable
-
 @Composable
 private fun SeriesHeader(
     info: SeriesInfo,
