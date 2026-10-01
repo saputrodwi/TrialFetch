@@ -553,35 +553,6 @@ private fun SeriesRoute(
     }
 }
 
-@Composable
-private fun ErrorBanner(message: String, accent: androidx.compose.ui.graphics.Color,
-                        card: androidx.compose.ui.graphics.Color, onDismiss: () -> Unit) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        androidx.compose.material3.Surface(
-            color = card,
-            shape = RoundedCornerShape(12.dp),
-            shadowElevation = 3.dp
-        ) {
-            Row(
-                Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    message,
-                    Modifier.weight(1f),
-                    color = accent,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SeriesScreen(
@@ -620,28 +591,32 @@ private fun SeriesScreen(
                         modifier = Modifier.weight(1f)
                     )
                     if (selecting) {
+                        val allSelected = selectedIds.size == info.chapters.size
                         TextButton(onClick = {
-                            selectedIds = if (selectedIds.size == info.chapters.size) {
+                            selectedIds = if (allSelected) {
                                 emptySet()
                             } else {
                                 info.chapters.map { it.chapterId }.toSet()
                             }
                         }) {
-                            Text(if (selectedIds.size == info.chapters.size) "Batal semua" else "Semua")
+                            Text(if (allSelected) "Kosongkan" else "Semua")
                         }
-                        TextButton(onClick = {
-                            val picked = info.chapters.filter { it.chapterId in selectedIds }
-                            if (picked.isNotEmpty()) onEnqueue(picked)
-                            selecting = false
-                            selectedIds = emptySet()
-                        }) {
+                        TextButton(
+                            onClick = {
+                                val picked = info.chapters.filter { it.chapterId in selectedIds }
+                                if (picked.isNotEmpty()) onEnqueue(picked)
+                                selecting = false
+                                selectedIds = emptySet()
+                            },
+                            enabled = selectedIds.isNotEmpty()
+                        ) {
                             Text("Unduh (${selectedIds.size})")
                         }
-                        TextButton(onClick = {
+                        IconButton(onClick = {
                             selecting = false
                             selectedIds = emptySet()
                         }) {
-                            Text("Batal")
+                            Icon(Icons.Default.Close, contentDescription = "Batalkan pilihan")
                         }
                     } else {
                         TextButton(onClick = { selecting = true }) {
@@ -685,14 +660,13 @@ private fun SeriesHeader(
     isBookmarked: Boolean,
     onToggleBookmark: () -> Unit
 ) {
-    Surface(
-        color = extra.card,
-        shape = RoundedCornerShape(16.dp),
+    BrutalCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        background = extra.card
     ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+        Row(verticalAlignment = Alignment.Top) {
             AsyncImage(
                 model = info.coverUrl,
                 contentDescription = "Sampul ${info.title}",

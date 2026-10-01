@@ -106,23 +106,17 @@ fun HomeScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        // Teks ditulis eksplisit dengan tinta gelap: kuning terang di
-        // kedua mode sehingga warisan onSurface (terang di dark mode)
-        // tidak terbaca.
-        val warnInk = LocalExtraColors.current.onAccent
         if (!storageGranted) {
-            Surface(
-                color = LocalExtraColors.current.yellow,
-                shape = RoundedCornerShape(10.dp),
+            BrutalCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp)
+                    .padding(top = 12.dp),
+                background = LocalExtraColors.current.yellow
             ) {
                 Text(
                     "Izin penyimpanan belum diberikan — unduhan tidak bisa " +
                         "menulis ke folder Download.",
-                    Modifier.padding(12.dp),
-                    color = warnInk,
+                    color = LocalExtraColors.current.onAccent,
                     style = MaterialTheme.typography.bodySmall
                 )
             }

@@ -151,6 +151,9 @@ private fun PreviewRow(naming: NamingRule) {
     Surface(
         color = MaterialTheme.colorScheme.background,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            2.dp, MaterialTheme.colorScheme.outline
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(12.dp)) {
