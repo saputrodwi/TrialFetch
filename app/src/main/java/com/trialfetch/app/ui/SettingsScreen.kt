@@ -27,6 +27,7 @@ import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.data.NamingRule
 import com.trialfetch.app.data.OutputMode
 import com.trialfetch.app.data.ThemeMode
+import com.trialfetch.app.ui.theme.BrutalCard
 import com.trialfetch.app.ui.theme.BrutalChoiceRow
 import com.trialfetch.app.ui.theme.BrutalTitle
 import com.trialfetch.app.ui.theme.LocalExtraColors
