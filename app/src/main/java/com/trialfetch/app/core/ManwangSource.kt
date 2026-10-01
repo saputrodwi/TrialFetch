@@ -66,7 +66,6 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
                 source = source,
                 comicId = id,
                 title = cleanText(title),
-            synopsis = extractMetaDescription(html),
                 author = cleanText(author),
                 coverUrl = cover,
                 seriesUrl = "$base$path"
@@ -143,6 +142,7 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
             title = cleanText(title),
             author = cleanText(author),
             coverUrl = cover,
+            synopsis = extractMetaDescription(html),
             latestChapterTitle = cleanText(latest),
             chapters = chapters
         )

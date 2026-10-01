@@ -25,7 +25,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.drawscope.drawOutline
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
@@ -58,17 +59,16 @@ fun Modifier.hardShadow(
     translate(dx, dy) {
         // Gambar mengikuti outline shape (pill/rounded), BUKAN drawRect:
         // rect di belakang sudut membulat mencongol keluar dan terlihat
-        // seperti kotak rusak, terutama di elemen kecil.
+        // seperti kotak rusak, terutama di elemen kecil. Lewat Path agar
+        // kompatibel semua versi Compose (tanpa drawOutline).
         val w = (size.width - dx).coerceAtLeast(0f)
         val h = (size.height - dy).coerceAtLeast(0f)
-        drawOutline(
-            outline = shape.createOutline(
-                Size(w, h),
-                layoutDirection,
-                this
-            ),
-            color = color
-        )
+        val path = when (val o = shape.createOutline(Size(w, h), layoutDirection, this)) {
+            is Outline.Generic -> o.path
+            is Outline.Rounded -> Path().apply { addRoundRect(o.roundRect) }
+            is Outline.Rectangle -> Path().apply { addRect(o.rect) }
+        }
+        drawPath(path, color)
     }
 }
 
