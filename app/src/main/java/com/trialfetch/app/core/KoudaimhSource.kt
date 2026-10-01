@@ -120,6 +120,7 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
             source = source,
             comicId = comicId,
             title = title,
+            synopsis = extractMetaDescription(html),
             author = author,
             coverUrl = "",
             status = status,

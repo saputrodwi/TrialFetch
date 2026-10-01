@@ -66,6 +66,7 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
                 source = source,
                 comicId = id,
                 title = cleanText(title),
+            synopsis = extractMetaDescription(html),
                 author = cleanText(author),
                 coverUrl = cover,
                 seriesUrl = "$base$path"

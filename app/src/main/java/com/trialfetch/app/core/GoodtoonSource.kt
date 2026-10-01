@@ -148,6 +148,7 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
         // Metadata dari halaman utama (opsional; gagal tidak menggagalkan).
         var title = comicId
         var cover = ""
+        var synopsis = ""
         runCatching {
             val pageHtml = http.getHtmlWithHeaders("$origin/manga/$comicId/", pageHeaders(origin))
             Regex("""<h1 class="summary-title">([^<]+)</h1>""", RegexOption.IGNORE_CASE)
@@ -156,6 +157,13 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
                 """<div class="manga-summary-cover">[\s\S]*?<img src="([^"]+)"""",
                 RegexOption.IGNORE_CASE
             ).find(pageHtml)?.groupValues?.get(1)?.let { cover = it }
+            val summary = Regex(
+                """<div class="summary__content"[^>]*>([\s\S]*?)</div>""",
+                RegexOption.IGNORE_CASE
+            ).find(pageHtml)?.groupValues?.get(1)
+                ?.let { cleanText(it.replace(Regex("<[^>]+>"), " ")) }
+                .orEmpty()
+            synopsis = summary.ifBlank { extractMetaDescription(pageHtml) }
         }
 
         return SeriesInfo(
@@ -163,6 +171,7 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
             comicId = comicId,
             title = title,
             coverUrl = cover,
+            synopsis = synopsis,
             latestChapterTitle = chapters.firstOrNull()?.title.orEmpty(),
             chapters = chapters
         )

@@ -86,6 +86,7 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
             source = source,
             comicId = comicId,
             title = title,
+            synopsis = extractMetaDescription(html),
             coverUrl = cover,
             latestChapterTitle = sorted.firstOrNull()?.title.orEmpty(),
             chapters = sorted

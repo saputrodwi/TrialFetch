@@ -160,17 +160,18 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
             throw SourceException("Gagal mengambil daftar chapter: ${e.message}", e)
         }
 
-        val chapters = mutableListOf<Chapter>()
+        val chapters = mutableListOf<Pair<Pair<Int, Int>, Chapter>>()
         val seen = mutableSetOf<String>()
         chapterRe.findAll(html).forEach { m ->
             val path = m.groupValues[1].replace("&amp;", "&")
-            val chapterSlot = m.groupValues[4]
+            val sectionSlot = m.groupValues[3].toIntOrNull() ?: 0
+            val chapterSlot = m.groupValues[4].toIntOrNull() ?: 0
             if (!seen.add(path)) return@forEach
             val title = cleanText(m.groupValues[5].replace(Regex("<[^>]+>"), " "))
-            chapters += Chapter(
+            chapters += (sectionSlot to chapterSlot) to Chapter(
                 chapterId = path,
                 title = title.ifBlank { "Chapter $chapterSlot" },
-                chapterNumber = chapterSlot.toIntOrNull(),
+                chapterNumber = chapterSlot,
                 url = "$base$path"
             )
         }
@@ -181,9 +182,13 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
             )
         }
 
-        // Situs mengurutkan terlama -> terbaru; dibalik supaya terbaru di atas
-        // supaya konsisten dengan sumber lain.
-        chapters.reverse()
+        // Urutkan numerik (section, slot) menaik lalu balik: terbaru di
+        // atas. Jangan andalkan urutan HTML — situs kadang menaruh volume /
+        // section tidak berurutan sehingga reverse() buta menghasilkan
+        // urutan acak.
+        val ordered = chapters.sortedWith(
+            compareBy({ it.first.first }, { it.first.second })
+        ).map { it.second }.asReversed()
 
         val title = Regex("""<h1[^>]*>\s*([^<]+?)\s*</h1>""", RegexOption.IGNORE_CASE)
             .find(html)?.groupValues?.get(1)?.let(::cleanText)
@@ -199,8 +204,9 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
             title = title,
             author = author,
             coverUrl = cover,
-            latestChapterTitle = chapters.firstOrNull()?.title.orEmpty(),
-            chapters = chapters
+            synopsis = extractMetaDescription(html),
+            latestChapterTitle = ordered.firstOrNull()?.title.orEmpty(),
+            chapters = ordered
         )
     }
 

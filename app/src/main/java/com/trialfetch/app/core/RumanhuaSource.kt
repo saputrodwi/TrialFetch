@@ -120,6 +120,7 @@ class RumanhuaSource(private val http: HttpClient) : ComicSource {
             source = source,
             comicId = comicId,
             title = title,
+            synopsis = extractMetaDescription(html),
             author = author,
             coverUrl = cover,
             latestChapterTitle = chapters.lastOrNull()?.title.orEmpty(),

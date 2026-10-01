@@ -39,6 +39,7 @@ data class SeriesInfo(
     val author: String = "",
     val coverUrl: String = "",
     val status: String = "",
+    val synopsis: String = "",
     val latestChapterTitle: String = "",
     val chapters: List<Chapter>
 )

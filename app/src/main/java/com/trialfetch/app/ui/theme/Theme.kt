@@ -57,11 +57,11 @@ object WebPalette {
     // gelap
     val DarkBg = Color(0xFF262322)
     val DarkCard = Color(0xFF3C3835)
-    val DarkCardLight = Color(0xFF2F2C2A)
+    val DarkCardLight = Color(0xFF38322C)
     val DarkInk = Color(0xFFD8D2C8)
     val DarkInkSoft = Color(0xFF9A938A)
     val DarkOutline = Color(0xFF57524C)
-    val DarkShadow = Color(0xFF191614)
+    val DarkShadow = Color(0xFF000000)
     val DarkTitleShadow = Color(0xFF6E2F49)
     val DarkBgDot = Color(0x24FFFFFF)
     val DarkOnAccent = Color(0xFF1A1817)

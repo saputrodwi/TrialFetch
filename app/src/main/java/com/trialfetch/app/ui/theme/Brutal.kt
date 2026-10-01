@@ -25,6 +25,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.drawOutline
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
@@ -55,9 +56,18 @@ fun Modifier.hardShadow(
     val dx = offset.toPx()
     val dy = offset.toPx()
     translate(dx, dy) {
-        drawRect(
-            color = color,
-            size = Size(size.width - dx, size.height - dy)
+        // Gambar mengikuti outline shape (pill/rounded), BUKAN drawRect:
+        // rect di belakang sudut membulat mencongol keluar dan terlihat
+        // seperti kotak rusak, terutama di elemen kecil.
+        val w = (size.width - dx).coerceAtLeast(0f)
+        val h = (size.height - dy).coerceAtLeast(0f)
+        drawOutline(
+            outline = shape.createOutline(
+                Size(w, h),
+                layoutDirection,
+                this
+            ),
+            color = color
         )
     }
 }

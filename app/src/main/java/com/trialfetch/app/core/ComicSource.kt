@@ -35,3 +35,19 @@ internal fun cleanText(raw: String): String = raw
 
 internal fun Regex.firstGroupOrNull(html: String, group: Int = 1): String? =
     this.find(html)?.groupValues?.getOrNull(group)?.takeIf { it.isNotBlank() }
+
+/**
+ * Ambil sinopsis dari meta description (dipakai hampir semua situs
+ * sebagai ringkasan halaman series). Mengembalikan string kosong bila
+ * tidak ada — pemanggil tidak perlu try/catch khusus.
+ */
+internal fun extractMetaDescription(html: String): String {
+    val m = Regex(
+        """<meta[^>]+(?:name|property)="[^"]*(?:description|og:description)"[^>]+content="([^"]+)"""",
+        RegexOption.IGNORE_CASE
+    ).find(html) ?: Regex(
+        """<meta[^>]+content="([^"]+)"[^>]+(?:name|property)="[^"]*(?:description|og:description)"""",
+        RegexOption.IGNORE_CASE
+    ).find(html)
+    return m?.groupValues?.getOrNull(1)?.let(::cleanText).orEmpty()
+}

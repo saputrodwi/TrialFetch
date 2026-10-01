@@ -15,9 +15,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,7 +41,8 @@ import com.trialfetch.app.ui.theme.LocalExtraColors
 @Composable
 fun SettingsScreen(
     settings: DownloadSettings,
-    onChange: (DownloadSettings) -> Unit
+    onChange: (DownloadSettings) -> Unit,
+    onReset: () -> Unit = {}
 ) {
     Column(
         Modifier
@@ -74,7 +75,10 @@ fun SettingsScreen(
                 }
             )
             Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 NamingRule.PRESETS.forEach { (rule, label) ->
                     FilterChip(
                         selected = settings.naming == rule,
@@ -123,6 +127,12 @@ fun SettingsScreen(
             }
         }
 
+        Spacer(Modifier.height(16.dp))
+
+        TextButton(onClick = onReset) {
+            Text("Kembalikan bawaan")
+        }
+
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -148,29 +158,12 @@ private fun SectionCard(
 @Composable
 private fun PreviewRow(naming: NamingRule) {
     val examples = listOf(1, 2, 12, 121)
-    Surface(
-        color = MaterialTheme.colorScheme.background,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            2.dp, MaterialTheme.colorScheme.outline
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(
-                "Contoh hasil:",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(6.dp))
-            examples.forEach { n ->
-                Text(
-                    naming.fileName(n, "jpg"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
-            }
-        }
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            "Contoh: " + examples.joinToString("  ") { naming.fileName(it, "jpg") },
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+        )
     }
 }
 

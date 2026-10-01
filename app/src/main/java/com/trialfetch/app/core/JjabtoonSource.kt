@@ -120,6 +120,7 @@ class JjabtoonSource(private val http: HttpClient) : ComicSource {
             title = cleanText(title),
             author = cleanText(meta["authorName"]?.jsonPrimitive?.content.orEmpty()),
             coverUrl = meta["thumbnailUrl"]?.jsonPrimitive?.content.orEmpty(),
+            synopsis = cleanText(meta["description"]?.jsonPrimitive?.content.orEmpty()),
             latestChapterTitle = chapters.lastOrNull()?.title.orEmpty(),
             chapters = chapters
         )

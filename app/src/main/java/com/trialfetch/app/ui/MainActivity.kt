@@ -44,6 +44,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import com.trialfetch.app.data.HistoryEntry
@@ -117,6 +119,7 @@ import com.trialfetch.app.core.SeriesInfo
 import com.trialfetch.app.core.Source
 import com.trialfetch.app.data.ComicRepository
 import com.trialfetch.app.data.DownloadProgress
+import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.ui.theme.LocalExtraColors
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.geometry.Offset
@@ -415,7 +418,8 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 composable(Routes.SETTINGS) {
                     SettingsScreen(
                         settings = settings,
-                        onChange = vm::updateSettings
+                        onChange = vm::updateSettings,
+                        onReset = { vm.updateSettings(DownloadSettings()) }
                     )
                 }
             }
@@ -569,6 +573,15 @@ private fun SeriesScreen(
     val extra = LocalExtraColors.current
     var selecting by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+    // true = terbaru di atas. Normalisasi selalu dari urutan menaik agar
+    // konsisten antar-sumber (ada yang memberi lama-dulu, ada yang baru-dulu).
+    var newestFirst by remember { mutableStateOf(true) }
+    val shownChapters = remember(info.chapters, newestFirst) {
+        val asc = info.chapters.mapIndexed { i, c -> Triple(c, c.chapterNumber, i) }
+            .sortedWith(compareBy({ it.second ?: Int.MAX_VALUE }, { it.third }))
+            .map { it.first }
+        if (newestFirst) asc.asReversed() else asc
+    }
     // Kalau pindah series, reset pilihan.
     LaunchedEffect(info.comicId, info.source) {
         selecting = false
@@ -590,6 +603,12 @@ private fun SeriesScreen(
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.weight(1f)
                     )
+                    IconButton(onClick = { newestFirst = !newestFirst }) {
+                        Icon(
+                            if (newestFirst) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                            contentDescription = if (newestFirst) "Urut lama ke baru" else "Urut baru ke lama"
+                        )
+                    }
                     if (selecting) {
                         val allSelected = selectedIds.size == info.chapters.size
                         TextButton(onClick = {
@@ -625,7 +644,7 @@ private fun SeriesScreen(
                     }
                 }
             }
-            items(info.chapters, key = { it.chapterId }) { ch ->
+            items(shownChapters, key = { it.chapterId }) { ch ->
                 val entry = readMap[ch.chapterId]
                 ChapterRow(
                     chapter = ch,
@@ -704,6 +723,20 @@ private fun SeriesHeader(
                 if (info.latestChapterTitle.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     InfoRow("Terbaru", info.latestChapterTitle)
+                }
+                if (info.synopsis.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    var synExpanded by remember { mutableStateOf(false) }
+                    Text(
+                        info.synopsis,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = if (synExpanded) Int.MAX_VALUE else 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    TextButton(onClick = { synExpanded = !synExpanded }) {
+                        Text(if (synExpanded) "Tutup" else "Sinopsis")
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
                 Surface(

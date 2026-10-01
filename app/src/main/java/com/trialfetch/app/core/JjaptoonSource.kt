@@ -132,6 +132,7 @@ class JjaptoonSource(private val http: HttpClient) : ComicSource {
             comicId = comicId,
             title = title,
             coverUrl = cover,
+            synopsis = extractMetaDescription(html),
             latestChapterTitle = chapters.firstOrNull()?.title.orEmpty(),
             chapters = chapters
         )
