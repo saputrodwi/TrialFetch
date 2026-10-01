@@ -50,8 +50,20 @@ data class DownloadSettings(
     val cropBanner: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dohEnabled: Boolean = false,
-    val dohProvider: DohProvider = DohProvider.CLOUDFLARE
+    val dohProvider: DohProvider = DohProvider.CLOUDFLARE,
+    val readerMode: ReaderMode = ReaderMode.PAGED
 )
+
+/** Mode baca: geser per halaman, atau gulir vertikal ala webtoon. */
+enum class ReaderMode(val label: String) {
+    PAGED("Halaman"),
+    WEBTOON("Webtoon");
+
+    companion object {
+        fun fromName(value: String?): ReaderMode =
+            entries.firstOrNull { it.name == value } ?: PAGED
+    }
+}
 
 /**
  * Pilihan tema tampilan.

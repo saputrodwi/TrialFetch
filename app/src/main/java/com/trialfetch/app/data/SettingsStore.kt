@@ -34,7 +34,8 @@ class SettingsStore(context: Context) {
             cropBanner = prefs.getBoolean(KEY_CROP_BANNER, true),
             themeMode = ThemeMode.fromName(prefs.getString(KEY_THEME, null)),
             dohEnabled = prefs.getBoolean(KEY_DOH_ENABLED, false),
-            dohProvider = DohProvider.fromName(prefs.getString(KEY_DOH_PROVIDER, null))
+            dohProvider = DohProvider.fromName(prefs.getString(KEY_DOH_PROVIDER, null)),
+            readerMode = ReaderMode.fromName(prefs.getString(KEY_READER_MODE, null))
         )
     }
 
@@ -47,6 +48,7 @@ class SettingsStore(context: Context) {
             .putString(KEY_THEME, settings.themeMode.name)
             .putBoolean(KEY_DOH_ENABLED, settings.dohEnabled)
             .putString(KEY_DOH_PROVIDER, settings.dohProvider.name)
+            .putString(KEY_READER_MODE, settings.readerMode.name)
             .apply()
     }
 
@@ -58,5 +60,6 @@ class SettingsStore(context: Context) {
         const val KEY_THEME = "theme_mode"
         const val KEY_DOH_ENABLED = "doh_enabled"
         const val KEY_DOH_PROVIDER = "doh_provider"
+        const val KEY_READER_MODE = "reader_mode"
     }
 }

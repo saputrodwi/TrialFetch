@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +46,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -66,6 +69,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,6 +80,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -95,6 +103,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import com.trialfetch.app.data.ReaderMode
 import com.trialfetch.app.data.ThemeMode
 import com.trialfetch.app.data.SavedSeries
 import androidx.compose.foundation.border
@@ -325,17 +334,30 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     // Reader menutupi seluruh layar di atas tab apa pun.
     readerReq?.let { req ->
         val streaming = readerPages?.firstOrNull()?.uri?.startsWith("http") == true
-        ReaderScreen(
-            title = req.chapter.title,
-            pages = readerPages,
-            error = readerError,
-            isStreaming = streaming,
-            onClose = vm::closeReader,
-            onDownload = {
-                if (storageGranted) vm.download(req.series, req.chapter)
-            },
-            onRetry = { vm.openReader(req.series, req.chapter) }
-        )
+        // Index chapter sesuai urutan daftar yang tampil di layar series.
+        val chapters = req.series.chapters
+        val idx = chapters.indexOfFirst { it.chapterId == req.chapter.chapterId }
+        val prev = if (idx > 0) chapters[idx - 1] else null
+        val next = if (idx >= 0 && idx < chapters.lastIndex) chapters[idx + 1] else null
+        // Reset state pager/zoom tiap ganti chapter.
+        key(req.chapter.chapterId) {
+            ReaderScreen(
+                title = req.chapter.title,
+                pages = readerPages,
+                error = readerError,
+                isStreaming = streaming,
+                mode = settings.readerMode,
+                onModeChange = { vm.updateSettings(settings.copy(readerMode = it)) },
+                prevChapter = prev,
+                nextChapter = next,
+                onNavigate = { vm.openReader(req.series, it) },
+                onClose = vm::closeReader,
+                onDownload = {
+                    if (storageGranted) vm.download(req.series, req.chapter)
+                },
+                onRetry = { vm.openReader(req.series, req.chapter) }
+            )
+        }
     }
 }
 
@@ -870,11 +892,11 @@ private fun SavedScreen(
 }
 
 /**
- * Pembaca komik bawaan: geser halaman, cubit untuk zoom.
+ * Pembaca komik bawaan: fullscreen imersif, geser per halaman atau gulir
+ * vertikal ala webtoon, cubit untuk zoom, shortcut chapter sebelum/berikut.
  *
  * Membaca file lokal hasil unduhan (folder atau hasil ekstrak ZIP),
- * jadi bisa offline penuh. [images] null = masih dimuat; kosong =
- * chapter belum diunduh (tampilkan ajakan unduh).
+ * jadi bisa offline penuh. [pages] null = masih dimuat.
  */
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
@@ -883,15 +905,33 @@ private fun ReaderScreen(
     pages: List<ReaderPage>?,
     error: String?,
     isStreaming: Boolean,
+    mode: ReaderMode,
+    onModeChange: (ReaderMode) -> Unit,
+    prevChapter: Chapter?,
+    nextChapter: Chapter?,
+    onNavigate: (Chapter) -> Unit,
     onClose: () -> Unit,
     onDownload: () -> Unit,
     onRetry: () -> Unit
 ) {
     BackHandler(onBack = onClose)
+    val view = LocalView.current
+    // Fullscreen imersif: sembunyikan status bar + navigation bar HP selama
+    // membaca agar jadi full konten aplikasi; kembalikan saat keluar. User
+    // tetap bisa memunculkan sesaat dengan swipe dari tepi layar.
+    DisposableEffect(Unit) {
+        val window = (view.context as Activity).window
+        val controller = WindowCompat.getInsetsController(window, view)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        onDispose {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
     // Kunci geser pager saat ada halaman yang di-zoom, supaya cubit
-    // horizontal tidak malah pindah halaman.
+    // tidak malah pindah halaman.
     var pagerLocked by remember { mutableStateOf(false) }
-    val context = LocalContext.current
     Box(
         Modifier
             .fillMaxSize()
@@ -945,66 +985,42 @@ private fun ReaderScreen(
             }
             else -> {
                 val list = pages
-                val pagerState = rememberPagerState(pageCount = { list.size })
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize(),
-                    userScrollEnabled = !pagerLocked
-                ) { page ->
-                    var scale by remember(page) { mutableFloatStateOf(1f) }
-                    var offset by remember(page) { mutableStateOf(Offset.Zero) }
-                    val transform = rememberTransformableState { zoom, pan, _ ->
-                        var next = (scale * zoom).coerceIn(1f, 4f)
-                        // Snap: cegah drift float (mis. 1,0003 dari jitter
-                        // jari) yang mengunci pager selamanya.
-                        if (next < 1.02f) next = 1f
-                        scale = next
-                        offset = if (next <= 1f) Offset.Zero else offset + pan
-                        val locked = next > 1f
-                        // Tulis hanya saat berubah: tulis state luar dari
-                        // callback gestur tiap frame memicu recomposition
-                        // beruntun yang membuat input macet.
-                        if (locked != pagerLocked) pagerLocked = locked
-                    }
-                    val active = pagerState.currentPage == page
-                    // URL remote dimuat dengan header penangkal hotlink
-                    // (sama seperti unduhan); file lokal langsung.
-                    val item = list[page]
-                    val model = remember(item.uri) {
-                        if (item.uri.startsWith("http")) {
-                            ImageRequest.Builder(context).data(item.uri).apply {
-                                for ((k, v) in item.headers) addHeader(k, v)
-                            }.build()
-                        } else {
-                            item.uri
-                        }
-                    }
-                    AsyncImage(
-                        model = model,
-                        contentDescription = "Halaman ${page + 1}",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer(
-                                scaleX = if (active) scale else 1f,
-                                scaleY = if (active) scale else 1f,
-                                translationX = if (active) offset.x else 0f,
-                                translationY = if (active) offset.y else 0f
-                            )
-                            // canPan (pola dokumen resmi): saat belum zoom, pan
-                            // TIDAK dikonsumsi sehingga pager menerima geseran
-                            // dan bisa pindah halaman. Cubit-zoom tetap jalan
-                            // karena zoom bukan pan. Tanpa ini transformable
-                            // melahap semua drag dan geser pager mati total.
-                            .transformable(
-                                state = transform,
-                                canPan = { scale > 1f }
-                            )
-                    )
+                val hState = rememberPagerState(pageCount = { list.size })
+                val vState = rememberPagerState(pageCount = { list.size })
+                val setLock: (Boolean) -> Unit = { locked ->
+                    if (locked != pagerLocked) pagerLocked = locked
                 }
-                // Bilah atas + penghitung halaman.
+                if (mode == ReaderMode.WEBTOON) {
+                    VerticalPager(
+                        state = vState,
+                        modifier = Modifier.fillMaxSize(),
+                        userScrollEnabled = !pagerLocked
+                    ) { page ->
+                        ZoomablePage(
+                            item = list[page],
+                            active = vState.currentPage == page,
+                            onLockChange = setLock
+                        )
+                    }
+                } else {
+                    HorizontalPager(
+                        state = hState,
+                        modifier = Modifier.fillMaxSize(),
+                        userScrollEnabled = !pagerLocked
+                    ) { page ->
+                        ZoomablePage(
+                            item = list[page],
+                            active = hState.currentPage == page,
+                            onLockChange = setLock
+                        )
+                    }
+                }
+                val currentPage =
+                    if (mode == ReaderMode.WEBTOON) vState.currentPage else hState.currentPage
+                // Bilah atas.
                 Row(
                     Modifier
+                        .align(Alignment.TopCenter)
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.6f))
                         .padding(horizontal = 4.dp, vertical = 2.dp),
@@ -1033,14 +1049,114 @@ private fun ReaderScreen(
                         Icon(Icons.Default.Download, contentDescription = "Unduh chapter", tint = Color.White)
                     }
                     Text(
-                        "${pagerState.currentPage + 1}/${list.size}",
+                        "${currentPage + 1}/${list.size}",
                         color = Color.White.copy(alpha = 0.8f),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(end = 12.dp)
                     )
+                }
+                // Bilah bawah: chapter sebelum/berikut + ganti mode baca.
+                Row(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { prevChapter?.let(onNavigate) },
+                        enabled = prevChapter != null
+                    ) {
+                        Icon(
+                            Icons.Default.SkipPrevious,
+                            contentDescription = "Chapter sebelumnya",
+                            tint = if (prevChapter != null) Color.White
+                            else Color.White.copy(alpha = 0.3f)
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = {
+                        onModeChange(
+                            if (mode == ReaderMode.WEBTOON) ReaderMode.PAGED
+                            else ReaderMode.WEBTOON
+                        )
+                    }) {
+                        Text(
+                            if (mode == ReaderMode.WEBTOON) "Halaman" else "Webtoon",
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(
+                        onClick = { nextChapter?.let(onNavigate) },
+                        enabled = nextChapter != null
+                    ) {
+                        Icon(
+                            Icons.Default.SkipNext,
+                            contentDescription = "Chapter berikutnya",
+                            tint = if (nextChapter != null) Color.White
+                            else Color.White.copy(alpha = 0.3f)
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * Satu halaman yang bisa dicubit-zoom. Dipakai ulang oleh pager
+ * horizontal maupun vertikal.
+ */
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+private fun ZoomablePage(
+    item: ReaderPage,
+    active: Boolean,
+    onLockChange: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    var scale by remember(item.uri) { mutableFloatStateOf(1f) }
+    var offset by remember(item.uri) { mutableStateOf(Offset.Zero) }
+    val transform = rememberTransformableState { zoom, pan, _ ->
+        var next = (scale * zoom).coerceIn(1f, 4f)
+        // Snap: cegah drift float (mis. 1,0003 dari jitter jari)
+        // yang mengunci pager selamanya.
+        if (next < 1.02f) next = 1f
+        scale = next
+        offset = if (next <= 1f) Offset.Zero else offset + pan
+        onLockChange(next > 1f)
+    }
+    // URL remote dimuat dengan header penangkal hotlink (sama seperti
+    // unduhan); file lokal langsung.
+    val model = remember(item.uri) {
+        if (item.uri.startsWith("http")) {
+            ImageRequest.Builder(context).data(item.uri).apply {
+                for ((k, v) in item.headers) addHeader(k, v)
+            }.build()
+        } else {
+            item.uri
+        }
+    }
+    AsyncImage(
+        model = model,
+        contentDescription = "Halaman",
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer(
+                scaleX = if (active) scale else 1f,
+                scaleY = if (active) scale else 1f,
+                translationX = if (active) offset.x else 0f,
+                translationY = if (active) offset.y else 0f
+            )
+            // canPan (pola dokumen resmi): saat belum zoom, pan TIDAK
+            // dikonsumsi sehingga pager menerima geseran. Cubit-zoom
+            // tetap jalan karena zoom bukan pan.
+            .transformable(
+                state = transform,
+                canPan = { scale > 1f }
+            )
+    )
+}
