@@ -363,7 +363,11 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                         urlInput = urlInput,
                         urlLoading = urlLoading,
                         onUrlChange = vm::onUrlChange,
-                        onOpenUrl = vm::openFromUrl,
+                        onOpenUrl = {
+                            vm.openFromUrl { info ->
+                                nav.navigate(Routes.series(info.source.id, info.comicId))
+                            }
+                        },
                         history = history,
                         onOpenHistory = vm::openHistory,
                         onPick = { r ->

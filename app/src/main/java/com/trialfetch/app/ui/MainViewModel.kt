@@ -204,7 +204,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _series.value = _series.value.copy(error = null)
     }
 
-    fun openFromUrl() {
+    /**
+     * Buka series/chapter dari URL tempelan. Sukses: panggil [onLoaded]
+     * agar pemanggil bisa navigasi ke layar series; gagal: Toast keras
+     * karena layar Home tidak menampilkan error series.
+     */
+    fun openFromUrl(onLoaded: (SeriesInfo) -> Unit = {}) {
         val url = _urlInput.value
         if (url.isBlank() || _urlLoading.value) return
         _urlLoading.value = true
@@ -212,8 +217,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val info = repo.openUrl(url)
                 _series.value = SeriesUiState(info = info)
+                onLoaded(info)
             } catch (e: Exception) {
-                _series.value = SeriesUiState(error = e.message ?: "Gagal membuka URL")
+                val msg = e.message ?: "Gagal membuka URL"
+                _series.value = SeriesUiState(error = msg)
+                Toast.makeText(getApplication(), msg, Toast.LENGTH_LONG).show()
             } finally {
                 _urlLoading.value = false
             }
