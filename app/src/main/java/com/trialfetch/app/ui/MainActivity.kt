@@ -743,6 +743,25 @@ private fun SeriesHeader(
                         )
                     }
                 }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Sumber: ${info.source.displayName}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier
+                        .border(
+                            2.dp,
+                            MaterialTheme.colorScheme.onBackground,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .background(
+                            MaterialTheme.colorScheme.primary,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 if (info.author.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
                     InfoRow("Penulis", info.author)
