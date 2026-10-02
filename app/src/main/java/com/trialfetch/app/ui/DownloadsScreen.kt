@@ -207,12 +207,18 @@ internal fun QueueCard(
     val queuedCount = items.count { it.state == QueueItemState.QUEUED }
     val doneCount = items.count { it.state == QueueItemState.DONE }
     BrutalCard(modifier = Modifier.fillMaxWidth(), background = extra.card) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Antrian ($doneCount/${items.size} selesai)",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f)
-            )
+        Text(
+            "Antrian ($doneCount/${items.size} selesai)",
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             if (paused) {
                 TextButton(onClick = onResumeAll) { Text("Lanjut") }
             } else {

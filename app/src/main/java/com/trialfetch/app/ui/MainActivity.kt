@@ -613,27 +613,6 @@ private fun SeriesScreen(
                         )
                     }
                     if (selecting) {
-                        val allSelected = selectedIds.size == info.chapters.size
-                        TextButton(onClick = {
-                            selectedIds = if (allSelected) {
-                                emptySet()
-                            } else {
-                                info.chapters.map { it.chapterId }.toSet()
-                            }
-                        }) {
-                            Text(if (allSelected) "Kosongkan" else "Semua")
-                        }
-                        TextButton(
-                            onClick = {
-                                val picked = info.chapters.filter { it.chapterId in selectedIds }
-                                if (picked.isNotEmpty()) onEnqueue(picked)
-                                selecting = false
-                                selectedIds = emptySet()
-                            },
-                            enabled = selectedIds.isNotEmpty()
-                        ) {
-                            Text("Unduh (${selectedIds.size})")
-                        }
                         IconButton(onClick = {
                             selecting = false
                             selectedIds = emptySet()
@@ -644,6 +623,39 @@ private fun SeriesScreen(
                         TextButton(onClick = { selecting = true }) {
                             Text("Pilih")
                         }
+                    }
+                }
+            }
+            if (selecting) {
+                // Baris aksi sendiri di bawah judul agar tombol-tombol
+                // tidak berdesakan segaris dengan judul di layar sempit.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val allSelected = selectedIds.size == info.chapters.size
+                    TextButton(onClick = {
+                        selectedIds = if (allSelected) {
+                            emptySet()
+                        } else {
+                            info.chapters.map { it.chapterId }.toSet()
+                        }
+                    }) {
+                        Text(if (allSelected) "Kosongkan" else "Semua")
+                    }
+                    TextButton(
+                        onClick = {
+                            val picked = info.chapters.filter { it.chapterId in selectedIds }
+                            if (picked.isNotEmpty()) onEnqueue(picked)
+                            selecting = false
+                            selectedIds = emptySet()
+                        },
+                        enabled = selectedIds.isNotEmpty()
+                    ) {
+                        Text("Unduh (${selectedIds.size})")
                     }
                 }
             }
