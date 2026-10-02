@@ -259,7 +259,7 @@ class ComicRepository(
                             // Sebagian CDN memuat gambar dengan referrerpolicy
                             // "no-referrer" di HTML aslinya — meniru itu lebih
                             // aman daripada mengarang Referer.
-                            sendNoReferer = series.source == Source.KOUDAIMH
+                            sendNoReferer = sources[series.source]?.noImageReferer == true
                         )
                         fetchError = null
                         break
@@ -437,7 +437,7 @@ class ComicRepository(
      * hotlink yang sama persis dengan unduhan (lihat HttpClient.getBytes).
      */
     fun streamPages(series: SeriesInfo, page: ChapterPage): List<ReaderPage> {
-        val noRef = series.source == Source.KOUDAIMH
+        val noRef = sources[series.source]?.noImageReferer == true
         val siteRef = sources[series.source]?.imageReferer
         return page.images.sortedBy { it.page }.map { img ->
             ReaderPage(img.url, http.imageHeaders(img.url, noReferer = noRef, referer = siteRef))
@@ -453,7 +453,8 @@ class ComicRepository(
             Source.JJABTOON to JjabtoonSource(http),
             Source.JJAPTOON to JjaptoonSource(http),
             Source.GOODTOON to GoodtoonSource(http),
-            Source.RUMAN to RumanhuaSource(http)
+            Source.RUMAN to RumanhuaSource(http),
+            Source.MANHUAHAO to ManhuahaoSource(http)
         )
 
         /**

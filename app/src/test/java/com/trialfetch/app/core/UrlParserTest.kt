@@ -96,6 +96,16 @@ class UrlParserTest {
         assertEquals(Source.RUMAN, c.source)
     }
 
+    @Test fun manhuahaoSeriesDanChapter() {
+        val s = series("https://m.manhuahao.com/douluodalu-6dzKG")
+        assertEquals(Source.MANHUAHAO, s.source)
+        assertEquals("douluodalu-6dzKG", s.comicId)
+        val c = chapter("https://m.manhuahao.com/douluodalu-6dzKG/1.html")
+        assertEquals(Source.MANHUAHAO, c.source)
+        val r = UrlParser.parse("https://m.manhuahao.com/search?q=x")
+        assertTrue(r is UrlParser.Parsed.Unknown)
+    }
+
     @Test fun urlAsingUnknown() {
         val p = UrlParser.parse("https://example.com/comic/1")
         assertTrue(p is UrlParser.Parsed.Unknown)

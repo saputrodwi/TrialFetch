@@ -15,6 +15,9 @@ object UrlParser {
         data class Unknown(val reason: String) : Parsed
     }
 
+    /** Path khusus situs yang bukan slug series (dipakai Manhuahao). */
+    private val reservedPaths = setOf("search", "category", "ranking", "dmca", "privacy")
+
     private fun host(url: String): String? = runCatching {
         val u = java.net.URI(url.trim())
         if (u.scheme == null || u.host == null) return null
@@ -143,6 +146,27 @@ object UrlParser {
                     val id = Regex("""/news/(\d+)""").find(withScheme)?.groupValues?.get(1)
                     if (id != null) Parsed.Series(Source.RUMAN, id)
                     else Parsed.Unknown("URL Rumanhua tidak dikenali")
+                }
+            }
+
+            // --- Manhuahao: /{slug} = series, /{slug}/{n}.html = chapter.
+            // Abaikan path khusus situs (search/category/ranking/dmca/dll).
+            host == "manhuahao.com" || host.endsWith(".manhuahao.com") -> {
+                val ch = Regex("""/([a-z0-9\-]+)/(\d+)\.html""", RegexOption.IGNORE_CASE)
+                    .find(withScheme)
+                if (ch != null) {
+                    Parsed.Chapter(
+                        Source.MANHUAHAO,
+                        "https://m.manhuahao.com/${ch.groupValues[1]}/${ch.groupValues[2]}.html"
+                    )
+                } else {
+                    val slug = Regex("""/([a-z0-9\-]+)/?$""", RegexOption.IGNORE_CASE)
+                        .find(withScheme)?.groupValues?.get(1)
+                    if (slug != null && slug !in reservedPaths) {
+                        Parsed.Series(Source.MANHUAHAO, slug)
+                    } else {
+                        Parsed.Unknown("URL Manhuahao tidak dikenali")
+                    }
                 }
             }
 

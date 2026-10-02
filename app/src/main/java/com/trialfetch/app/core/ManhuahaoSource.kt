@@ -11,42 +11,44 @@ import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * koudaimh.com (口袋漫画).
+ * manhuahao.com (漫画号) — satu keluarga CMS dengan Koudaimh
+ * (token `__searchtoken__` + blob `params` AES-128-CBC dengan kunci
+ * dan format IV yang SAMA: 16 byte pertama = IV).
  *
- * Dua hal yang membuat sumber ini agak ribet:
- *  1. Pencarian butuh 2 langkah — ambil token `__searchtoken__` dari
- *     halaman /search dulu, baru kirim ulang вместе kata kunci.
- *  2. Halaman chapter tidak memuat URL gambar; semuanya dikemas dalam
- *     blob `params = '...'` (base64 → AES-128-CBC). Berbeda dengan
- *     manwang, di sini IV adalah 16 byte PERTAMA dari blob, sisanya
- *     ciphertext.
- *
- * CATATAN: gambar disajikan dari CDN *.shimolife.com dengan URL bertanda
- * tangan yang punya masa berlaku. Di web sering gagal karena tanda
- * tangannya sudah kedaluwarsa saat CDNeddalam链 proxy. Di native图片 diambil
- * di tempat & waktu yang sama sehingga masih valid — salah satu alasan
- * lagi kenapa aplikasi ini dibangun native.
+ *  - Cari:    GET {base}/search (ambil token), lalu
+ *             GET {base}/search?q={q}&__searchtoken__={token};
+ *             hasil `<article class="manga-card">`.
+ *  - Series:  GET {base}/{slug}-{kode}; cover
+ *             `https://img.manhuahao.com/cover/{slug}.webp`;
+ *             chapter `<a href="/{slug}/{n}.html">第N话 …</a>`.
+ *  - Chapter: GET {base}/{slug}/{n}.html → dekripsi `params`
+ *             menjadi JSON { chapter_images[] } berisi URL penuh
+ *             bertanda tangan.
  */
-class KoudaimhSource(private val http: HttpClient) : ComicSource {
+class ManhuahaoSource(private val http: HttpClient) : ComicSource {
 
-    override val source = Source.KOUDAIMH
-    private val base = "https://m.koudaimh.com"
+    override val source = Source.MANHUAHAO
+    private val base = "https://m.manhuahao.com"
 
     /** CDN shimolife: tiru referrerpolicy no-referrer halaman aslinya. */
     override val noImageReferer: Boolean get() = true
 
     private val tokenRe = Regex("""name="__searchtoken__"\s+value="([^"]+)"""")
     private val searchRe = Regex(
-        """<a href="(/manhua/([^"/]+))" title="([^"]+)" class="block""",
+        """<article class="manga-card">[\s\S]*?<a class="manga-cover" href="(/([a-z0-9\-]+))"[^>]*title="([^"]+)"""",
         RegexOption.IGNORE_CASE
     )
-    private val latestRe = Regex("""更新至:\s*<span[^>]*>([^<]+)</span>""")
+    private val searchCoverRe = Regex(
+        """<img src="(https://img\.manhuahao\.com/cover/[^"]+)"[^>]*alt="([^"]*)"""",
+        RegexOption.IGNORE_CASE
+    )
+    private val chapterTitleRe = Regex("""第\d+\s*[话話章]""")
 
     override suspend fun search(query: String): List<SearchResult> {
         val landing = try {
             http.getHtml("$base/search", referer = "$base/")
         } catch (e: Exception) {
-            throw SourceException("Gagal menghubungi Koudaimh: ${e.message}", e)
+            throw SourceException("Gagal menghubungi Manhuahao: ${e.message}", e)
         }
         val token = tokenRe.find(landing)?.groupValues?.get(1)
             ?: throw SourceException("Token pencarian tidak ditemukan (struktur berubah?)")
@@ -57,67 +59,98 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
                 referer = "$base/search"
             )
         } catch (e: Exception) {
-            throw SourceException("Gagal mencari di Koudaimh: ${e.message}", e)
+            throw SourceException("Gagal mencari di Manhuahao: ${e.message}", e)
         }
 
-        val results = searchRe.findAll(html).map { m ->
+        val out = ArrayList<SearchResult>(30)
+        val seen = HashSet<String>()
+        for (m in searchRe.findAll(html)) {
+            if (out.size >= 30) break
+            val path = m.groupValues[1]
+            val slug = m.groupValues[2]
+            if (!seen.add(path)) continue
             val block = html.substring(
                 m.range.first,
-                (m.range.last + 500).coerceAtMost(html.length)
+                (m.range.last + 800).coerceAtMost(html.length)
             )
-            SearchResult(
+            val cover = searchCoverRe.find(block)?.groupValues?.get(1).orEmpty()
+            out += SearchResult(
                 source = source,
-                comicId = m.groupValues[2],
+                comicId = slug,
                 title = cleanText(m.groupValues[3]),
-                coverUrl = "",
-                seriesUrl = base + m.groupValues[1]
+                coverUrl = cover,
+                seriesUrl = base + path
             )
-        }.distinctBy { it.comicId }.toList()
+        }
 
-        if (results.isEmpty()) {
+        if (out.isEmpty()) {
             throw SourceException("Tidak ada hasil untuk \"$query\"")
         }
-        return results.take(30)
+        return out
     }
 
     override suspend fun series(comicId: String): SeriesInfo {
         val html = try {
-            http.getHtml("$base/manhua/$comicId", referer = "$base/")
+            http.getHtml("$base/$comicId", referer = "$base/")
         } catch (e: Exception) {
             throw SourceException("Gagal mengambil daftar chapter: ${e.message}", e)
         }
 
         val linkRe = Regex(
-            """<a[^>]+href="(?:https?://(?:www\.|m\.)?koudaimh\.com)?/manhua/""" +
-                Regex.escape(comicId) + """/(\d+)\.html"[^>]*>\s*([\s\S]*?)\s*</a>""",
+            """<a[^>]+href="/""" + Regex.escape(comicId) +
+                """/(\d+)\.html"[^>]*>\s*([\s\S]*?)\s*</a>""",
             RegexOption.IGNORE_CASE
         )
-        val chapters = mutableListOf<Chapter>()
-        val seen = mutableSetOf<String>()
+        val chapters = linkedMapOf<String, Chapter>()
         linkRe.findAll(html).forEach { m ->
             val chId = m.groupValues[1]
-            if (!seen.add(chId)) return@forEach
-            chapters += Chapter(
-                chapterId = chId,
-                title = cleanText(m.groupValues[2].replace(Regex("<[^>]+>"), " "))
-                    .ifBlank { "Chapter $chId" },
-                chapterNumber = chId.toIntOrNull(),
-                url = "$base/manhua/$comicId/$chId.html"
-            )
+            val title = cleanText(m.groupValues[2].replace(Regex("<[^>]+>"), " "))
+                .ifBlank { "Chapter $chId" }
+            val prev = chapters[chId]
+            // Satu chapter bisa tercantum dua kali ("Mulai baca" + judul
+            // aslinya): menangkan yang judulnya mirip nomor chapter.
+            if (prev == null ||
+                (!chapterTitleRe.containsMatchIn(prev.title) &&
+                    chapterTitleRe.containsMatchIn(title))
+            ) {
+                chapters[chId] = Chapter(
+                    chapterId = chId,
+                    title = title,
+                    chapterNumber = chId.toIntOrNull(),
+                    url = "$base/$comicId/$chId.html"
+                )
+            }
         }
 
         if (chapters.isEmpty()) {
             throw SourceException("Daftar chapter kosong — struktur berubah?")
         }
-        // HTML asli terurut lama -> baru; dibalik supaya terbaru di atas.
-        chapters.sortByDescending { it.chapterNumber ?: 0 }
+        val sorted = chapters.values.sortedBy { it.chapterNumber ?: Int.MAX_VALUE }
 
         val title = Regex("""<h1[^>]*>\s*([\s\S]*?)\s*</h1>""", RegexOption.IGNORE_CASE)
-            .find(html)?.groupValues?.get(1)?.let(::cleanText) ?: comicId
+            .find(html)?.groupValues?.get(1)?.let(::cleanText)
+            ?.takeIf { it.isNotBlank() }
+            ?: Regex("""<title>([^<]+)</title>""", RegexOption.IGNORE_CASE)
+                .find(html)?.groupValues?.get(1)?.let(::cleanText)
+                ?.substringBefore("漫画")?.trim()
+            ?: comicId
         val author = Regex("""作者[:：]\s*([^<\n]+)""").find(html)
             ?.groupValues?.get(1)?.let(::cleanText).orEmpty()
         val status = Regex("""状态[:：]\s*([^<\n]+)""").find(html)
             ?.groupValues?.get(1)?.let(::cleanText).orEmpty()
+        val latest = Regex("""最新[:：]\s*<a[^>]*>([^<]+)</a>""").find(html)
+            ?.groupValues?.get(1)?.let(::cleanText).orEmpty()
+        // Cover dinamai persis {slug}.webp; fallback img cover pertama.
+        val cover = Regex(
+            """<img[^>]+src="(https://img\.manhuahao\.com/cover/""" +
+                Regex.escape(comicId) + """\.webp[^"]*)"""",
+            RegexOption.IGNORE_CASE
+        ).find(html)?.groupValues?.get(1)
+            ?: Regex(
+                """<img[^>]+src="(https://img\.manhuahao\.com/cover/[^"]+)"[^>]*>""",
+                RegexOption.IGNORE_CASE
+            ).find(html)?.groupValues?.get(1)
+            .orEmpty()
 
         return SeriesInfo(
             source = source,
@@ -125,11 +158,17 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
             title = title,
             synopsis = extractMetaDescription(html),
             author = author,
-            coverUrl = "",
+            coverUrl = cover,
             status = status,
-            latestChapterTitle = latestRe.find(html)?.groupValues?.get(1).orEmpty(),
-            chapters = chapters
+            latestChapterTitle = latest.ifBlank { sorted.lastOrNull()?.title.orEmpty() },
+            chapters = sorted
         )
+    }
+
+    /** Slug series terbaca langsung dari URL chapter /{slug}/{n}.html. */
+    override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? {
+        return Regex("""/([a-z0-9\-]+)/\d+\.html""", RegexOption.IGNORE_CASE)
+            .find(chapterUrl)?.groupValues?.get(1)
     }
 
     override suspend fun chapter(url: String): ChapterPage {
@@ -141,10 +180,7 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
         }
 
         val blob = Regex("""params\s*=\s*['"]([^'"]+)""").find(html)?.groupValues?.get(1)
-            ?: throw SourceException(
-                "Blob params tidak ditemukan — situs mungkin sedang pakai " +
-                "endpoint baru (versi mobile切换)."
-            )
+            ?: throw SourceException("Blob params tidak ditemukan — struktur berubah?")
 
         val key: Key = SecretKeySpec(KEY.toByteArray(Charsets.UTF_8), "AES")
         val raw = try {
@@ -173,7 +209,7 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
         }
 
         val images = listOf("chapter_images", "chapterImages", "images", "image_list")
-            .firstNotNullOfOrNull { key -> json[key]?.jsonArray }
+            .firstNotNullOfOrNull { k -> json[k]?.jsonArray }
             .orEmpty()
             .mapNotNull { el ->
                 when (el) {
@@ -199,7 +235,7 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
     }
 
     private companion object {
-        /** Kunci statis situs (16 byte → AES-128), terverifikasi manual. */
+        /** Kunci sama dengan Koudaimh (satu keluarga CMS), terverifikasi manual. */
         const val KEY = "5V&RoR%Jf@pJPydF"
     }
 }

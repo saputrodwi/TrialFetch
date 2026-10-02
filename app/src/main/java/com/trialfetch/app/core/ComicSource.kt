@@ -24,6 +24,13 @@ interface ComicSource {
      * menolak Referer selain situsnya (Manwang/Rumanhua → 403).
      */
     val imageReferer: String? get() = null
+
+    /**
+     * True bila gambar TIDAK boleh dikirimi Referer sama sekali
+     * (CDN keluarga shimolife memuat gambar dengan referrerpolicy
+     * "no-referrer": Koudaimh, Manhuahao).
+     */
+    val noImageReferer: Boolean get() = false
 }
 
 /** Error yang aman ditampilkan ke pengguna (bukan exception mentah). */
