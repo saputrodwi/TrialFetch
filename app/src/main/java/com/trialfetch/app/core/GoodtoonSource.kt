@@ -6,7 +6,7 @@ package com.trialfetch.app.core
  * Tema WordPress Madara, server-side render. Diport dari Trial Fetch web
  * (worker.js: searchGoodtoon + handler /manga/{slug}/{n}/ + series AJAX).
  *
- *  - Cari:    GET {base}/?s={q} lewat redirector goodtoon.top (selalu 301
+ *  - Cari:    GET {base}/?q={q} lewat redirector goodtoon.top (selalu 301
  *             ke domain aktif), fallback www.goodtoon005.com. Kartu hasil
  *             <a class="card">, judul dari alt cover atau div.subject.
  *  - Series:  metadata dari halaman /manga/{slug}/, daftar chapter dari
@@ -64,7 +64,7 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
         for (base in bases) {
             html = try {
                 http.getHtmlWithHeaders(
-                    "$base/?s=${query.urlEncode()}",
+                    "$base/?q=${query.urlEncode()}",
                     pageHeaders(base) - "Accept-Language" + ("Accept-Language" to "ko-KR,ko;q=0.9")
                 )
             } catch (e: Exception) {
