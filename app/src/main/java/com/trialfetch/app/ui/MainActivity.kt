@@ -78,8 +78,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -1021,10 +1028,18 @@ private fun ReaderScreen(
     // Kunci geser pager saat ada halaman yang di-zoom, supaya cubit
     // tidak malah pindah halaman.
     var pagerLocked by remember { mutableStateOf(false) }
+    // Ala Mihon: ketuk konten untuk sembunyikan/tampilkan bilah atas
+    // + bawah. Tap tidak dikonsumsi gambar (lihat ZoomablePage) jadi
+    // cubit/geser tetap jalan, double-tap zoom juga akur.
+    var menusVisible by remember { mutableStateOf(true) }
+    val readerScope = rememberCoroutineScope()
     Box(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { menusVisible = !menusVisible })
+            }
     ) {
         when {
             error != null -> Column(
@@ -1135,53 +1150,88 @@ private fun ReaderScreen(
                         )
                     }
                 }
-                // Bilah atas.
-                Row(
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Bilah atas ala Mihon: sembunyi/tampil mengikuti ketukan.
+                AnimatedVisibility(
+                    visible = menusVisible,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    enter = fadeIn() + slideInVertically { -it },
+                    exit = fadeOut() + slideOutVertically { -it }
                 ) {
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White)
-                    }
-                    Text(
-                        title,
-                        Modifier.weight(1f),
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (isStreaming) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onClose) {
+                            Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White)
+                        }
                         Text(
-                            "online",
-                            color = Color.White.copy(alpha = 0.6f),
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(end = 8.dp)
+                            title,
+                            Modifier.weight(1f),
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        if (isStreaming) {
+                            Text(
+                                "online",
+                                color = Color.White.copy(alpha = 0.6f),
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        }
+                        IconButton(onClick = onDownload) {
+                            Icon(Icons.Default.Download, contentDescription = "Unduh chapter", tint = Color.White)
+                        }
                     }
-                    IconButton(onClick = onDownload) {
-                        Icon(Icons.Default.Download, contentDescription = "Unduh chapter", tint = Color.White)
-                    }
-                    Text(
-                        "${currentPage + 1}/${list.size}",
-                        color = Color.White.copy(alpha = 0.8f),
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(end = 12.dp)
-                    )
                 }
-                // Bilah bawah: chapter sebelum/berikut + ganti mode baca.
-                Row(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Bilah bawah ala Mihon: slider halaman + tombol navigasi.
+                AnimatedVisibility(
+                    visible = menusVisible,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
                 ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Slider(
+                                value = currentPage.toFloat()
+                                    .coerceIn(0f, (list.size - 1).coerceAtLeast(0).toFloat()),
+                                onValueChange = { v ->
+                                    val target = v.toInt().coerceIn(0, list.size - 1)
+                                    readerScope.launch {
+                                        if (mode == ReaderMode.WEBTOON) {
+                                            vList.scrollToItem(target)
+                                        } else {
+                                            hState.scrollToPage(target)
+                                        }
+                                    }
+                                },
+                                valueRange = 0f..(list.size - 1).coerceAtLeast(1).toFloat(),
+                                steps = (list.size - 2).coerceAtLeast(0),
+                                modifier = Modifier.weight(1f),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = Color.White,
+                                    activeTrackColor = Color.White,
+                                    inactiveTrackColor = Color.White.copy(alpha = 0.3f)
+                                )
+                            )
+                            Text(
+                                "${currentPage + 1}/${list.size}",
+                                color = Color.White.copy(alpha = 0.8f),
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = { prevChapter?.let(onNavigate) },
                         enabled = prevChapter != null
@@ -1225,6 +1275,8 @@ private fun ReaderScreen(
                             tint = if (nextChapter != null) Color.White
                             else Color.White.copy(alpha = 0.3f)
                         )
+                    }
+                        }
                     }
                 }
             }
