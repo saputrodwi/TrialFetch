@@ -212,7 +212,6 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
 
     val seriesState by vm.series.collectAsStateWithLifecycle()
     val searchState by vm.search.collectAsStateWithLifecycle()
-    val downloadState by vm.progress.collectAsStateWithLifecycle()
     val urlInput by vm.urlInput.collectAsStateWithLifecycle()
     val urlLoading by vm.urlLoading.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -417,9 +416,6 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 }
                 composable(Routes.DOWNLOADS) {
                     DownloadsScreen(
-                        progress = downloadState,
-                        onDismissProgress = vm::dismissProgress,
-                        onCancelDownload = vm::cancelDownload,
                         queueItems = queueItems,
                         queuePaused = queuePaused,
                         onPauseAll = vm.queue::pauseAll,
@@ -1253,6 +1249,8 @@ private fun ReaderScreen(
                         )
                     }
                     Spacer(Modifier.weight(1f))
+                    // Label eksplisit mode AKTIF (bukan target) supaya
+                    // jelas sedang pakai yang mana; ketuk untuk ganti.
                     TextButton(onClick = {
                         onModeChange(
                             if (mode == ReaderMode.WEBTOON) ReaderMode.PAGED
@@ -1260,7 +1258,7 @@ private fun ReaderScreen(
                         )
                     }) {
                         Text(
-                            if (mode == ReaderMode.WEBTOON) "Halaman" else "Webtoon",
+                            if (mode == ReaderMode.WEBTOON) "Mode: Webtoon" else "Mode: Halaman",
                             color = Color.White.copy(alpha = 0.85f)
                         )
                     }

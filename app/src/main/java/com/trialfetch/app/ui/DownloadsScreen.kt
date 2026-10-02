@@ -28,22 +28,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.trialfetch.app.data.DownloadProgress
 import com.trialfetch.app.data.QueueItem
 import com.trialfetch.app.data.QueueItemState
 import com.trialfetch.app.ui.theme.BrutalCard
 import com.trialfetch.app.ui.theme.LocalExtraColors
 
 /**
- * Layar Unduhan: progres chapter aktif + seluruh antrian di satu tempat.
- * Dipisah dari layar series supaya terlihat dari mana pun (via bottom bar),
- * bukan terkubur di bawah daftar chapter.
+ * Layar Unduhan: seluruh antrian di satu tempat. Sengaja HANYA antrian
+ * (tanpa panel progres legacy): semua unduhan lewat antrian, jadi panel
+ * progres + baris AKTIF menampilkan unduhan yang sama dua kali.
+ * Dipisah dari layar series supaya terlihat dari mana pun (via bottom
+ * bar), bukan terkubur di bawah daftar chapter.
  */
 @Composable
 fun DownloadsScreen(
-    progress: DownloadProgress,
-    onDismissProgress: () -> Unit,
-    onCancelDownload: () -> Unit,
     queueItems: List<QueueItem>,
     queuePaused: Boolean,
     onPauseAll: () -> Unit,
@@ -58,11 +56,6 @@ fun DownloadsScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (progress.state != DownloadProgress.State.IDLE) {
-            item {
-                DownloadPanel(progress, LocalExtraColors.current, onDismissProgress, onCancelDownload)
-            }
-        }
         if (queueItems.isNotEmpty()) {
             item {
                 QueueCard(
@@ -77,7 +70,7 @@ fun DownloadsScreen(
                 )
             }
         }
-        if (progress.state == DownloadProgress.State.IDLE && queueItems.isEmpty()) {
+        if (queueItems.isEmpty()) {
             item {
                 BoxEmpty(
                     "Belum ada unduhan.\nPilih chapter dari series untuk mulai.",
@@ -104,82 +97,6 @@ private fun BoxEmpty(text: String, modifier: Modifier = Modifier) {
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.padding(horizontal = 32.dp)
         )
-    }
-}
-
-@Composable
-internal fun DownloadPanel(
-    progress: DownloadProgress,
-    extra: com.trialfetch.app.ui.theme.ExtraColors,
-    onDismiss: () -> Unit,
-    onCancel: () -> Unit
-) {
-    // Teks ditulis dengan warna gelap eksplisit: kuning terang di
-    // kedua mode, jadi tinta terang tidak terbaca di atasnya.
-    // onAccent gelap di kedua mode sehingga aman dipakai di sini.
-    val ink = extra.onAccent
-    // Tanpa padding horizontal sendiri: LazyColumn induk sudah
-    // contentPadding 16dp + spasi antar item; padding ganda membuat
-    // panel menyempit dan tidak sejajar kartu antrian.
-    BrutalCard(
-        modifier = Modifier.fillMaxWidth(),
-        background = extra.yellow
-    ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    when (progress.state) {
-                        DownloadProgress.State.RUNNING ->
-                            "Mengunduh halaman ${progress.done}/${progress.total}"
-                        DownloadProgress.State.DONE ->
-                            "Selesai: ${progress.done}/${progress.total} halaman"
-                        DownloadProgress.State.FAILED ->
-                            progress.error ?: "Gagal"
-                        DownloadProgress.State.CANCELLED ->
-                            "Unduhan dibatalkan (${progress.done}/${progress.total} halaman tersimpan)"
-                        else -> ""
-                    },
-                    Modifier.weight(1f),
-                    // Kuning terang di kedua mode, jadi teks gagal pun
-                    // memakai tinta gelap (onErrorContainer terang akan
-                    // hilang di atas kuning pada mode terang).
-                    color = ink,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (progress.state == DownloadProgress.State.RUNNING) {
-                    TextButton(onClick = onCancel) {
-                        Text("Batal", color = ink)
-                    }
-                } else {
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = ink)
-                    }
-                }
-            }
-            when (progress.state) {
-                DownloadProgress.State.RUNNING -> {
-                    Spacer(Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { progress.fraction },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = ink,
-                        trackColor = ink.copy(alpha = 0.25f)
-                    )
-                }
-                DownloadProgress.State.DONE -> {
-                    progress.savedPath?.let {
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            it,
-                            color = ink.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                else -> Unit
-            }
     }
 }
 

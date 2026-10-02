@@ -131,10 +131,17 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
             ?: Regex("""<title>([^<]+)</title>""", RegexOption.IGNORE_CASE)
                 .find(html)?.groupValues?.get(1)?.substringBefore('_')
             ?: comicId
+        // Sampul: data-src (desktop) atau background-image (mobile);
+        // safety net URL ecombdimg mentah bila markup berubah lagi.
         val cover = Regex(
             """data-src="(https://[^"]*ecombdimg[^"]+)"|background-image:\s*url\((https://[^)]*ecombdimg[^)]+)\)""",
             RegexOption.IGNORE_CASE
-        ).find(html)?.let { it.groupValues[1].ifBlank { it.groupValues[2] } }.orEmpty()
+        ).find(html)?.let { it.groupValues[1].ifBlank { it.groupValues[2] } }
+            .orEmpty()
+            .ifBlank {
+                Regex("""https://[^\s"'()<>]+ecombdimg[^\s"'()<>]+""")
+                    .find(html)?.value.orEmpty()
+            }
         val author = Regex("""<p class="author">([^<]+)</p>""", RegexOption.IGNORE_CASE)
             .find(html)?.groupValues?.get(1).orEmpty()
         val latest = Regex("""<span>更新至:(.+?)</span>""").find(html)?.groupValues?.get(1).orEmpty()

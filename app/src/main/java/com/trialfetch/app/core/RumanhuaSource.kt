@@ -112,11 +112,17 @@ class RumanhuaSource(private val http: HttpClient) : ComicSource {
             .find(html)?.groupValues?.get(1)?.let(::cleanText)
             ?.substringBefore("漫画")?.trim()?.takeIf { it.isNotBlank() }
             ?: "Komik $comicId"
-        val cover = coverRe.find(html)?.let {
-            if (title.isNotBlank() && it.groupValues[2].contains(title.take(8))) {
-                it.groupValues[1]
-            } else null
-        }.orEmpty()
+        // Sampul = <img> yang alt-nya memuat judul (BUKAN img pertama:
+        // itu logo header). Fallback: URL ecombdimg pertama di halaman.
+        val cover = coverRe.findAll(html).firstOrNull { m ->
+            val alt = cleanText(m.groupValues[2])
+            title.isNotBlank() && alt.isNotBlank() &&
+                (alt.contains(title.take(8)) || title.contains(alt.take(8)))
+        }?.groupValues?.get(1)?.trim().orEmpty()
+            .ifBlank {
+                Regex("""https://[^\s"'()<>]+ecombdimg[^\s"'()<>]+""")
+                    .find(html)?.value.orEmpty()
+            }
         val author = authorRe.find(html)?.groupValues?.get(1)?.let(::cleanText).orEmpty()
 
         return SeriesInfo(
