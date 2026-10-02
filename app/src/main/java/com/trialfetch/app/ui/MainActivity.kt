@@ -16,8 +16,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
@@ -1207,6 +1209,16 @@ private fun ZoomablePage(
     val context = LocalContext.current
     var scale by remember(item.uri) { mutableFloatStateOf(1f) }
     var offset by remember(item.uri) { mutableStateOf(Offset.Zero) }
+    // Bersihkan zoom sisa saat halaman tidak lagi aktif: zoom basi yang
+    // tertinggal membuat gulir berubah jadi geser-gambar sehingga index
+    // macet (counter + riwayat ikut macet).
+    LaunchedEffect(active) {
+        if (!active && (scale != 1f || offset != Offset.Zero)) {
+            scale = 1f
+            offset = Offset.Zero
+            onLockChange(false)
+        }
+    }
     // Aspek asli diketahui setelah gambar termuat; sebelum itu pakai
     // placeholder ramping agar tidak ada lompatan besar.
     var aspect by remember(item.uri) { mutableStateOf<Float?>(null) }
@@ -1264,9 +1276,22 @@ private fun ZoomablePage(
             // canPan (pola dokumen resmi): saat belum zoom, pan TIDAK
             // dikonsumsi sehingga pager/kolom menerima geseran. Cubit-zoom
             // tetap jalan karena zoom bukan pan.
-            .transformable(
-                state = transform,
-                canPan = { scale > 1f }
-            )
-    )
+                            // Double-tap mengembalikan zoom ke 1x: jalan keluar
+                            // yang jelas bila pengguna tersangkut dalam
+                            // keadaan zoom tanpa sadar. Tap tidak dikonsumsi
+                            // oleh transformable sehingga keduanya akur.
+                            .pointerInput(item.uri) {
+                                detectTapGestures(
+                                    onDoubleTap = {
+                                        scale = 1f
+                                        offset = Offset.Zero
+                                        onLockChange(false)
+                                    }
+                                )
+                            }
+                            .transformable(
+                                state = transform,
+                                canPan = { scale > 1f }
+                            )
+                    )
 }
