@@ -481,7 +481,16 @@ private fun RowScope.BottomTab(
                 Icon(icon, contentDescription = label)
             }
         },
-        label = { Text(label) }
+        // maxLines=1 eksplisit: di layar sempit label 5 tab bisa
+        // bungkus ke 2 baris dan terlihat rusak.
+        label = {
+            Text(
+                label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
     )
 }
 
