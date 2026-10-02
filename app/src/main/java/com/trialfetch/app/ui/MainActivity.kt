@@ -626,7 +626,7 @@ private fun SeriesScreen(
                     }
                 }
             }
-            if (selecting) {
+            if (selecting) item {
                 // Baris aksi sendiri di bawah judul agar tombol-tombol
                 // tidak berdesakan segaris dengan judul di layar sempit.
                 Row(
