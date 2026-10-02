@@ -128,6 +128,20 @@ class RumanhuaSource(private val http: HttpClient) : ComicSource {
         )
     }
 
+    /**
+     * Halaman chapter menaut balik ke /news/{id} series-nya,
+     * jadi link chapter bisa dibuka sebagai series.
+     */
+    override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? {
+        val absolute = if (chapterUrl.startsWith("http")) chapterUrl else "$BASE$chapterUrl"
+        val html = try {
+            fetchHtml(absolute)
+        } catch (e: Exception) {
+            return null
+        }
+        return Regex("""/news/(\d+)""").find(html)?.groupValues?.get(1)
+    }
+
     override suspend fun chapter(url: String): ChapterPage {
         val absolute = if (url.startsWith("http")) url else "$BASE$url"
         val html = fetchHtml(absolute)

@@ -66,6 +66,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -454,6 +455,10 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 nextChapter = next,
                 onNavigate = { vm.openReader(req.series, it) },
                 onClose = vm::closeReader,
+                onOpenSeries = {
+                    vm.closeReader()
+                    nav.navigate(Routes.series(req.series.source.id, req.series.comicId))
+                },
                 onDownload = {
                     if (storageGranted) vm.download(req.series, req.chapter)
                 },
@@ -971,6 +976,7 @@ private fun ReaderScreen(
     nextChapter: Chapter?,
     onNavigate: (Chapter) -> Unit,
     onClose: () -> Unit,
+    onOpenSeries: () -> Unit,
     onDownload: () -> Unit,
     onRetry: () -> Unit
 ) {
@@ -1129,6 +1135,9 @@ private fun ReaderScreen(
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(end = 8.dp)
                         )
+                    }
+                    IconButton(onClick = onOpenSeries) {
+                        Icon(Icons.Default.List, contentDescription = "Buka daftar chapter", tint = Color.White)
                     }
                     IconButton(onClick = onDownload) {
                         Icon(Icons.Default.Download, contentDescription = "Unduh chapter", tint = Color.White)

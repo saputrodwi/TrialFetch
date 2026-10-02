@@ -1,6 +1,7 @@
 package com.trialfetch.app.ui
 
 import android.app.Application
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.trialfetch.app.core.Chapter
@@ -244,7 +245,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val res = repo.search(st.source, st.query.trim())
                 _search.value = _search.value.copy(loading = false, results = res)
             } catch (e: Exception) {
-                _search.value = _search.value.copy(loading = false, error = e.message)
+                val msg = e.message ?: "Pencarian gagal"
+                _search.value = _search.value.copy(loading = false, error = msg)
+                // Notifikasi keras: error inline saja mudah terlewat,
+                // terutama untuk sumber yang search-nya sering dibatasi.
+                Toast.makeText(getApplication(), msg, Toast.LENGTH_LONG).show()
             }
         }
     }

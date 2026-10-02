@@ -148,6 +148,11 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
         )
     }
 
+    /** ID buku terbaca langsung dari URL chapter /chapter/{book}-{ch}. */
+    override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? {
+        return Regex("""/chapter/(\d+)-\d+""").find(chapterUrl)?.groupValues?.get(1)
+    }
+
     override suspend fun chapter(url: String): ChapterPage {
         val absolute = if (url.startsWith("http")) url else "$base$url"
         val html = try {

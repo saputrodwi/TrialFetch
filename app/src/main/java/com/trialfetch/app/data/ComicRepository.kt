@@ -402,13 +402,20 @@ class ComicRepository(
             is UrlParser.Parsed.Series -> series(parsed.source, parsed.comicId)
             is UrlParser.Parsed.Unknown -> throw SourceException(parsed.reason)
             is UrlParser.Parsed.Chapter -> {
-                // URL chapter: cari induknya lewat sumber, lalu kembali ke
-                // chapter tersebut. Praktis untuk yang hanya punya link
-                // chapter dari browser.
-                throw SourceException(
-                    "Ini link chapter. Salin link halaman serinya (/book/ atau /comic/) " +
-                        "untuk membuka daftar chapter."
+                // URL chapter: selesaikan ke series induknya supaya langsung
+                // terbuka daftar chapternya. Praktis untuk yang hanya punya
+                // link chapter dari browser.
+                val src = sources[parsed.source]
+                    ?: throw SourceException("Sumber ${parsed.source.displayName} belum didukung")
+                val comicId = try {
+                    src.seriesIdFromChapterUrl(parsed.url)
+                } catch (e: Exception) {
+                    null
+                } ?: throw SourceException(
+                    "Link chapter ini tidak bisa ditelusuri ke serinya. " +
+                        "Salin link halaman serinya untuk membuka daftar chapter."
                 )
+                series(parsed.source, comicId)
             }
         }
     }

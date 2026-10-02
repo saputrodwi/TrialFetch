@@ -190,6 +190,19 @@ fun HomeScreen(
             }
         }
 
+        // Kedua sumber ini sering membatasi pencarian judul dari
+        // jaringan tertentu (seperti versi web yang menonaktifkannya).
+        // Beri tahu di awal supaya ekspektasinya benar, bukan diam saja.
+        if (source == Source.MANWANG || source == Source.RUMAN) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Pencarian ${source.displayName} sering dibatasi server. " +
+                    "Kalau gagal, buka dari URL langsung.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { showUrlDialog = true }) {

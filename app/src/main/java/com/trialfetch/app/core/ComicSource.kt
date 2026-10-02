@@ -9,6 +9,13 @@ interface ComicSource {
     suspend fun series(comicId: String): SeriesInfo
 
     suspend fun chapter(url: String): ChapterPage
+
+    /**
+     * Selesaikan URL chapter menjadi comicId series-nya, bila polanya
+     * memungkinkan. Default null (tidak didukung) — override di sumber
+     * yang ID bukunya terbaca dari URL atau halaman chapter-nya.
+     */
+    suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? = null
 }
 
 /** Error yang aman ditampilkan ke pengguna (bukan exception mentah). */
