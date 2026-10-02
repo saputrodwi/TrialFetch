@@ -26,6 +26,7 @@ import com.trialfetch.app.core.DohProvider
 import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.data.NamingRule
 import com.trialfetch.app.data.OutputMode
+import com.trialfetch.app.data.ReaderMode
 import com.trialfetch.app.data.ThemeMode
 import com.trialfetch.app.ui.theme.BrutalCard
 import com.trialfetch.app.ui.theme.BrutalChoiceRow
@@ -57,6 +58,24 @@ fun SettingsScreen(
                 onSelect = { i ->
                     onChange(settings.copy(themeMode = ThemeMode.entries[i]))
                 }
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        SectionCard("Mode baca") {
+            BrutalChoiceRow(
+                options = ReaderMode.entries.map { it.label },
+                selectedIndex = ReaderMode.entries.indexOf(settings.readerMode),
+                onSelect = { i ->
+                    onChange(settings.copy(readerMode = ReaderMode.entries[i]))
+                }
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Berlaku untuk semua chapter; tetap bisa diganti sementara dari bilah bawah reader.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
