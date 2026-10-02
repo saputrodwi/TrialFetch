@@ -13,6 +13,9 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
     override val source = Source.MANWANG
     private val base = "https://manwang.net"
 
+    /** Host gambar (dmw.*) menolak Referer selain manwang.net (403). */
+    override val imageReferer: String get() = "$base/"
+
     private val searchRe = Regex(
         """<a href="(/book/(\d+))">\s*<img src="([^"]+)"[^>]*>[\s\S]{0,160}?</a>\s*""" +
             """<span class="booktitle">([^<]+)</span>\s*""" +

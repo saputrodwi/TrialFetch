@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,7 +20,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -116,22 +114,17 @@ internal fun DownloadPanel(
     onDismiss: () -> Unit,
     onCancel: () -> Unit
 ) {
-    // Teks ditulis dengan warna gelap eksplisit, BUKAN warisan onSurface.
-    // Surface kustom tidak menghitung contentColor otomatis, jadi di dark
-    // mode teks ikut terang di atas kuning terang dan tidak terbaca.
+    // Teks ditulis dengan warna gelap eksplisit: kuning terang di
+    // kedua mode, jadi tinta terang tidak terbaca di atasnya.
     // onAccent gelap di kedua mode sehingga aman dipakai di sini.
     val ink = extra.onAccent
-    Surface(
-        color = extra.yellow,
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            3.dp, MaterialTheme.colorScheme.onBackground
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+    // Tanpa padding horizontal sendiri: LazyColumn induk sudah
+    // contentPadding 16dp + spasi antar item; padding ganda membuat
+    // panel menyempit dan tidak sejajar kartu antrian.
+    BrutalCard(
+        modifier = Modifier.fillMaxWidth(),
+        background = extra.yellow
     ) {
-        Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     when (progress.state) {
@@ -187,7 +180,6 @@ internal fun DownloadPanel(
                 }
                 else -> Unit
             }
-        }
     }
 }
 
@@ -235,14 +227,20 @@ internal fun QueueCard(
             )
             Spacer(Modifier.height(8.dp))
         }
-        items.forEach { item ->
+        items.forEachIndexed { index, item ->
+            if (index > 0) {
+                androidx.compose.material3.HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    thickness = 2.dp,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f)
+                )
+            }
             QueueRow(
                 item = item,
                 onCancel = { onCancelItem(item.id) },
                 onRemove = { onRemoveItem(item.id) },
                 onRetry = { onRetryItem(item.id) }
             )
-            Spacer(Modifier.height(6.dp))
         }
     }
 }
@@ -263,17 +261,26 @@ internal fun QueueRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                val statusColor = when (item.state) {
+                    QueueItemState.DONE -> MaterialTheme.colorScheme.primary
+                    QueueItemState.FAILED -> MaterialTheme.colorScheme.error
+                    QueueItemState.ACTIVE -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
                 Text(
                     when (item.state) {
-                        QueueItemState.QUEUED -> "Menunggu"
+                        QueueItemState.QUEUED -> "● Menunggu"
                         QueueItemState.ACTIVE ->
-                            if (item.total > 0) "Mengunduh ${item.done}/${item.total}" else "Mengunduh…"
-                        QueueItemState.DONE -> "Selesai"
-                        QueueItemState.FAILED -> "Gagal${item.error?.let { ": $it" } ?: ""}"
-                        QueueItemState.CANCELLED -> "Dibatalkan"
+                            if (item.total > 0) "● Mengunduh ${item.done}/${item.total}" else "● Mengunduh…"
+                        QueueItemState.DONE -> "● Selesai"
+                        QueueItemState.FAILED -> "● Gagal${item.error?.let { ": $it" } ?: ""}"
+                        QueueItemState.CANCELLED -> "● Dibatalkan"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = statusColor,
+                    fontWeight = if (item.state == QueueItemState.ACTIVE ||
+                        item.state == QueueItemState.FAILED
+                    ) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )

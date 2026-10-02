@@ -1107,6 +1107,10 @@ private fun ReaderScreen(
                     // dengan pita hitam di atas/bawah.
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
+                        // WAJIB: tanpa state ini LazyColumn memakai state
+                        // internal sendiri sehingga firstVisibleItemIndex
+                        // (counter + riwayat) macet di 0 selamanya.
+                        state = vList,
                         userScrollEnabled = !pagerLocked
                     ) {
                         items(list, key = { it.uri }) { item ->
@@ -1159,9 +1163,6 @@ private fun ReaderScreen(
                             modifier = Modifier.padding(end = 8.dp)
                         )
                     }
-                    IconButton(onClick = onOpenSeries) {
-                        Icon(Icons.Default.List, contentDescription = "Buka daftar chapter", tint = Color.White)
-                    }
                     IconButton(onClick = onDownload) {
                         Icon(Icons.Default.Download, contentDescription = "Unduh chapter", tint = Color.White)
                     }
@@ -1190,6 +1191,15 @@ private fun ReaderScreen(
                             contentDescription = "Chapter sebelumnya",
                             tint = if (prevChapter != null) Color.White
                             else Color.White.copy(alpha = 0.3f)
+                        )
+                    }
+                    // Tombol daftar chapter pindah ke sini supaya bilah
+                    // atas tidak berdesakan (judul + counter + unduh).
+                    IconButton(onClick = onOpenSeries) {
+                        Icon(
+                            Icons.Default.List,
+                            contentDescription = "Buka daftar chapter",
+                            tint = Color.White
                         )
                     }
                     Spacer(Modifier.weight(1f))

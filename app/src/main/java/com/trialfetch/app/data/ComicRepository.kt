@@ -252,7 +252,10 @@ class ComicRepository(
                     try {
                         raw = http.getBytes(
                             url = img.url,
-                            referer = originOf(img.url),
+                            // Sumber tertentu (Manwang/Rumanhua) host
+                            // gambarnya 403 bila Referer bukan situsnya.
+                            referer = sources[series.source]?.imageReferer
+                                ?: originOf(img.url),
                             // Sebagian CDN memuat gambar dengan referrerpolicy
                             // "no-referrer" di HTML aslinya — meniru itu lebih
                             // aman daripada mengarang Referer.
@@ -435,8 +438,9 @@ class ComicRepository(
      */
     fun streamPages(series: SeriesInfo, page: ChapterPage): List<ReaderPage> {
         val noRef = series.source == Source.KOUDAIMH
+        val siteRef = sources[series.source]?.imageReferer
         return page.images.sortedBy { it.page }.map { img ->
-            ReaderPage(img.url, http.imageHeaders(img.url, noReferer = noRef))
+            ReaderPage(img.url, http.imageHeaders(img.url, noReferer = noRef, referer = siteRef))
         }
     }
 

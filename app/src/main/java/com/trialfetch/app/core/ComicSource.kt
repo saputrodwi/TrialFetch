@@ -16,6 +16,14 @@ interface ComicSource {
      * yang ID bukunya terbaca dari URL atau halaman chapter-nya.
      */
     suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? = null
+
+    /**
+     * Referer situs yang WAJIB dikirim saat memuat gambar (baca
+     * streaming maupun unduhan). Default null = pakai origin URL
+     * gambarnya sendiri. Override di sumber yang host gambarnya
+     * menolak Referer selain situsnya (Manwang/Rumanhua → 403).
+     */
+    val imageReferer: String? get() = null
 }
 
 /** Error yang aman ditampilkan ke pengguna (bukan exception mentah). */

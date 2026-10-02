@@ -40,11 +40,12 @@ class HttpClient(
     internal fun imageHeaders(
         url: String,
         accept: String = "image/avif,image/webp,image/*,*/*;q=0.8",
-        noReferer: Boolean = false
+        noReferer: Boolean = false,
+        referer: String? = null
     ): Map<String, String> = buildMap {
         put("User-Agent", mobileUa)
         put("Accept", accept)
-        if (!noReferer) put("Referer", originOf(url))
+        if (!noReferer) put("Referer", referer ?: originOf(url))
     }
 
     companion object {

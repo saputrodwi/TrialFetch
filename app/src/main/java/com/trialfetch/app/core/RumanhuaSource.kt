@@ -17,6 +17,9 @@ class RumanhuaSource(private val http: HttpClient) : ComicSource {
 
     override val source = Source.RUMAN
 
+    /** Host gambar (dmw.*) menolak Referer selain rumanhua.org (403). */
+    override val imageReferer: String get() = "$BASE/"
+
     private companion object {
         const val BASE = "https://www.rumanhua.org"
         const val MOBILE_UA =
