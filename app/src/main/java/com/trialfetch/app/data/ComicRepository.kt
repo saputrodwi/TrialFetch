@@ -91,7 +91,7 @@ class ComicRepository(
         chapter: Chapter,
         settings: DownloadSettings
     ): List<android.net.Uri> {
-        val seriesDir = sanitize(series.title)
+        val seriesDir = seriesDirOf(series)
         val chapterDir = sanitize(chapter.title)
         return if (settings.outputMode == OutputMode.ZIP) {
             storage.extractZipForRead(seriesDir, "$chapterDir.zip")
@@ -107,7 +107,7 @@ class ComicRepository(
         chapter: Chapter,
         settings: DownloadSettings
     ): Boolean {
-        val seriesDir = sanitize(series.title)
+        val seriesDir = seriesDirOf(series)
         val chapterDir = sanitize(chapter.title)
         return if (settings.outputMode == OutputMode.ZIP) {
             storage.hasFile(seriesDir, "$chapterDir.zip")
@@ -137,7 +137,7 @@ class ComicRepository(
         series: SeriesInfo,
         settings: DownloadSettings
     ): Set<String> {
-        val seriesDir = sanitize(series.title)
+        val seriesDir = seriesDirOf(series)
         return if (settings.outputMode == OutputMode.ZIP) {
             storage.listZipNames(seriesDir)
         } else {
@@ -193,7 +193,7 @@ class ComicRepository(
         // Nama folder = judul series saja, sesuai permintaan pengguna.
         // Catatan: dua series berjudul persis sama dari sumber berbeda akan
         // berbagi folder; itu edge case yang diterima demi nama bersih.
-        val seriesDir = sanitize(series.title)
+        val seriesDir = seriesDirOf(series)
         val chapterDir = sanitize(chapter.title)
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
 
@@ -468,5 +468,13 @@ class ComicRepository(
         /** Nama folder aman untuk judul yang mengandung karakter ilegal. */
         fun sanitize(name: String): String =
             name.replace(Regex("""[\\/:*?"<>|\r\n]"""), "_").trim().take(80)
+
+        /**
+         * Folder series diawali id sumber supaya dua series judul sama
+         * atau mirip dari sumber berbeda tidak menimpa satu sama lain
+         * (clearFolder chapter bisa menghapus file milik series lain).
+         */
+        fun seriesDirOf(series: SeriesInfo): String =
+            "${series.source.id}_${sanitize(series.title)}"
     }
 }

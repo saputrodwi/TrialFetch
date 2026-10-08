@@ -3,6 +3,7 @@
 // bukan package — sehingga `java.util.…` ikut resolve ke JavaPluginExtension
 // dan gagal dengan "Unresolved reference: util". Import eksplisit menang.
 import java.util.Base64
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -98,6 +99,14 @@ android {
             signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
             } else {
+                if (System.getenv("GITHUB_ACTIONS") == "true") {
+                    // Di CI, APK release tanpa signing material = kegagalan
+                    // wajib: jangan biarkan APK "release" debug-signed lolos.
+                    throw GradleException(
+                        "Release signing belum disiapkan (secret TF_STORE_* kosong). " +
+                            "GITHUB_ACTIONS terdeteksi — build release dihentikan."
+                    )
+                }
                 logger.warn(
                     "Release signing belum disiapkan (secret TF_STORE_* kosong). " +
                         "APK release memakai DEBUG key — hanya untuk uji, " +
