@@ -176,6 +176,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             _bookmarkUpdates.value = found
             _updateChecking.value = false
+            if (found.isNotEmpty()) {
+                repo.notifier.showBookmarkUpdates(found.size, found)
+            }
         }
     }
 

@@ -61,7 +61,7 @@ class ComicRepository(
     // Cropper butuh Context untuk memuat 4 template banner dari res/raw.
     private val bannerCropper = BannerCropper(context.applicationContext)
     internal val storage = StorageWriter(context)
-    private val notifier = DownloadNotifier(context)
+    internal val notifier = DownloadNotifier(context)
 
     private var http: HttpClient = http
 

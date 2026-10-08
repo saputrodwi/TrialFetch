@@ -25,6 +25,7 @@ class DownloadNotifier(private val context: Context) {
     companion object {
         const val CHANNEL_ID = "downloads"
         const val NOTIFICATION_ID = 1001
+        const val NOTIF_UPDATE_ID = 1002
     }
 
     fun ensureChannel() {
@@ -100,6 +101,14 @@ class DownloadNotifier(private val context: Context) {
     fun showFailed(title: String, reason: String) {
         ensureChannel()
         manager.notify(NOTIFICATION_ID, build(title, reason, null, false))
+    }
+
+    /** Notifikasi sistem saat cek update menemukan chapter baru. */
+    fun showBookmarkUpdates(count: Int, titles: List<String>) {
+        ensureChannel()
+        val text = if (titles.isEmpty()) "$count update"
+        else titles.first() + if (titles.size > 1) " (+${titles.size - 1} lagi)" else ""
+        manager.notify(NOTIF_UPDATE_ID, build("Chapter baru tersedia ($count)", text, null, false))
     }
 
     fun cancel() = manager.cancel(NOTIFICATION_ID)
