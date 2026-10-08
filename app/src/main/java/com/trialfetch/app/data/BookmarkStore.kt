@@ -17,7 +17,9 @@ data class SavedSeries(
     val title: String,
     val author: String = "",
     val coverUrl: String = "",
-    val savedAt: Long = System.currentTimeMillis()
+    val savedAt: Long = System.currentTimeMillis(),
+    /** Chapter terbaru yang sudah diketahui; dipakai cek "ada chapter baru". */
+    val latestChapterTitle: String = ""
 ) {
     fun key(): String = "${source.id}::$comicId"
 
@@ -28,6 +30,7 @@ data class SavedSeries(
         .put("author", author)
         .put("coverUrl", coverUrl)
         .put("savedAt", savedAt)
+        .put("latestChapterTitle", latestChapterTitle)
 
     companion object {
         fun fromJson(o: JSONObject): SavedSeries? {
@@ -39,7 +42,8 @@ data class SavedSeries(
                 title = o.optString("title", comicId),
                 author = o.optString("author", ""),
                 coverUrl = o.optString("coverUrl", ""),
-                savedAt = o.optLong("savedAt", 0L)
+                savedAt = o.optLong("savedAt", 0L),
+                latestChapterTitle = o.optString("latestChapterTitle", "")
             )
         }
     }

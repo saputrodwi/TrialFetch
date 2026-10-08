@@ -23,6 +23,9 @@ import com.trialfetch.app.core.SourceException
 import com.trialfetch.app.core.WmanhuaSource
 import com.trialfetch.app.core.UrlParser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -57,7 +60,7 @@ class ComicRepository(
 ) {
     // Cropper butuh Context untuk memuat 4 template banner dari res/raw.
     private val bannerCropper = BannerCropper(context.applicationContext)
-    private val storage = StorageWriter(context)
+    internal val storage = StorageWriter(context)
     private val notifier = DownloadNotifier(context)
 
     private var http: HttpClient = http
@@ -151,6 +154,27 @@ class ComicRepository(
         sources[source]?.search(query)
             ?: throw SourceException("Sumber ${source.displayName} belum didukung")
 
+    /**
+     * Cari di semua sumber secara paralel. Sumber yang gagal tidak
+     * menggagalkan hasil sumber lain; error-nya dilog saja.
+     */
+    suspend fun searchAll(query: String): List<SearchResult> = coroutineScope {
+        val results = sources.values.map { src ->
+            async(Dispatchers.IO) {
+                try {
+                    src.search(query)
+                } catch (e: Exception) {
+                    Log.w("ComicRepository", "pencarian ${src.source.displayName} gagal: ${e.message}")
+                    emptyList()
+                }
+            }
+        }.awaitAll().flatten().distinctBy { "${it.source.id}::${it.comicId}" }
+        if (results.isEmpty()) {
+            throw SourceException("Pencarian lintas sumber tidak menghasilkan apa pun")
+        }
+        results
+    }
+
     suspend fun series(source: Source, comicId: String): SeriesInfo =
         sources[source]?.series(comicId)
             ?: throw SourceException("Sumber ${source.displayName} belum didukung")
@@ -238,99 +262,100 @@ class ComicRepository(
         onImage?.invoke(0, total)
 
         try {
-        for (img in page.images) {
-            // Jeda kooperatif untuk tombol Jeda antrian: berhenti di batas
-            // gambar (bukan di tengah unduhan) supaya tidak ada file setengah.
-            // CancellationException dari delay diteruskan oleh catch luar.
+        // 3 gambar diproses bersamaan: dapat kecepatan tanpa meledakkan
+        // heap (chunk kecil karena payload tiap gambar perlu ditahan).
+        // Jeda user/Batal ditunggu kooperatif di batas antar-chunk supaya
+        // tidak putus di tengah unduhan gambar.
+        val CONCURRENCY = 3
+        for (chunk in page.images.chunked(CONCURRENCY)) {
             while (isPaused()) delay(250)
-            try {
-                // Sekali retry dengan jeda pendek: CDN kadang membalas
-                // 429/timeout sesaat padahal request berikutnya lolos.
-                // Tanpa ini satu kedip jaringan = satu halaman hilang.
-                var raw: ByteArray? = null
-                var fetchError: Exception? = null
-                for (attempt in 0..1) {
-                    try {
-                        raw = http.getBytes(
-                            url = img.url,
-                            // Sumber tertentu (Manwang/Rumanhua) host
-                            // gambarnya 403 bila Referer bukan situsnya.
-                            referer = sources[series.source]?.imageReferer
-                                ?: originOf(img.url),
-                            // Sebagian CDN memuat gambar dengan referrerpolicy
-                            // "no-referrer" di HTML aslinya — meniru itu lebih
-                            // aman daripada mengarang Referer.
-                            sendNoReferer = sources[series.source]?.noImageReferer == true
-                        )
-                        fetchError = null
-                        break
-                    } catch (e: Exception) {
-                        fetchError = e
-                        if (attempt == 0) kotlinx.coroutines.delay(1500)
+            val ready = coroutineScope {
+                chunk.map { img ->
+                    async(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            // Sekali retry dengan jeda pendek: CDN kadang membalas
+                            // 429/timeout sesaat padahal request berikutnya lolos.
+                            var raw: ByteArray? = null
+                            var fetchError: Exception? = null
+                            for (attempt in 0..1) {
+                                try {
+                                    raw = http.getBytes(
+                                        url = img.url,
+                                        // Sumber tertentu (Manwang/Rumanhua) host
+                                        // gambarnya 403 bila Referer bukan situsnya.
+                                        referer = sources[series.source]?.imageReferer
+                                            ?: originOf(img.url),
+                                        // Sebagian CDN memuat gambar dengan referrerpolicy
+                                        // "no-referrer" di HTML aslinya — meniru itu lebih
+                                        // aman daripada mengarang Referer.
+                                        sendNoReferer = sources[series.source]?.noImageReferer == true
+                                    )
+                                    fetchError = null
+                                    break
+                                } catch (e: Exception) {
+                                    fetchError = e
+                                    if (attempt == 0) kotlinx.coroutines.delay(1500)
+                                }
+                            }
+                            val bytes = raw ?: throw fetchError ?: SourceException("Gagal mengunduh halaman ${img.page}")
+                            val plain = if (img.needsDecrypt) {
+                                try {
+                                    ImageCrypto.decrypt(bytes, IMAGE_KEY_MANWANG_RUMAN)
+                                } catch (e: Exception) {
+                                    Log.w("ComicRepository", "dekripsi halaman ${img.page} gagal: ${e.message}")
+                                    return@async Triple(img, null, true)
+                                }
+                            } else {
+                                bytes
+                            }
+                            val payload = if (settings.cropBanner && series.source == Source.BAOZIMH) {
+                                bannerCropper.crop(plain)
+                            } else {
+                                plain
+                            }
+                            Triple(img, payload, false)
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            // JANGAN telan pembatalan: user menekan Batal =
+                            // unduhan harus berhenti, bukan dianggap halaman gagal.
+                            throw e
+                        } catch (e: Exception) {
+                            Log.w("ComicRepository", "halaman ${img.page} gagal: ${e.message}")
+                            Triple(img, null, false)
+                        }
+                    }
+                }.awaitAll()
+            }
+            // Tulis urutan asli gambar (page) satu per satu supaya arsip ZIP
+            // (streaming, tidak thread-safe) aman, dan progres berurutan.
+            for ((img, payload, decryptFailed) in ready.sortedBy { it.first.page }) {
+                when {
+                    decryptFailed -> failed += img.page
+                    payload == null -> failed += img.page
+                    else -> {
+                        val finalFormat = ImageFormat.sniff(payload)
+                        val fileName = settings.naming.fileName(img.page, finalFormat.extension)
+                        if (settings.outputMode == OutputMode.ZIP) {
+                            try {
+                                zipSink!!.put("$chapterDir/$fileName", payload)
+                                succeeded++
+                            } catch (e: Exception) {
+                                Log.w("ComicRepository", "tulis ZIP halaman ${img.page} gagal: ${e.message}")
+                                failed += img.page
+                            }
+                        } else {
+                            if (storage.writeFile(parentPath, fileName, payload)) succeeded++
+                        }
+                        succeeded.let { done ->
+                            _progress.value = DownloadProgress(
+                                total = total, done = done, currentPage = img.page,
+                                state = DownloadProgress.State.RUNNING,
+                                chapterTitle = chapter.title
+                            )
+                            notifier.showRunning(chapter.title, done, total)
+                            onImage?.invoke(done, total)
+                        }
                     }
                 }
-                val bytes = raw ?: throw fetchError ?: SourceException("Gagal mengunduh halaman ${img.page}")
-
-                // Gambar terenkripsi (Manwang/Rumanhua source_id 12) WAJIB
-                // didekripsi dulu. Flag needsDecrypt sebelumnya diabaikan
-                // total sehingga file ciphertext tersimpan sebagai jpg rusak.
-                // Kunci sama untuk keduanya karena backend-nya sama.
-                var decryptFailed = false
-                val plain = if (img.needsDecrypt) {
-                    try {
-                        ImageCrypto.decrypt(bytes, IMAGE_KEY_MANWANG_RUMAN)
-                    } catch (e: Exception) {
-                        Log.w("ComicRepository", "dekripsi halaman ${img.page} gagal: ${e.message}")
-                        decryptFailed = true
-                        bytes
-                    }
-                } else {
-                    bytes
-                }
-                if (decryptFailed) {
-                    failed += img.page
-                    continue
-                }
-
-                val payload = if (settings.cropBanner && series.source == Source.BAOZIMH) {
-                    bannerCropper.crop(plain)
-                } else {
-                    plain
-                }
-
-                val finalFormat = ImageFormat.sniff(payload)
-                val fileName = settings.naming.fileName(img.page, finalFormat.extension)
-
-                if (settings.outputMode == OutputMode.ZIP) {
-                    // Streaming: langsung jadi entry arsip, RAM hanya
-                    // menampung satu gambar dalam satu waktu.
-                    try {
-                        zipSink!!.put("$chapterDir/$fileName", payload)
-                        succeeded++
-                    } catch (e: Exception) {
-                        Log.w("ComicRepository", "tulis ZIP halaman ${img.page} gagal: ${e.message}")
-                        failed += img.page
-                    }
-                } else {
-                    if (storage.writeFile(parentPath, fileName, payload)) succeeded++
-                }
-                succeeded.let { done ->
-                    _progress.value = DownloadProgress(
-                        total = total, done = done, currentPage = img.page,
-                        state = DownloadProgress.State.RUNNING,
-                        chapterTitle = chapter.title
-                    )
-                    notifier.showRunning(chapter.title, done, total)
-                    onImage?.invoke(done, total)
-                }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                // User menekan Batal (atau scope dibatalkan): JANGAN telan.
-                // Kalau diteruskan sebagai halaman gagal, loop terus jalan
-                // sampai akhir lalu menulis info.txt + showDone seolah
-                // unduhan selesai.
-                throw e
-            } catch (e: Exception) {
-                failed += img.page
             }
         }
         } catch (e: kotlinx.coroutines.CancellationException) {

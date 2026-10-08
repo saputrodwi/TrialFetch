@@ -70,6 +70,8 @@ fun HomeScreen(
     sources: List<Source>,
     source: Source,
     onSourceChange: (Source) -> Unit,
+    allSelected: Boolean = false,
+    onAllSources: () -> Unit = {},
     results: List<SearchResult>,
     error: String?,
     urlInput: String,
@@ -181,9 +183,16 @@ fun HomeScreen(
 
         Spacer(Modifier.height(10.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                FilterChip(
+                    selected = allSelected,
+                    onClick = { onAllSources() },
+                    label = { Text("Semua sumber") }
+                )
+            }
             items(sources) { s ->
                 FilterChip(
-                    selected = source == s,
+                    selected = !allSelected && source == s,
                     onClick = { onSourceChange(s) },
                     label = { Text(s.displayName) }
                 )

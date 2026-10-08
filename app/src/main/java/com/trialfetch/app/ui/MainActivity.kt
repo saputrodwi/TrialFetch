@@ -364,6 +364,8 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                         sources = vm.repo.availableSources,
                         source = searchState.source,
                         onSourceChange = vm::onSourceChange,
+                        allSelected = searchState.allSources,
+                        onAllSources = vm::searchAllSources,
                         results = searchState.results,
                         error = seriesState.error,
                         urlInput = urlInput,
@@ -398,12 +400,18 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                     )
                 }
                 composable(Routes.SAVED) {
+                    val updates by vm.bookmarkUpdates.collectAsStateWithLifecycle()
+                    val checking by vm.updateChecking.collectAsStateWithLifecycle()
                     SavedScreen(
                         items = bookmarks,
                         onOpen = { item ->
                             nav.navigate(Routes.series(item.source.id, item.comicId))
                         },
-                        onRemove = vm::removeBookmark
+                        onRemove = vm::removeBookmark,
+                        updates = updates,
+                        checking = checking,
+                        onCheckUpdates = vm::checkBookmarkUpdates,
+                        onClearUpdates = vm::clearBookmarkUpdates
                     )
                 }
                 composable(Routes.HISTORY) {
@@ -430,7 +438,9 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                     SettingsScreen(
                         settings = settings,
                         onChange = vm::updateSettings,
-                        onReset = { vm.updateSettings(DownloadSettings()) }
+                        onReset = { vm.updateSettings(DownloadSettings()) },
+                        onExportBackup = vm::exportBackup,
+                        onImportBackup = vm::importBackup
                     )
                 }
             }
@@ -917,7 +927,11 @@ private fun ChapterRow(
 private fun SavedScreen(
     items: List<SavedSeries>,
     onOpen: (SavedSeries) -> Unit,
-    onRemove: (SavedSeries) -> Unit
+    onRemove: (SavedSeries) -> Unit,
+    updates: List<String> = emptyList(),
+    checking: Boolean = false,
+    onCheckUpdates: () -> Unit = {},
+    onClearUpdates: () -> Unit = {}
 ) {
     val extra = LocalExtraColors.current
     if (items.isEmpty()) {
@@ -932,12 +946,45 @@ private fun SavedScreen(
         }
         return
     }
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(items, key = { it.key() }) { item ->
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onCheckUpdates, enabled = !checking) {
+                    Text(if (checking) "Mengecek…" else "Cek update")
+                }
+                Spacer(Modifier.weight(1f))
+                if (updates.isNotEmpty()) {
+                    TextButton(onClick = onClearUpdates) { Text("Bersihkan") }
+                }
+            }
+            if (updates.isNotEmpty()) {
+                BrutalCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    background = extra.yellow
+                ) {
+                    Text(
+                        "Chapter baru:",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    updates.forEach { u ->
+                        Text(
+                            "• $u",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = extra.onAccent,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(items, key = { it.key() }) { item ->
             BrutalCard(
                 modifier = Modifier.fillMaxWidth(),
                 background = extra.card,
@@ -976,6 +1023,7 @@ private fun SavedScreen(
                     }
                 }
             }
+        }
         }
     }
 }

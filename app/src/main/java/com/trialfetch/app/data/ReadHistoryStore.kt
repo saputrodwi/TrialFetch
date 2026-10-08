@@ -74,7 +74,7 @@ class ReadHistoryStore(context: Context) {
         }.getOrDefault(emptyList())
     }
 
-    private fun saveAll(items: List<HistoryEntry>) {
+    fun saveAll(items: List<HistoryEntry>) {
         val arr = JSONArray()
         for (it in items.take(MAX)) arr.put(it.toJson())
         prefs.edit().putString(KEY_HISTORY, arr.toString()).apply()

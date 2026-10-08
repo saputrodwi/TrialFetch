@@ -43,7 +43,9 @@ import com.trialfetch.app.ui.theme.LocalExtraColors
 fun SettingsScreen(
     settings: DownloadSettings,
     onChange: (DownloadSettings) -> Unit,
-    onReset: () -> Unit = {}
+    onReset: () -> Unit = {},
+    onExportBackup: () -> Unit = {},
+    onImportBackup: () -> Unit = {}
 ) {
     Column(
         Modifier
@@ -143,6 +145,18 @@ fun SettingsScreen(
                         onChange(settings.copy(dohProvider = DohProvider.entries[i]))
                     }
                 )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        SectionCard("Data") {
+            TextButton(onClick = onExportBackup) {
+                Text("Cadangkan bookmark & riwayat")
+            }
+            Spacer(Modifier.height(4.dp))
+            TextButton(onClick = onImportBackup) {
+                Text("Pulihkan dari cadangan")
             }
         }
 

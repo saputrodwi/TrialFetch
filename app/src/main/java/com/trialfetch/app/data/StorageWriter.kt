@@ -508,6 +508,18 @@ class StorageWriter(private val context: Context) {
         return findByName(folderPath, fileName)
     }
 
+    /** Baca teks file yang sudah ditulis sebelumnya (pulihkan cadangan). */
+    fun readText(folderPath: String, fileName: String): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = findExisting(collection, fileName, fullRelativePath(folderPath))
+            ?: return null
+        return runCatching {
+            context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)
+                ?.use { it.readText() }
+        }.getOrNull()
+    }
+
     /** Ambil Uri item yang baru ditulis, untuk dilaporkan ke pengguna. */
     private fun findByName(folderPath: String, fileName: String): Uri? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null

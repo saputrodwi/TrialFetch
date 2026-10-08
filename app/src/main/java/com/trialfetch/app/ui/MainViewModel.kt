@@ -34,7 +34,9 @@ data class SearchUiState(
     val source: Source = Source.BAOZIMH,
     val loading: Boolean = false,
     val results: List<SearchResult> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    /** true saat memakai mode "cari di semua sumber". */
+    val allSources: Boolean = false
 )
 
 data class SeriesUiState(
@@ -75,6 +77,112 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         applyNetwork(s)
     }
 
+    // --- Cadangan data (bookmark + riwayat) ---
+
+    /** Ekspor bookmark + riwayat ke Download/TrialFetch/cadangan_data.json. */
+    fun exportBackup() {
+        val ok = try {
+            val json = buildString {
+                append("{\"version\":1,\"bookmarks\":")
+                append(org.json.JSONArray().apply {
+                    _bookmarks.value.forEach { put(it.toJson()) }
+                }.toString())
+                append(",\"history\":")
+                append(org.json.JSONArray().apply {
+                    _history.value.forEach { put(it.toJson()) }
+                }.toString())
+                append("}")
+            }
+            repo.storage.writeText("", "cadangan_data.json", json) != null
+        } catch (e: Exception) {
+            false
+        }
+        if (ok) {
+            Toast.makeText(getApplication(), "Cadangan tersimpan: Download/TrialFetch/cadangan_data.json", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(getApplication(), "Gagal menyimpan cadangan", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** Pulihkan bookmark + riwayat dari cadangan_data.json yang ada. */
+    fun importBackup() {
+        val count = try {
+            val text = repo.storage.readText("", "cadangan_data.json")
+                ?: return Toast.makeText(getApplication(), "File cadangan tidak ditemukan", Toast.LENGTH_LONG).show()
+            val obj = org.json.JSONObject(text)
+            var n = 0
+            obj.optJSONArray("bookmarks")?.let { arr ->
+                val existing = _bookmarks.value.toMutableList()
+                for (i in 0 until arr.length()) {
+                    val item = SavedSeries.fromJson(arr.optJSONObject(i) ?: continue) ?: continue
+                    if (existing.none { it.key() == item.key() }) {
+                        existing.add(item); n++
+                    }
+                }
+                _bookmarks.value = existing
+                bookmarkStore.saveAll(existing)
+            }
+            obj.optJSONArray("history")?.let { arr ->
+                val existing = _history.value.toMutableList()
+                for (i in 0 until arr.length()) {
+                    val item = HistoryEntry.fromJson(arr.optJSONObject(i) ?: continue) ?: continue
+                    if (existing.none { it.key() == item.key() }) {
+                        existing.add(item); n++
+                    }
+                }
+                _history.value = existing
+                historyStore.saveAll(existing)
+            }
+            n
+        } catch (e: Exception) {
+            -1
+        }
+        when {
+            count > 0 -> Toast.makeText(getApplication(), "Pulih $count entri cadangan", Toast.LENGTH_LONG).show()
+            count == 0 -> Toast.makeText(getApplication(), "Tidak ada entri baru di cadangan", Toast.LENGTH_LONG).show()
+            else -> Toast.makeText(getApplication(), "File cadangan rusak", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // --- Cek update series yang di-bookmark ---
+    private val _bookmarkUpdates = MutableStateFlow<List<String>>(emptyList())
+    val bookmarkUpdates: StateFlow<List<String>> = _bookmarkUpdates.asStateFlow()
+    private val _updateChecking = MutableStateFlow(false)
+    val updateChecking: StateFlow<Boolean> = _updateChecking.asStateFlow()
+
+    fun checkBookmarkUpdates() {
+        if (_updateChecking.value) return
+        _updateChecking.value = true
+        viewModelScope.launch {
+            val found = mutableListOf<String>()
+            _bookmarks.value.take(30).forEach { b ->
+                try {
+                    val info = repo.series(b.source, b.comicId)
+                    val latest = info.latestChapterTitle.trim()
+                    if (latest.isNotBlank() && latest != b.latestChapterTitle) {
+                        found.add("${b.title}: $latest")
+                        val i = _bookmarks.value.indexOfFirst { it.key() == b.key() }
+                        if (i >= 0) {
+                            val cur = _bookmarks.value.toMutableList()
+                            cur[i] = cur[i].copy(latestChapterTitle = latest)
+                            _bookmarks.value = cur
+                            bookmarkStore.saveAll(cur)
+                        }
+                    }
+                    kotlinx.coroutines.delay(700)
+                } catch (_: Exception) {
+                    // Sumber yang sedang down tidak menggagalkan cek sisanya.
+                }
+            }
+            _bookmarkUpdates.value = found
+            _updateChecking.value = false
+        }
+    }
+
+    fun clearBookmarkUpdates() {
+        _bookmarkUpdates.value = emptyList()
+    }
+
     private fun applyNetwork(s: DownloadSettings) {
         if (!s.dohEnabled) {
             repo.updateNetwork(null)
@@ -108,7 +216,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 comicId = info.comicId,
                 title = info.title,
                 author = info.author,
-                coverUrl = info.coverUrl
+                coverUrl = info.coverUrl,
+                latestChapterTitle = info.latestChapterTitle
             )
         )
         _bookmarks.value = cur
@@ -241,7 +350,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onSourceChange(s: Source) {
-        _search.value = _search.value.copy(source = s, results = emptyList(), error = null)
+        _search.value = _search.value.copy(source = s, results = emptyList(), error = null, allSources = false)
+    }
+
+    /** Mode pencarian lintas sumber: satu query dijalankan ke semua sumber. */
+    fun searchAllSources() {
+        _search.value = _search.value.copy(allSources = true, results = emptyList(), error = null)
     }
 
     fun doSearch() {
@@ -250,7 +364,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _search.value = st.copy(loading = true, error = null, results = emptyList())
         viewModelScope.launch {
             try {
-                val res = repo.search(st.source, st.query.trim())
+                val res = if (st.allSources) {
+                    repo.searchAll(st.query.trim())
+                } else {
+                    repo.search(st.source, st.query.trim())
+                }
                 _search.value = _search.value.copy(loading = false, results = res)
             } catch (e: Exception) {
                 val msg = e.message ?: "Pencarian gagal"
