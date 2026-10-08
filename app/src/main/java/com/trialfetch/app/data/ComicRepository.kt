@@ -347,8 +347,7 @@ class ComicRepository(
                             // terbaca reader + tidak masuk listImages.
                             Log.w("ComicRepository", "format tidak dikenal halaman ${img.page}")
                             failed += img.page
-                            continue@for
-                        }
+                        } else {
                         val fileName = settings.naming.fileName(img.page, finalFormat.extension)
                         if (settings.outputMode == OutputMode.ZIP) {
                             try {
@@ -369,6 +368,7 @@ class ComicRepository(
                             )
                             notifier.showRunning(chapter.title, done, total)
                             onImage?.invoke(done, total)
+                        }
                         }
                     }
                 }
