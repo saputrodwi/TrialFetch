@@ -129,7 +129,7 @@ class HttpClient(
                 .header("User-Agent", desktopUa)
                 .header("Accept", "text/html,*/*")
             client.newCall(builder.build()).execute().use { res ->
-                val u = res.request.url()
+                val u = res.request.url
                 "${u.scheme}://${u.host}"
             }
         }
