@@ -50,24 +50,85 @@ enum class ImageFormat(val mime: String, val extension: String) {
     WEBP("image/webp", "webp"),
     GIF("image/gif", "gif"),
     BMP("image/bmp", "bmp"),
+    AVIF("image/avif", "avif"),
+    HEIC("image/heic", "heic"),
+    JXL("image/jxl", "jxl"),
     UNKNOWN("application/octet-stream", "bin");
 
     companion object {
         fun sniff(bytes: ByteArray): ImageFormat {
             if (bytes.size < 12) return UNKNOWN
+            // JXL: 0xFF 0x0A, atau box "ftyp" dengan brand "jxl ".
+            if (bytes[0] == 0xFF.toByte() && bytes[1] == 0x0A.toByte()) return JXL
             return when {
                 bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> JPEG
                 bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() ->
                     PNG
                 bytes[0] == 0x52.toByte() && bytes[1] == 0x49.toByte() &&
-                    bytes[2] == 0x46.toByte() && bytes[3] == 0x46.toByte() ->
+                    bytes[2] == 0x46.toByte() && bytes[3] == 0x46.toByte() &&
+                    ascii(bytes, 8, 12) == "WEBP" ->
                     WEBP
                 bytes[0] == 0x47.toByte() && bytes[1] == 0x49.toByte() ->
                     GIF
                 bytes[0] == 0x42.toByte() && bytes[1] == 0x4D.toByte() ->
                     BMP
-                else -> UNKNOWN
+                isFtyp(bytes, "avif") || isFtyp(bytes, "avis") -> AVIF
+                isFtyp(bytes, "heic") || isFtyp(bytes, "heix") ||
+                    isFtyp(bytes, "mif1") -> HEIC
+                else -> {
+                    // Cara praktis: Box "ftyp" + brand berawalan jxl/jpegxl.
+                    val brand = ascii(bytes, 8, 12)
+                    when {
+                        brand.startsWith("jxl") || brand.startsWith("avif") -> JXL
+                        else -> UNKNOWN
+                    }
+                }
             }
+        }
+
+        /**
+         * sniff() lalu fallback ke BitmapFactory (inJustDecodeBounds) untuk
+         * format yang tidak dikenal tanda-tangan awalnya, mis. AVIF/HEIC
+         * dengan brand tak biasa. Mengembalikan UNKNOWN bila juga gagal —
+         * pemanggil menandainya gagal daripada menyimpan file kosong.
+         */
+        fun guessWithBitmap(bytes: ByteArray): ImageFormat {
+            val byMagic = sniff(bytes)
+            if (byMagic != UNKNOWN) return byMagic
+            return try {
+                val opts = android.graphics.BitmapFactory.Options()
+                opts.inJustDecodeBounds = true
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+                fromMime(opts.outMimeType) ?: UNKNOWN
+            } catch (e: Exception) {
+                UNKNOWN
+            }
+        }
+
+        private fun fromMime(mime: String?): ImageFormat? = when (mime?.lowercase()) {
+            "image/jpeg" -> JPEG
+            "image/png" -> PNG
+            "image/webp" -> WEBP
+            "image/gif" -> GIF
+            "image/bmp", "image/x-ms-bmp" -> BMP
+            "image/avif" -> AVIF
+            "image/heic", "image/heic-sequence", "image/heif" -> HEIC
+            "image/jxl" -> JXL
+            else -> null
+        }
+
+        /** true bila bytes[4..7] == "ftyp" dan brand berisi [want]. */
+        private fun isFtyp(bytes: ByteArray, want: String): Boolean {
+            if (bytes.size < 12) return false
+            if (bytes[4] != 0x66.toByte() || bytes[5] != 0x74.toByte() ||
+                bytes[6] != 0x79.toByte() || bytes[7] != 0x70.toByte()
+            ) return false
+            return ascii(bytes, 8, 12).lowercase().contains(want)
+        }
+
+        private fun ascii(bytes: ByteArray, from: Int, to: Int): String {
+            return bytes.copyOfRange(from, to.coerceAtMost(bytes.size))
+                .toString(Charsets.US_ASCII)
         }
     }
 }

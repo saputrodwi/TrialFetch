@@ -159,24 +159,31 @@ class ComicRepository(
      * menggagalkan hasil sumber lain; error-nya dilog saja.
      */
     suspend fun searchAll(query: String): List<SearchResult> = coroutineScope {
-        val results = sources.values.map { src ->
-            async(Dispatchers.IO) {
-                try {
-                    src.search(query)
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.w("ComicRepository", "pencarian ${src.source.displayName} gagal: ${e.message}")
-                    emptyList()
+        // Maks 4 per grup, dan tiap request diberi delay acak kecil:
+        // menembak 9 URL serentak bisa memicu rate-limit sumber.
+        val flat = mutableListOf<List<SearchResult>>()
+        for (group in sources.values.chunked(4)) {
+            val batch = group.map { src ->
+                async(Dispatchers.IO) {
+                    try {
+                        kotlinx.coroutines.delay(kotlin.random.Random.nextLong(0, 250))
+                        src.search(query)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w("ComicRepository", "pencarian ${src.source.displayName} gagal: ${e.message}")
+                        emptyList()
+                    }
                 }
-            }
-        }.awaitAll().flatten().distinctBy { "${it.source.id}::${it.comicId}" }
+            }.awaitAll().flatten()
+            flat.add(batch)
+        }
+        val results = flat.flatten().distinctBy { "${it.source.id}::${it.comicId}" }
         if (results.isEmpty()) {
             throw SourceException("Pencarian lintas sumber tidak menghasilkan apa pun")
         }
         results
     }
-
     suspend fun series(source: Source, comicId: String): SeriesInfo =
         sources[source]?.series(comicId)
             ?: throw SourceException("Sumber ${source.displayName} belum didukung")
@@ -334,7 +341,14 @@ class ComicRepository(
                     decryptFailed -> failed += img.page
                     payload == null -> failed += img.page
                     else -> {
-                        val finalFormat = ImageFormat.sniff(payload)
+                        val finalFormat = ImageFormat.guessWithBitmap(payload)
+                        if (finalFormat == ImageFormat.UNKNOWN) {
+                            // Jangan simpan .bin: badge sukses tapi tak
+                            // terbaca reader + tidak masuk listImages.
+                            Log.w("ComicRepository", "format tidak dikenal halaman ${img.page}")
+                            failed += img.page
+                            continue@for
+                        }
                         val fileName = settings.naming.fileName(img.page, finalFormat.extension)
                         if (settings.outputMode == OutputMode.ZIP) {
                             try {

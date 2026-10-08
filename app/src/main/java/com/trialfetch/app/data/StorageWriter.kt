@@ -73,7 +73,16 @@ class StorageWriter(private val context: Context) {
      * Mengembalikan jumlah file yang benar-benar terhapus.
      */
     fun clearFolder(folderPath: String): Int {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            // Android 9 & bawah: hapus manual per-File, tidak ada MediaStore.
+            return runCatching {
+                val root = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                )
+                java.io.File(root, "${OutputPaths.ROOT}/${folderPath.trim('/')}")
+                    .listFiles()?.count { it.isFile && it.delete() } ?: 0
+            }.getOrDefault(0)
+        }
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val relative = fullRelativePath(folderPath)
         return runCatching {
@@ -119,7 +128,7 @@ class StorageWriter(private val context: Context) {
                 val root = android.os.Environment.getExternalStoragePublicDirectory(
                     android.os.Environment.DIRECTORY_DOWNLOADS
                 )
-                java.io.File(root, cleaned).listFiles()
+                java.io.File(root, "${OutputPaths.ROOT}/${seriesDir.trim('/')}/").listFiles()
                     ?.filter { it.isDirectory }
                     ?.map { it.name }
                     .orEmpty().toSet()
@@ -184,7 +193,15 @@ class StorageWriter(private val context: Context) {
 
     /** Berapa file yang masih ada di folder, untuk dipakai sebagai peringatan. */
     fun countFiles(folderPath: String): Int {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return runCatching {
+                val root = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                )
+                java.io.File(root, "${OutputPaths.ROOT}/${folderPath.trim('/')}")
+                    .listFiles()?.count { it.isFile } ?: 0
+            }.getOrDefault(0)
+        }
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val relative = fullRelativePath(folderPath)
         return runCatching {
@@ -232,7 +249,8 @@ class StorageWriter(private val context: Context) {
     private fun isImageName(name: String): Boolean {
         val n = name.lowercase()
         return n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png") ||
-            n.endsWith(".webp") || n.endsWith(".gif") || n.endsWith(".bmp")
+            n.endsWith(".webp") || n.endsWith(".gif") || n.endsWith(".bmp") ||
+            n.endsWith(".avif") || n.endsWith(".heic") || n.endsWith(".jxl")
     }
 
     private fun listImagesLegacy(folderPath: String): List<Uri> {
@@ -532,6 +550,10 @@ class StorageWriter(private val context: Context) {
         name.endsWith(".png", true) -> "image/png"
         name.endsWith(".webp", true) -> "image/webp"
         name.endsWith(".gif", true) -> "image/gif"
+        name.endsWith(".bmp", true) -> "image/bmp"
+        name.endsWith(".avif", true) -> "image/avif"
+        name.endsWith(".heic", true) -> "image/heic"
+        name.endsWith(".jxl", true) -> "image/jxl"
         name.endsWith(".zip", true) -> "application/zip"
         name.endsWith(".txt", true) -> "text/plain"
         else -> "application/octet-stream"
