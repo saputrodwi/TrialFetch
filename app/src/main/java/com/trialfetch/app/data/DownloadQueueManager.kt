@@ -5,11 +5,15 @@ import com.trialfetch.app.core.SeriesInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
 
 /** Status satu item antrian. */
@@ -55,20 +59,23 @@ class DownloadQueueManager(
     val paused: StateFlow<Boolean> = _paused.asStateFlow()
 
     private var processor: Job? = null
+    private val supervisorLock = Mutex()
 
     /** Tambah chapter ke antrian (lewati yang sudah QUEUED/ACTIVE). */
     fun enqueue(series: SeriesInfo, chapters: List<Chapter>) {
         if (chapters.isEmpty()) return
-        val cur = _items.value.toMutableList()
         var added = false
-        for (ch in chapters) {
-            val key = "${series.source.id}::${series.comicId}::${ch.chapterId}"
-            if (cur.any { it.key() == key && (it.state == QueueItemState.QUEUED || it.state == QueueItemState.ACTIVE) }) continue
-            cur += QueueItem(ids.getAndIncrement(), series, ch)
-            added = true
+        _items.update { cur ->
+            val out = cur.toMutableList()
+            for (ch in chapters) {
+                val key = "${series.source.id}::${series.comicId}::${ch.chapterId}"
+                if (out.any { it.key() == key && (it.state == QueueItemState.QUEUED || it.state == QueueItemState.ACTIVE) }) continue
+                out += QueueItem(ids.getAndIncrement(), series, ch)
+                added = true
+            }
+            out
         }
         if (added) {
-            _items.value = cur
             ensureProcessing()
         }
     }
@@ -85,23 +92,11 @@ class DownloadQueueManager(
     /** Batalkan satu item. Kalau sedang aktif, prosesor di-restart untuk sisanya. */
     fun cancelItem(id: Long) {
         val item = _items.value.firstOrNull { it.id == id } ?: return
+        if (item.state == QueueItemState.QUEUED || item.state == QueueItemState.ACTIVE || item.state == QueueItemState.FAILED) {
+            update(id) { it.copy(state = QueueItemState.CANCELLED) }
+        }
         if (item.state == QueueItemState.ACTIVE) {
-            update(id) { it.copy(state = QueueItemState.CANCELLED) }
-            // Tunggu job lama benar-benar mati dulu (join), karena
-            // ensureProcessing menolak jalan selagi isActive masih true.
-            // Tanpa join, sisa antrian tidak lanjut.
-            val old = processor
-            processor = null
-            scope.launch {
-                try {
-                    old?.cancel()
-                    old?.join()
-                } catch (_: Exception) {
-                }
-                ensureProcessing()
-            }
-        } else if (item.state == QueueItemState.QUEUED || item.state == QueueItemState.FAILED) {
-            update(id) { it.copy(state = QueueItemState.CANCELLED) }
+            scope.launch { restart() }
         }
     }
 
@@ -119,7 +114,7 @@ class DownloadQueueManager(
             cancelItem(id)
             return
         }
-        _items.value = _items.value.filterNot { it.id == id }
+        _items.update { cur -> cur.filterNot { it.id == id } }
     }
 
     /** Masukkan lagi item gagal/dibatalkan ke antrian. */
@@ -132,19 +127,25 @@ class DownloadQueueManager(
 
     /** Batalkan semua yang belum selesai. */
     fun cancelAll() {
-        processor?.cancel()
-        processor = null
-        _items.value = _items.value.map {
-            if (it.state == QueueItemState.QUEUED || it.state == QueueItemState.ACTIVE) {
-                it.copy(state = QueueItemState.CANCELLED)
-            } else it
+        _items.update { cur ->
+            cur.map {
+                if (it.state == QueueItemState.QUEUED || it.state == QueueItemState.ACTIVE) {
+                    it.copy(state = QueueItemState.CANCELLED)
+                } else it
+            }
+        }
+        scope.launch {
+            supervisorLock.withLock {
+                processor?.cancelAndJoin()
+                processor = null
+            }
         }
     }
 
     /** Buang semua item terminal (DONE/FAILED/CANCELLED). */
     fun clearFinished() {
-        _items.value = _items.value.filter {
-            it.state == QueueItemState.QUEUED || it.state == QueueItemState.ACTIVE
+        _items.update { cur ->
+            cur.filter { it.state == QueueItemState.QUEUED || it.state == QueueItemState.ACTIVE }
         }
     }
 
@@ -156,13 +157,24 @@ class DownloadQueueManager(
         _items.value.count { it.state == QueueItemState.QUEUED || it.state == QueueItemState.ACTIVE }
 
     private fun update(id: Long, f: (QueueItem) -> QueueItem) {
-        _items.value = _items.value.map { if (it.id == id) f(it) else it }
+        _items.update { cur -> cur.map { if (it.id == id) f(it) else it } }
+    }
+
+    private suspend fun restart() {
+        supervisorLock.withLock {
+            processor?.cancelAndJoin()
+            processor = null
+            // Loop baru hanya bila masih ada yang antre.
+            if (_items.value.any { it.state == QueueItemState.QUEUED }) {
+                processor = scope.launch { runLoop() }
+            }
+        }
     }
 
     private fun ensureProcessing() {
         if (processor?.isActive == true) return
         if (_items.value.none { it.state == QueueItemState.QUEUED }) return
-        processor = scope.launch { runLoop() }
+        scope.launch { restart() }
     }
 
     private suspend fun runLoop() {

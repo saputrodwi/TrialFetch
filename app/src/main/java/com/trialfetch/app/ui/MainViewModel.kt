@@ -170,6 +170,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                     kotlinx.coroutines.delay(700)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                     // Sumber yang sedang down tidak menggagalkan cek sisanya.
                 }

@@ -163,6 +163,8 @@ class ComicRepository(
             async(Dispatchers.IO) {
                 try {
                     src.search(query)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.w("ComicRepository", "pencarian ${src.source.displayName} gagal: ${e.message}")
                     emptyList()
@@ -438,6 +440,8 @@ class ComicRepository(
                     ?: throw SourceException("Sumber ${parsed.source.displayName} belum didukung")
                 val comicId = try {
                     src.seriesIdFromChapterUrl(parsed.url)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     null
                 } ?: throw SourceException(

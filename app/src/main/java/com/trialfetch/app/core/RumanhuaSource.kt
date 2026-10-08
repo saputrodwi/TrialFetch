@@ -145,6 +145,8 @@ class RumanhuaSource(private val http: HttpClient) : ComicSource {
         val absolute = if (chapterUrl.startsWith("http")) chapterUrl else "$BASE$chapterUrl"
         val html = try {
             fetchHtml(absolute)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             return null
         }
