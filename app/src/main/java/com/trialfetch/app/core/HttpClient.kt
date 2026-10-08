@@ -118,6 +118,25 @@ class HttpClient(
      * Dipakai endpoint AJAX yang menolak request tanpa header aplikasi
      * (mis. Madara GoodToon yang wajib X-Requested-With: XMLHttpRequest).
      */
+    /**
+     * Ikuti redirect situs lalu kembalikan origin akhir ("scheme://host")
+     * — untuk sumber yang domain aktifnya sering pindah (GoodToon).
+     * Null kalau tidak bisa dijangkau.
+     */
+    suspend fun resolveOrigin(url: String): String? = try {
+        withContext(Dispatchers.IO) {
+            val builder = Request.Builder().url(url)
+                .header("User-Agent", desktopUa)
+                .header("Accept", "text/html,*/*")
+            client.newCall(builder.build()).execute().use { res ->
+                val u = res.request.url()
+                "${u.scheme}://${u.host}"
+            }
+        }
+    } catch (e: Exception) {
+        null
+    }
+
     suspend fun postEmpty(
         url: String,
         headers: Map<String, String>

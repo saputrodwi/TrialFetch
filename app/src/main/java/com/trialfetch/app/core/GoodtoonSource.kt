@@ -105,12 +105,10 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
 
     override suspend fun series(comicId: String): SeriesInfo {
         // Domain aktif bisa berganti (004 -> 005, dst); web memakai
-        // redirector goodtoon.top untuk pencarian, tapi endpoint AJAX harus
-        // satu origin dengan series-nya. Dipakai fallback yang terakhir
-        // terverifikasi hidup; URL chapter dari hasil pencarian/ajax sudah
-        // membawa origin aktif masing-masing sehingga chapter() tetap jalan
-        // walau domain pindah.
-        val origin = FALLBACK_BASE
+        // redirector goodtoon.top untuk mencari origin aktif terbaru:
+        // domain goodtoon berganti-ganti (005 -> 006), POST ajax rusak bila
+        // host-nya 301 ke domain lain (OkHttp menurunkan POST ke GET).
+        val origin = http.resolveOrigin("$REDIRECTOR/") ?: FALLBACK_BASE
         val ajaxUrl = "$origin/manga/$comicId/ajax/chapters/?t=1"
 
         val chaptersHtml = try {
