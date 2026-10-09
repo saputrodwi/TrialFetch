@@ -45,7 +45,7 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
         if (results.isEmpty()) {
             throw SourceException(
                 "Tidak ada hasil untuk \"$query\". " +
-                "Situs ini kadang Baldwall devolv untuk kueri tanpa hasil."
+                "Situs ini kadang membalas kosong untuk kueri tanpa hasil."
             )
         }
         return results.take(30)
@@ -115,7 +115,7 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
                 }
             }
         }
-        // Fallback: HTMLHOJA
+        // Fallback: daftar chapter langsung dari HTML halaman series.
         val re = Regex("""<a[^>]+href="/chapter/(\d+)-(\d+)\.html"[^>]*>([\s\S]{0,120}?)</a>""")
         return re.findAll(fallbackHtml).map { m ->
             Chapter(

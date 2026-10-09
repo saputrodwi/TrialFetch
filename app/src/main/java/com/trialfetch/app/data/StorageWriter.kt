@@ -28,6 +28,13 @@ class StorageWriter(private val context: Context) {
 
     private companion object {
         const val TAG = "StorageWriter"
+
+        /**
+         * Penanda ekstraksi ZIP selesai, berisi jumlah file gambar yang
+         * berhasil diekstrak. Tanpa penanda ini, cache "tidak kosong" di
+         * anggap lengkap padahal ekstraksi bisa saja terputus di tengah.
+         */
+        const val COMPLETE_MARKER = ".complete"
     }
 
     internal val resolver = context.contentResolver
@@ -270,58 +277,83 @@ class StorageWriter(private val context: Context) {
      * Ekstrak arsip ZIP chapter ke cache internal untuk dibaca.
      *
      * Reader butuh file per halaman; ZIP tidak bisa dibaca langsung per
-     * halaman tanpa ekstrak. Hasil cache dipakai ulang bila jumlah file
-     * sudah cocok sehingga buka kedua tidak mengekstrak lagi.
+     * halaman tanpa ekstrak. Hasil cache dipakai ulang bila penanda
+     * [COMPLETE_MARKER] ada DAN jumlah file cocok dengan isinya — kalau
+     * ekstraksi pernah terputus (penyimpanan penuh, app dibunuh), penanda
+     * tidak tertulis sehingga sisa setengah jadi dibuang dan diekstrak ulang.
      *
      * @return daftar File gambar terurut, atau kosong bila gagal.
      */
     fun extractZipForRead(seriesDir: String, zipName: String): List<java.io.File> {
         val safeSeries = seriesDir.trim('/')
-        val cacheDir = java.io.File(context.cacheDir, "reader/$safeSeries/${zipName.removeSuffix(".zip")}")
+        val cacheDir = java.io.File(
+            context.cacheDir,
+            "reader/$safeSeries/${zipName.removeSuffix(".zip").removeSuffix(".ZIP")}"
+        )
+        val marker = java.io.File(cacheDir, COMPLETE_MARKER)
         val cached = runCatching {
             cacheDir.listFiles()?.filter { it.isFile && isImageName(it.name) }
                 ?.sortedBy { it.name }.orEmpty()
         }.getOrDefault(emptyList())
-        if (cached.isNotEmpty()) return cached
+        val expected = runCatching {
+            if (marker.isFile) marker.readText().trim().toIntOrNull() else null
+        }.getOrNull()
+        if (expected != null && expected > 0 && cached.size == expected) return cached
 
-        // Cari file ZIP di Download lalu ekstrak entri gambar saja.
-        val zipBytes = readZipBytes(seriesDir, zipName) ?: return emptyList()
+        // Buka stream arsip (bukan seluruh byte-nya): chapter 60 halaman
+        // bisa ratusan MB dan menampungnya penuh membuat OOM.
+        val input = openZipStream(seriesDir, zipName) ?: return emptyList()
         return runCatching {
             cacheDir.mkdirs()
             // Bersihkan sisa gagal sebelumnya supaya tidak tercampur.
             cacheDir.listFiles()?.forEach { if (it.isFile) it.delete() }
-            val zis = java.util.zip.ZipInputStream(zipBytes.inputStream())
-            var e = zis.nextEntry
-            while (e != null) {
-                val entryName = e.name.substringAfterLast("/")
-                if (!e.isDirectory && isImageName(entryName)) {
-                    val out = java.io.File(cacheDir, entryName)
-                    out.outputStream().use { o -> zis.copyTo(o) }
+            var extracted = 0
+            input.use { stream ->
+                java.util.zip.ZipInputStream(java.io.BufferedInputStream(stream)).use { zis ->
+                    var e = zis.nextEntry
+                    while (e != null) {
+                        val entryName = e.name.substringAfterLast("/")
+                        if (!e.isDirectory && isImageName(entryName)) {
+                            val out = java.io.File(cacheDir, entryName)
+                            out.outputStream().use { o -> zis.copyTo(o) }
+                            extracted++
+                        }
+                        zis.closeEntry()
+                        e = zis.nextEntry
+                    }
                 }
-                zis.closeEntry()
-                e = zis.nextEntry
             }
-            zis.close()
+            // Ditulis paling akhir: ekstraksi yang melempar exception di
+            // tengah tidak meninggalkan penanda, jadi tidak dianggap lengkap.
+            if (extracted > 0) marker.writeText(extracted.toString())
             cacheDir.listFiles()?.filter { it.isFile && isImageName(it.name) }
                 ?.sortedBy { it.name }.orEmpty()
-        }.getOrDefault(emptyList())
+        }.getOrElse {
+            Log.w(TAG, "ekstrak $zipName gagal: ${it.message}")
+            emptyList<java.io.File>()
+        }
     }
 
-    private fun readZipBytes(seriesDir: String, zipName: String): ByteArray? {
+    /**
+     * Buka stream isi arsip ZIP di folder Download.
+     *
+     * Pengganti fungsi lama yang membaca seluruh isi arsip ke RAM.
+     * Android 10+ file publik tidak punya jalur File, jadi lewat
+     * content://; di bawahnya langsung File biasa.
+     */
+    private fun openZipStream(seriesDir: String, zipName: String): java.io.InputStream? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             return runCatching {
                 val root = android.os.Environment.getExternalStoragePublicDirectory(
                     android.os.Environment.DIRECTORY_DOWNLOADS
                 )
-                java.io.File(root, "${OutputPaths.ROOT}/${seriesDir.trim('/')}/$zipName")
-                    .takeIf { it.exists() }?.readBytes()
+                val f = java.io.File(root, "${OutputPaths.ROOT}/${seriesDir.trim('/')}/$zipName")
+                if (f.exists()) java.io.BufferedInputStream(f.inputStream()) else null
             }.getOrNull()
         }
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val uri = findExisting(collection, zipName, fullRelativePath(seriesDir)) ?: return null
-        return runCatching {
-            resolver.openInputStream(uri)?.use { it.readBytes() }
-        }.getOrNull()
+        return runCatching { resolver.openInputStream(uri)?.buffered() }.getOrNull()
     }
 
     // ---------------------------------------------------------------- folder
@@ -407,22 +439,10 @@ class StorageWriter(private val context: Context) {
             Uri.fromFile(f)
         }.getOrNull()
 
-    /**
-     * Membaca isi file yang sudah tertulis sebelumnya.
-     *
-     * Dipakai saat mode ZIP: gambar-gambarnya sudah ada di MediaStore,
-     * lalu dibungkus jadi satu arsip. Pada Android 10+ file publik tidak
-     * punya jalur File biasa, jadi isinya diambil lewat content://.
-     */
-
     // ------------------------------------------------------------------- zip
 
     /**
-     * Menggabungkan sekumpulan file menjadi satu arsip zip di folder
-     * [zipFolderPath] dengan nama [zipName].
-     */
-    /**
-     * Menulis arsip ZIP langsung ke MediaStore tanpa menampung di RAM.
+     * Menulis arsip ZIP streaming tanpa menampung seluruh isi di RAM.
      *
      * Sebelumnya seluruh gambar chapter ditampung sebagai
      * List<Pair<String, ByteArray>> lalu digandakan lagi oleh
@@ -431,12 +451,32 @@ class StorageWriter(private val context: Context) {
      * sebagai entry segera setelah tiba, jadi memori yang dipakai hanya
      * satu gambar dalam satu waktu.
      *
-     * Alurnya: [openZip] dulu (entri IS_PENDING), [ZipSink.put] per gambar,
-     * lalu [ZipSink.commit] bila sukses atau [ZipSink.abort] bila gagal /
+     * Alurnya: [openZip] dulu, [ZipSink.put] per gambar, lalu
+     * [ZipSink.commit] bila sukses atau [ZipSink.abort] bila gagal /
      * dibatalkan (file setengah jadi dihapus, tidak ditinggalkan).
+     *
+     * Android 10+ menulis lewat MediaStore (entri IS_PENDING), Android 9
+     * ke bawah menulis File biasa — dulu cabang kedua ini `return null`
+     * sehingga mode ZIP sama sekali tidak bisa dipakai di Android 7–9.
      */
     fun openZip(zipFolderPath: String, zipName: String): ZipSink? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return try {
+                @Suppress("DEPRECATION")
+                val root = Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOWNLOADS
+                )
+                val dir = File(root, "${OutputPaths.ROOT}/${zipFolderPath.trim('/')}")
+                dir.mkdirs()
+                val target = File(dir, zipName)
+                // FileOutputStream menimpa isi lama, jadi unduhan ulang
+                // tidak meninggalkan sisa entri arsip sebelumnya.
+                ZipSink(this, uri = null, file = target, out = java.io.FileOutputStream(target))
+            } catch (e: Exception) {
+                Log.w(TAG, "openZip (legacy) gagal: ${e.message}")
+                null
+            }
+        }
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val relative = fullRelativePath(zipFolderPath)
         // Timpa dulu bila ada sisa unduhan sebelumnya (lihat writeFile).
@@ -455,7 +495,7 @@ class StorageWriter(private val context: Context) {
                 runCatching { resolver.delete(uri, null, null) }
                 return null
             }
-            ZipSink(this, uri, out)
+            ZipSink(this, uri, file = null, out = out)
         } catch (e: Exception) {
             runCatching { resolver.delete(uri, null, null) }
             Log.w(TAG, "openZip gagal: ${e.message}")
@@ -463,10 +503,17 @@ class StorageWriter(private val context: Context) {
         }
     }
 
-    /** Penulis ZIP streaming. WAJIB commit atau abort, tidak boleh dibiarkan. */
+    /**
+     * Penulis ZIP streaming. WAJIB commit atau abort, tidak boleh dibiarkan.
+     *
+     * @param uri entri MediaStore (Android 10+), null di jalur legacy.
+     * @param file file hasil tulis legacy (Android 9 ke bawah), null di jalur
+     *   MediaStore. Dipakai [abort] untuk menghapus hasil setengah jadi.
+     */
     class ZipSink(
         private val owner: StorageWriter,
-        private val uri: Uri,
+        private val uri: Uri?,
+        private val file: java.io.File?,
         out: java.io.OutputStream
     ) {
         private val zos = ZipOutputStream(out)
@@ -480,18 +527,25 @@ class StorageWriter(private val context: Context) {
             zos.flush()
         }
 
-        /** Selesai: tutup stream dan buka kunci IS_PENDING supaya terlihat. */
-        fun commit(): Uri? {
-            if (closed) return uri
+        /**
+         * Selesai: tutup stream. Di Android 10+ buka kunci IS_PENDING
+         * supaya file terlihat di luar aplikasi.
+         *
+         * @return true kalau arsip benar-benar selesai ditulis.
+         */
+        fun commit(): Boolean {
+            if (closed) return true
             closed = true
             return runCatching {
                 zos.close()
-                val values = ContentValues().apply {
-                    put(MediaStore.Downloads.IS_PENDING, 0)
+                if (uri != null) {
+                    val values = ContentValues().apply {
+                        put(MediaStore.Downloads.IS_PENDING, 0)
+                    }
+                    owner.resolver.update(uri, values, null, null)
                 }
-                owner.resolver.update(uri, values, null, null)
-                uri
-            }.getOrNull()
+                true
+            }.getOrDefault(false)
         }
 
         /** Gagal/dibatalkan: tutup dan hapus file setengah jadi. */
@@ -499,7 +553,8 @@ class StorageWriter(private val context: Context) {
             if (closed) return
             closed = true
             runCatching { zos.close() }
-            runCatching { owner.resolver.delete(uri, null, null) }
+            if (uri != null) runCatching { owner.resolver.delete(uri, null, null) }
+            if (file != null) runCatching { file.delete() }
             Log.i(TAG, "zip dibatalkan, file setengah jadi dihapus")
         }
     }

@@ -49,15 +49,30 @@ object UrlParser {
                 }
             }
 
-            // --- Baozimh / twmanga: /comic/{slug}, chapter via ?/page_direct
+            // --- Baozimh / twmanga: /comic/{slug} = series,
+            // /user/page_direct?comic_id={slug}&… = chapter.
+            // comic_id di page_direct ISINYA slug series (dipakai persis
+            // sebagai {slug} di path API app), jadi bisa ditelusuri balik.
             host == "baozimh.com" || host.endsWith(".baozimh.com") ||
                 host == "twmanga.com" || host.endsWith(".twmanga.com") -> {
-                val slug = Regex("""/comic/([a-z0-9\-]+)""", RegexOption.IGNORE_CASE)
-                    .find(withScheme)?.groupValues?.get(1)
-                if (slug != null) {
-                    Parsed.Series(Source.BAOZIMH, slug)
-                } else {
-                    Parsed.Unknown("URL Baozimh tidak dikenali")
+                // Path API app juga mengandung "/comic/…", jadi dicek dulu
+                // supaya slug-nya tidak tertangkap sebagai "chapter".
+                val apiSlug = Regex(
+                    """/comic/chapter/([a-z0-9\-]+)/[0-9]+_[0-9]+\.html""",
+                    RegexOption.IGNORE_CASE
+                ).find(withScheme)?.groupValues?.get(1)
+                when {
+                    apiSlug != null -> Parsed.Series(Source.BAOZIMH, apiSlug)
+                    Regex("""[?&]comic_id=""").containsMatchIn(withScheme) ->
+                        // Pertahankan URL utuh: chapter() masih bisa membacanya
+                        // lewat jalur HTML bila jalur API app sedang mati.
+                        Parsed.Chapter(Source.BAOZIMH, withScheme.substringBefore("#"))
+                    else -> {
+                        val slug = Regex("""/comic/([a-z0-9\-]+)""", RegexOption.IGNORE_CASE)
+                            .find(withScheme)?.groupValues?.get(1)
+                        if (slug != null) Parsed.Series(Source.BAOZIMH, slug)
+                        else Parsed.Unknown("URL Baozimh tidak dikenali")
+                    }
                 }
             }
 

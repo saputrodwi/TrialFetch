@@ -42,11 +42,18 @@ data class DownloadProgress(
     val error: String? = null,
     val savedPath: String? = null,
     /**
-     * Judul chapter yang sedang dikerjakan. Tanpa ini UI tidak bisa tahu
-     * chapter mana yang sedang diunduh, sehingga semua baris chapter ikut
-     * menampilkan spinner padahal cuma satu yang jalan.
+     * Judul chapter yang sedang dikerjakan, untuk ditampilkan di
+     * notifikasi dan panel unduhan.
      */
-    val chapterTitle: String? = null
+    val chapterTitle: String? = null,
+
+    /**
+     * ID chapter yang sedang berjalan — dipakai UI untuk menentukan baris
+     * mana yang menampilkan spinner. Judul tidak bisa dipakai: dua chapter
+     * dari volume berbeda bisa berjudul persis sama ("Chapter 12") sehingga
+     * dua baris ikut berputar.
+     */
+    val chapterId: String? = null
 ) {
     enum class State { IDLE, RUNNING, DONE, FAILED, CANCELLED }
 
@@ -133,8 +140,8 @@ class ComicRepository(
      * Nama folder chapter yang sudah terunduh untuk satu series.
      *
      * Dipakai badge "sudah diunduh" — satu panggilan untuk seluruh series.
-     * Mode ZIP: nama zip tanpa ekstensi. Catatan jujur: folder tidak
-     * menyimpan info sumber, jadi judul kembar beda sumber berbagi status.
+     * Mode ZIP: nama zip tanpa ekstensi. Folder sudah ber-prefix id sumber
+     * (lihat seriesDirOf), jadi status judul kembar beda sumber terpisah.
      */
     fun listDownloadedChapters(
         series: SeriesInfo,
@@ -214,7 +221,8 @@ class ComicRepository(
         _progress.value = DownloadProgress(
             total = 0, done = 0, currentPage = 0,
             state = DownloadProgress.State.RUNNING,
-            chapterTitle = chapter.title
+            chapterTitle = chapter.title,
+            chapterId = chapter.chapterId
         )
         notifier.showRunning(chapter.title, 0, 0)
         val page = try {
@@ -223,9 +231,8 @@ class ComicRepository(
             return@withContext fail(e.message ?: "Gagal membaca chapter")
         }
 
-        // Nama folder = judul series saja, sesuai permintaan pengguna.
-        // Catatan: dua series berjudul persis sama dari sumber berbeda akan
-        // berbagi folder; itu edge case yang diterima demi nama bersih.
+        // Nama folder = prefix id sumber + judul series (lihat seriesDirOf),
+        // jadi dua series judul sama dari sumber berbeda tidak berbagi folder.
         val seriesDir = seriesDirOf(series)
         val chapterDir = sanitize(chapter.title)
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
@@ -364,7 +371,8 @@ class ComicRepository(
                             _progress.value = DownloadProgress(
                                 total = total, done = done, currentPage = img.page,
                                 state = DownloadProgress.State.RUNNING,
-                                chapterTitle = chapter.title
+                                chapterTitle = chapter.title,
+                                chapterId = chapter.chapterId
                             )
                             notifier.showRunning(chapter.title, done, total)
                             onImage?.invoke(done, total)
@@ -420,8 +428,9 @@ class ComicRepository(
                 // saat diekstrak tetap rapi dan tidak bercampur
                 // (ditulis streaming per gambar di loop di atas).
                 val zipName = "$chapterDir.zip"
-                zipSink?.commit()
-                    ?: return@withContext fail("Gagal menyelesaikan arsip ZIP.")
+                if (zipSink == null || !zipSink.commit()) {
+                    return@withContext fail("Gagal menyelesaikan arsip ZIP.")
+                }
                 storage.writeText(seriesDir, "$chapterDir.info.txt", info)
                 storage.displayPath("$seriesDir/$zipName")
             }
@@ -437,7 +446,8 @@ class ComicRepository(
         notifier.showDone(chapter.title + bannerLine, done, savedPath)
         DownloadProgress(
             total = total, done = done, state = DownloadProgress.State.DONE,
-            savedPath = savedPath, chapterTitle = chapter.title
+            savedPath = savedPath, chapterTitle = chapter.title,
+            chapterId = chapter.chapterId
         ).also { _progress.value = it }
     }
 

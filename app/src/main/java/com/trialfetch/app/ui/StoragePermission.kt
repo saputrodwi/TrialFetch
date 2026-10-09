@@ -12,7 +12,7 @@ import androidx.core.content.ContextCompat
  * Android 10+ (API 29) menulis ke folder publik lewat MediaStore dan
  * TIDAK butuh izin. Android 9 ke bawah (API 24-28) masih memakai jalur
  * file biasa, jadi WRITE_EXTERNAL_STORAGE wajib diminta saat runtime —
- * hanya声明 di manifest saja tidak cukup sejak Android 6.
+ * hanya dideklarasikan di manifest saja tidak cukup sejak Android 6.
  */
 object StoragePermission {
 

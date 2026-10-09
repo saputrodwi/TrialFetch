@@ -19,14 +19,23 @@ API app, dan pemotong banner diport dari sana supaya hasilnya identik.
 | Jjaptoon | Scrape HTML (domain bernomor) |
 | Goodtoon | WordPress Madara (AJAX + `data-src`) |
 | Rumanhua | Seperti Manwang (backend & kunci sama) |
+| Manhuahao | Scrape HTML (tanpa Referer) |
 
 ## Fitur
 
-- Pencarian per sumber + tempel URL langsung (mendukung semua sumber)
-- Bookmark series (tersimpan permanen di HP)
-- Unduh chapter ke folder atau ZIP, penamaan `0001`, `001`, `page_0001`, …
-- Pemotong banner Baozimh 200px (OpenCV template matching + deteksi watermark samar)
-- Tema Terang / Gelap / Ikuti sistem, menu pengaturan tersimpan permanen
+- Pencarian per sumber atau ke semua sumber sekaligus, plus tempel URL
+  (series maupun chapter — URL chapter ditelusuri ke series induknya)
+- Bookmark series + notifikasi kalau ada chapter baru
+- Unduh chapter ke folder atau arsip ZIP, penamaan `0001`, `001`,
+  `page_0001`, … (bisa pakai pola sendiri)
+- Antrian unduhan dengan jeda / lanjut / batal, progres per halaman
+- Reader bawaan: mode halaman (paged) dan webtoon, zoom, menu ketuk,
+  riwayat baca, buka langsung dari hasil unduhan
+- Badge "sudah diunduh" di daftar chapter + total progres di panel unduhan
+- Cadangan & pulihkan data (bookmark, riwayat, pengaturan) sebagai file JSON
+- DNS-over-HTTPS opsional, tema Terang / Gelap / Ikuti sistem
+- Pemotong banner Baozimh 200px (OpenCV template matching + deteksi
+  watermark samar)
 - Notifikasi progres + ringkasan banner per chapter
 
 ## Build

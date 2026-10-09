@@ -49,6 +49,9 @@ class HttpClient(
     }
 
     companion object {
+        /** Masa berlaku cache origin redirect — 10 menit. */
+        const val ORIGIN_TTL_MS = 10 * 60 * 1000L
+
         /**
          * Client standar. Kalau [dns] diisi (mis. DoH dari [DohConfig]),
          * semua resolve hostname lewat sana; kalau null, DNS sistem.
@@ -113,31 +116,48 @@ class HttpClient(
         }
     }
 
+    /** Cache origin aktif: url → (origin, waktu disimpan). */
+    private val originCache =
+        java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
+
+    /**
+     * Ikuti redirect situs lalu kembalikan origin akhir ("scheme://host")
+     * — untuk sumber yang domain aktifnya sering pindah (GoodToon).
+     * Null kalau tidak bisa dijangkau.
+     *
+     * Hasilnya di-cache 10 menit: tanpa ini setiap membuka series GoodToon
+     * menambah satu request redirect yang belum tentu dibutuhkan, dan
+     * GoodToon adalah salah satu sumber yang gampang kena rate-limit.
+     * Kegagalan tidak di-cache supaya percobaan berikutnya tetap jalan.
+     */
+    suspend fun resolveOrigin(url: String): String? {
+        val now = System.currentTimeMillis()
+        originCache[url]?.let { (value, at) ->
+            if (now - at < ORIGIN_TTL_MS) return value
+        }
+        val value: String? = try {
+            withContext(Dispatchers.IO) {
+                val builder = Request.Builder().url(url)
+                    .header("User-Agent", desktopUa)
+                    .header("Accept", "text/html,*/*")
+                client.newCall(builder.build()).execute().use { res ->
+                    val u = res.request.url
+                    "${u.scheme}://${u.host}"
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+        if (value != null) originCache[url] = value to System.currentTimeMillis()
+        return value
+    }
+
     /**
      * POST dengan body kosong dan header bebas.
      *
      * Dipakai endpoint AJAX yang menolak request tanpa header aplikasi
      * (mis. Madara GoodToon yang wajib X-Requested-With: XMLHttpRequest).
      */
-    /**
-     * Ikuti redirect situs lalu kembalikan origin akhir ("scheme://host")
-     * — untuk sumber yang domain aktifnya sering pindah (GoodToon).
-     * Null kalau tidak bisa dijangkau.
-     */
-    suspend fun resolveOrigin(url: String): String? = try {
-        withContext(Dispatchers.IO) {
-            val builder = Request.Builder().url(url)
-                .header("User-Agent", desktopUa)
-                .header("Accept", "text/html,*/*")
-            client.newCall(builder.build()).execute().use { res ->
-                val u = res.request.url
-                "${u.scheme}://${u.host}"
-            }
-        }
-    } catch (e: Exception) {
-        null
-    }
-
     suspend fun postEmpty(
         url: String,
         headers: Map<String, String>

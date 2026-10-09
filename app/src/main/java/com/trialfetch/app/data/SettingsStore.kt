@@ -21,8 +21,12 @@ class SettingsStore(context: Context) {
 
     fun load(): DownloadSettings {
         val naming = NamingRule(
-            pattern = prefs.getString(KEY_NAMING_PATTERN, null) ?: "{n}",
-            padDigits = prefs.getInt(KEY_NAMING_PAD, 4)
+            // Pola lama bisa saja tersimpan dalam bentuk yang tidak valid
+            // (dibersihkan juga di NamingRule.fileName).
+            pattern = NamingRule.sanitizePattern(
+                prefs.getString(KEY_NAMING_PATTERN, null) ?: "{n}"
+            ),
+            padDigits = prefs.getInt(KEY_NAMING_PAD, 4).coerceIn(1, 8)
         )
         val output = prefs.getString(KEY_OUTPUT_MODE, null)
             ?.let { name -> OutputMode.entries.firstOrNull { it.name == name } }
@@ -42,7 +46,7 @@ class SettingsStore(context: Context) {
     fun save(settings: DownloadSettings) {
         prefs.edit()
             .putString(KEY_OUTPUT_MODE, settings.outputMode.name)
-            .putString(KEY_NAMING_PATTERN, settings.naming.pattern)
+            .putString(KEY_NAMING_PATTERN, settings.naming.sanitizedPattern())
             .putInt(KEY_NAMING_PAD, settings.naming.padDigits)
             .putBoolean(KEY_CROP_BANNER, settings.cropBanner)
             .putString(KEY_THEME, settings.themeMode.name)

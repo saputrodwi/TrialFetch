@@ -222,6 +222,22 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
         return htmlChapter(url)
     }
 
+    /**
+     * Slug series terbaca dari query page_direct: `comic_id` di URL chapter
+     * adalah slug yang sama dipakai di `/comic/{slug}` dan di path API app.
+     */
+    override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? {
+        val q = chapterUrl.substringAfter('?', "")
+        if (q.isBlank()) return null
+        return q.split('&').firstNotNullOfOrNull { part ->
+            val i = part.indexOf('=')
+            if (i <= 0) null
+            else part.substring(0, i).lowercase()
+                .takeIf { it == "comic_id" }
+                ?.let { java.net.URLDecoder.decode(part.substring(i + 1), "UTF-8") }
+        }?.takeIf { it.isNotBlank() }
+    }
+
     /** Jalur API app: host dicoba berurutan, yang pertama hidup dipakai. */
     private suspend fun appChapter(url: String): ChapterPage? {
         val path = appChapterPath(url) ?: return null

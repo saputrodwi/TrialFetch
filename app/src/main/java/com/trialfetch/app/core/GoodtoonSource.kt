@@ -175,6 +175,15 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
         )
     }
 
+    /**
+     * Slug series terbaca dari URL chapter: semua URL chapter GoodToon
+     * berbentuk `/manga/{slug}/{n}/` atau `/manga/{slug}/chapter-{n}/`,
+     * jadi slug-nya ada di path tanpa perlu membuka halaman.
+     */
+    override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? =
+        Regex("""/manga/([^/?#]+)""", RegexOption.IGNORE_CASE)
+            .find(chapterUrl)?.groupValues?.get(1)?.trimEnd('/')?.takeIf { it.isNotBlank() }
+
     override suspend fun chapter(url: String): ChapterPage {
         val origin = Regex("""^(https?://[^/]*goodtoon[^/]*)""", RegexOption.IGNORE_CASE)
             .find(url)?.groupValues?.get(1) ?: FALLBACK_BASE

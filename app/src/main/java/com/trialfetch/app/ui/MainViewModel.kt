@@ -488,9 +488,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun isChapterDownloaded(chapter: com.trialfetch.app.core.Chapter): Boolean {
-        val info = _series.value.info ?: return false
-        return sanitizeName(chapter.title) in _downloadedIds.value ||
-            _downloadedIds.value.any { it.equals(chapter.title.trim(), ignoreCase = true) }
+        // Bandingkan bentuk yang SAMA dengan yang tersimpan di folder/zip
+        // (hasil sanitize), bukan judul mentah — judul mentah bisa cocok
+        // dengan chapter lain yang namanya kebetulan sama setelah dibersihkan.
+        val target = sanitizeName(chapter.title)
+        return _downloadedIds.value.any { it.equals(target, ignoreCase = true) }
     }
 
     private fun sanitizeName(title: String): String =

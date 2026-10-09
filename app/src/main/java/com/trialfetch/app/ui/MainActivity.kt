@@ -149,9 +149,9 @@ import com.trialfetch.app.ui.theme.TrialFetchTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() harus dipanggil sebelum super.onCreate supaya
-        // layar splash Android 12+ langsung übernimmt dan tidak ada jeda
-        // buatan di atasnya.
-        val splash = installSplashScreen()
+        // layar splash Android 12+ langsung mengambil alih dan tidak ada
+        // jeda buatan di atasnya. Nilainya tidak dipakai — cukup dipanggil.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
@@ -856,7 +856,7 @@ private fun ChapterRow(
     // Spinner hanya untuk chapter yang sedang berjalan (state diset
     // seketika saat unduhan mulai, jadi tidak ada delay animasi).
     val busy = progress.state == DownloadProgress.State.RUNNING &&
-        progress.chapterTitle == chapter.title
+        progress.chapterId != null && progress.chapterId == chapter.chapterId
     Row(
         Modifier
             .fillMaxWidth()

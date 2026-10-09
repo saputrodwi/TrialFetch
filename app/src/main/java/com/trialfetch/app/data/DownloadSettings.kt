@@ -26,13 +26,33 @@ data class NamingRule(
     val padDigits: Int = 4
 ) {
     fun fileName(page: Int, extension: String): String {
-        val base = pattern
-            .replace("{n}", page.toString().padStart(padDigits, '0'))
-            .replace("{i}", (page - 1).toString().padStart(padDigits, '0'))
+        val base = sanitizedPattern()
+            .replace("{n}", page.toString().padStart(padDigits.coerceIn(1, 8), '0'))
+            .replace("{i}", (page - 1).toString().padStart(padDigits.coerceIn(1, 8), '0'))
         return "$base.$extension"
     }
 
+    /** Pola setelah dibersihkan (lihat [sanitizePattern]). */
+    fun sanitizedPattern(): String = sanitizePattern(pattern)
+
     companion object {
+        /**
+         * Pola nama file dipercaya begitu saja oleh sistem file, padahal bisa
+         * berisi karakter yang dilarang (`/`, `:`, `*`, `?`, `"`, `<`, `>`, `|`
+         * dan karakter kontrol) sehingga `File.createNewFile` gagal. Pola juga
+         * wajib punya placeholder `{n}`/`{i}` — tanpa itu semua halaman
+         * menulis nama yang sama dan saling menimpa.
+         *
+         * [SettingsStore] memakai fungsi ini saat membaca dan menyimpan, dan
+         * [fileName] memakainya lagi sebagai jaring pengaman terakhir.
+         */
+        fun sanitizePattern(raw: String): String {
+            val cleaned = ILLEGAL.replace(raw, "_").trim()
+            return if (cleaned.contains("{n}") || cleaned.contains("{i}")) cleaned else "{n}"
+        }
+
+        private val ILLEGAL = Regex("""[\\/:*?"<>|\u0000-\u001f]""")
+
         val PRESETS = listOf(
             NamingRule("{n}", 4) to "0001 (default)",
             NamingRule("{n}", 3) to "001",

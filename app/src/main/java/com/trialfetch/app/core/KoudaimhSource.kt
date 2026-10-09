@@ -15,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec
  *
  * Dua hal yang membuat sumber ini agak ribet:
  *  1. Pencarian butuh 2 langkah — ambil token `__searchtoken__` dari
- *     halaman /search dulu, baru kirim ulang вместе kata kunci.
+ *     halaman /search dulu, baru kirim ulang kata kuncinya.
  *  2. Halaman chapter tidak memuat URL gambar; semuanya dikemas dalam
  *     blob `params = '...'` (base64 → AES-128-CBC). Berbeda dengan
  *     manwang, di sini IV adalah 16 byte PERTAMA dari blob, sisanya
@@ -23,7 +23,7 @@ import javax.crypto.spec.SecretKeySpec
  *
  * CATATAN: gambar disajikan dari CDN *.shimolife.com dengan URL bertanda
  * tangan yang punya masa berlaku. Di web sering gagal karena tanda
- * tangannya sudah kedaluwarsa saat CDNeddalam链 proxy. Di native图片 diambil
+ * tangannya sudah kedaluwarsa saat lewat proxy. Di native gambar diambil
  * di tempat & waktu yang sama sehingga masih valid — salah satu alasan
  * lagi kenapa aplikasi ini dibangun native.
  */
@@ -143,7 +143,7 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
         val blob = Regex("""params\s*=\s*['"]([^'"]+)""").find(html)?.groupValues?.get(1)
             ?: throw SourceException(
                 "Blob params tidak ditemukan — situs mungkin sedang pakai " +
-                "endpoint baru (versi mobile切换)."
+                "endpoint baru (versi mobile)."
             )
 
         val key: Key = SecretKeySpec(KEY.toByteArray(Charsets.UTF_8), "AES")

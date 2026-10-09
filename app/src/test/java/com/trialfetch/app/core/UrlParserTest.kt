@@ -47,6 +47,23 @@ class UrlParserTest {
         assertEquals("aiqingduomaomao-zhuimingaigong", r.comicId)
     }
 
+    @Test fun baozimhChapterPageDirect() {
+        val r = chapter(
+            "https://www.twmanga.com/user/page_direct" +
+                "?comic_id=aiqingduomaomao-zhuimingaigong&section_slot=0&chapter_slot=12"
+        )
+        assertEquals(Source.BAOZIMH, r.source)
+        assertTrue("query harus dipertahankan untuk dibaca chapter()", r.url.contains("comic_id="))
+    }
+
+    @Test fun baozimhPathApiAppBukanSeriesPalsu() {
+        // Path API app mengandung "/comic/chapter/…" — jangan tertangkap
+        // sebagai series dengan comicId "chapter".
+        val r = series("https://appgb1.baozimh.com/baozimhapp/comic/chapter/abc-def/0_12.html")
+        assertEquals(Source.BAOZIMH, r.source)
+        assertEquals("abc-def", r.comicId)
+    }
+
     @Test fun wmanhuaSeriesDanChapter() {
         val s = series("https://www.wmanhua.com/comic/12345")
         assertEquals(Source.WMANHUA, s.source)
