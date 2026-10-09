@@ -101,14 +101,20 @@ class ComicRepository(
         chapter: Chapter,
         settings: DownloadSettings
     ): List<android.net.Uri> {
-        val seriesDir = seriesDirOf(series)
         val chapterDir = sanitize(chapter.title)
-        return if (settings.outputMode == OutputMode.ZIP) {
-            storage.extractZipForRead(seriesDir, "$chapterDir.zip")
-                .map { android.net.Uri.fromFile(it) }
-        } else {
-            storage.listImages(listOf(seriesDir, chapterDir).joinToString("/"))
+        // Coba folder ber-prefix dulu; kalau kosong, jatuh ke folder lama
+        // (tanpa prefix) supaya koleksi yang diunduh sebelum commit fc661ef
+        // tetap bisa dibaca.
+        for (seriesDir in candidateSeriesDirs(series)) {
+            val images = if (settings.outputMode == OutputMode.ZIP) {
+                storage.extractZipForRead(seriesDir, "$chapterDir.zip")
+                    .map { android.net.Uri.fromFile(it) }
+            } else {
+                storage.listImages(listOf(seriesDir, chapterDir).joinToString("/"))
+            }
+            if (images.isNotEmpty()) return images
         }
+        return emptyList()
     }
 
     /** true bila chapter sudah terunduh (ringan, tanpa membaca isi). */
@@ -117,12 +123,13 @@ class ComicRepository(
         chapter: Chapter,
         settings: DownloadSettings
     ): Boolean {
-        val seriesDir = seriesDirOf(series)
         val chapterDir = sanitize(chapter.title)
-        return if (settings.outputMode == OutputMode.ZIP) {
-            storage.hasFile(seriesDir, "$chapterDir.zip")
-        } else {
-            storage.countFiles(listOf(seriesDir, chapterDir).joinToString("/")) > 0
+        return candidateSeriesDirs(series).any { seriesDir ->
+            if (settings.outputMode == OutputMode.ZIP) {
+                storage.hasFile(seriesDir, "$chapterDir.zip")
+            } else {
+                storage.countFiles(listOf(seriesDir, chapterDir).joinToString("/")) > 0
+            }
         }
     }
 
@@ -140,20 +147,21 @@ class ComicRepository(
      * Nama folder chapter yang sudah terunduh untuk satu series.
      *
      * Dipakai badge "sudah diunduh" — satu panggilan untuk seluruh series.
-     * Mode ZIP: nama zip tanpa ekstensi. Folder sudah ber-prefix id sumber
-     * (lihat seriesDirOf), jadi status judul kembar beda sumber terpisah.
+     * Mode ZIP: nama zip tanpa ekstensi. Folder baru sudah ber-prefix id
+     * sumber (lihat seriesDirOf), jadi status judul kembar beda sumber
+     * terpisah; folder lama tanpa prefix tetap dibaca (lihat
+     * [legacySeriesDirOf]) supaya unduhan lama tidak dianggap hilang.
      */
     fun listDownloadedChapters(
         series: SeriesInfo,
         settings: DownloadSettings
-    ): Set<String> {
-        val seriesDir = seriesDirOf(series)
-        return if (settings.outputMode == OutputMode.ZIP) {
+    ): Set<String> = candidateSeriesDirs(series).flatMap { seriesDir ->
+        if (settings.outputMode == OutputMode.ZIP) {
             storage.listZipNames(seriesDir)
         } else {
             storage.listChapterDirs(seriesDir)
         }
-    }
+    }.toSet()
 
     fun canWriteStorage(): Boolean = storage.canWrite()
 
@@ -529,5 +537,22 @@ class ComicRepository(
          */
         fun seriesDirOf(series: SeriesInfo): String =
             "${series.source.id}_${sanitize(series.title)}"
+
+        /**
+         * Folder series versi lama (tanpa prefix id sumber) — dipakai
+         * unduhan yang dibuat sebelum folder ber-prefix diperkenalkan.
+         * Hanya untuk MEMBACA; unduhan baru selalu ditulis ke
+         * [seriesDirOf]. Tanpa fallback ini seluruh koleksi lama mendadak
+         * tidak terbaca (badge hilang dan "buka dari hasil unduhan" gagal).
+         */
+        fun legacySeriesDirOf(series: SeriesInfo): String = sanitize(series.title)
+
+        /**
+         * Semua lokasi yang mungkin berisi unduhan series ini: folder
+         * ber-prefix dulu (kanonik), baru folder lama. Urutannya penting —
+         * yang kanonik menang kalau keduanya berisi.
+         */
+        fun candidateSeriesDirs(series: SeriesInfo): List<String> =
+            listOf(seriesDirOf(series), legacySeriesDirOf(series)).distinct()
     }
 }

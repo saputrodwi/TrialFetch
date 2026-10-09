@@ -616,6 +616,12 @@ private fun SeriesScreen(
             .map { it.first }
         if (newestFirst) asc.asReversed() else asc
     }
+    // Nama folder unduhan bisa beda kapitalisasi dengan judul chapter yang
+    // tampil sekarang (judul situs berubah antar kunjungan), jadi dibandingkan
+    // dalam bentuk huruf kecil semua.
+    val downloadedKey = remember(downloadedIds) {
+        downloadedIds.map { it.lowercase() }.toSet()
+    }
     // Kalau pindah series, reset pilihan.
     LaunchedEffect(info.comicId, info.source) {
         selecting = false
@@ -697,7 +703,7 @@ private fun SeriesScreen(
                 ChapterRow(
                     chapter = ch,
                     progress = progress,
-                    downloaded = ComicRepository.sanitize(ch.title) in downloadedIds,
+                    downloaded = ComicRepository.sanitize(ch.title).lowercase() in downloadedKey,
                     readText = entry?.let {
                         val f = it.fraction
                         if (f != null && it.totalPages > 0) "Terakhir: hal ${it.page}/${it.totalPages}"
