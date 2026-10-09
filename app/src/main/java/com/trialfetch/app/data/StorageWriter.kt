@@ -198,6 +198,88 @@ class StorageWriter(private val context: Context) {
         }.getOrDefault(emptySet())
     }
 
+    /**
+     * Cari semua folder chapter yang info.txt-nya menyebut series dengan
+     * [comicId] dari sumber [sourceId]. Tidak peduli nama folder series
+     * bagaimana pun — yang penting isi info.txt cocok.
+     *
+     * Dipakai sebagai fallback terakhir saat nama folder tidak dikenali
+     * (mis. judul series di situs berubah setelah unduhan dibuat).
+     *
+     * @return map namaFolderChapter → pathSeries relatif terhadap
+     *         Download/TrialFetch (mis. "Judul Series" atau
+     *         "Baozimh/Judul Series").
+     */
+    fun findChaptersByInfoTxt(sourceId: String, comicId: String): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            val root = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                ),
+                OutputPaths.ROOT
+            )
+            scanInfoTxt(root, sourceId, comicId, result, root, 0)
+        } else {
+            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            resolver.query(
+                collection,
+                arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.RELATIVE_PATH),
+                "${MediaStore.Downloads.DISPLAY_NAME} = ? AND ${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
+                arrayOf("info.txt", "${Environment.DIRECTORY_DOWNLOADS}/${OutputPaths.ROOT}/%"),
+                null
+            )?.use { c ->
+                val idIdx = c.getColumnIndex(MediaStore.Downloads._ID)
+                val pathIdx = c.getColumnIndex(MediaStore.Downloads.RELATIVE_PATH)
+                while (c.moveToNext()) {
+                    val id = c.getLong(idIdx)
+                    val relPath = c.getString(pathIdx) ?: continue
+                    val uri = ContentUris.withAppendedId(collection, id)
+                    val content = runCatching {
+                        resolver.openInputStream(uri)
+                            ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    }.getOrNull() ?: continue
+                    if (!content.contains("source=$sourceId") ||
+                        !content.contains("comicId=$comicId")
+                    ) continue
+                    // relPath = "Download/TrialFetch/<...>/<chapter>/"
+                    val parts = relPath.trimEnd('/').split("/")
+                    // ["Download","TrialFetch", …series…, "chapter"]
+                    if (parts.size >= 4) {
+                        result[parts.last()] = parts.drop(2).dropLast(1).joinToString("/")
+                    }
+                }
+            }
+        }
+        return result
+    }
+
+    /** Rekursif: cari info.txt yang cocok, catat nama folder chapter-nya. */
+    private fun scanInfoTxt(
+        dir: java.io.File,
+        sourceId: String,
+        comicId: String,
+        out: MutableMap<String, String>,
+        root: java.io.File,
+        depth: Int
+    ) {
+        if (depth > 3) return
+        val children = dir.listFiles() ?: return
+        for (child in children) {
+            if (child.isDirectory) {
+                scanInfoTxt(child, sourceId, comicId, out, root, depth + 1)
+            } else if (child.name == "info.txt") {
+                val content = runCatching { child.readText() }.getOrNull() ?: continue
+                if (!content.contains("source=$sourceId") ||
+                    !content.contains("comicId=$comicId")
+                ) continue
+                val chapterDir = child.parentFile?.name ?: continue
+                val seriesDir = child.parentFile?.parentFile ?: continue
+                out[chapterDir] = seriesDir.relativeTo(root).path
+            }
+        }
+    }
+
     /** Berapa file yang masih ada di folder, untuk dipakai sebagai peringatan. */
     fun countFiles(folderPath: String): Int {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {

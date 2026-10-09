@@ -93,6 +93,26 @@ class ComicRepository(
     private val _progress = MutableStateFlow(DownloadProgress())
     val progress: StateFlow<DownloadProgress> = _progress.asStateFlow()
 
+    // --- Fallback: cari unduhan lewat isi info.txt ---
+    // Cache per series supaya scan rekursif (yang mahal) hanya sekali.
+    private val infoTxtCache =
+        java.util.concurrent.ConcurrentHashMap<String, Map<String, String>>()
+
+    /**
+     * Hasil scan info.txt untuk satu series, atau null kalau belum discan.
+     * Key = "sourceId:comicId". Value = map namaFolderChapter → pathSeries.
+     */
+    private fun infoTxtLookup(series: SeriesInfo): Map<String, String> {
+        val key = "${series.source.id}:${series.comicId}"
+        return infoTxtCache.getOrPut(key) {
+            storage.findChaptersByInfoTxt(series.source.id, series.comicId)
+        }
+    }
+
+    /** Path series yang ditemukan lewat info.txt, atau null. */
+    private fun infoTxtSeriesDir(series: SeriesInfo): String? =
+        infoTxtLookup(series).values.firstOrNull()
+
     /**
      * Daftar gambar chapter yang sudah terunduh, siap dibaca reader.
      *
@@ -116,7 +136,15 @@ class ComicRepository(
             }
             if (images.isNotEmpty()) return images
         }
-        return emptyList()
+        // Fallback terakhir: cari lewat isi info.txt (nama folder bisa
+        // apa pun — judul di situs mungkin berbeda dari nama folder).
+        val foundDir = infoTxtSeriesDir(series) ?: return emptyList()
+        return if (settings.outputMode == OutputMode.ZIP) {
+            storage.extractZipForRead(foundDir, "$chapterDir.zip")
+                .map { android.net.Uri.fromFile(it) }
+        } else {
+            storage.listImages(listOf(foundDir, chapterDir).joinToString("/"))
+        }
     }
 
     /** true bila chapter sudah terunduh (ringan, tanpa membaca isi). */
@@ -126,13 +154,16 @@ class ComicRepository(
         settings: DownloadSettings
     ): Boolean {
         val chapterDir = sanitize(chapter.title)
-        return candidateSeriesDirs(series).any { seriesDir ->
+        val inKnown = candidateSeriesDirs(series).any { seriesDir ->
             if (settings.outputMode == OutputMode.ZIP) {
                 storage.hasFile(seriesDir, "$chapterDir.zip")
             } else {
                 storage.countFiles(listOf(seriesDir, chapterDir).joinToString("/")) > 0
             }
         }
+        if (inKnown) return true
+        // Fallback: cek lewat info.txt.
+        return infoTxtLookup(series).containsKey(chapterDir)
     }
 
     /** Kembalikan progres ke IDLE (menutup panel unduhan). */
@@ -152,17 +183,22 @@ class ComicRepository(
      * Mode ZIP: nama zip tanpa ekstensi. Selain lokasi sekarang
      * ([seriesDirOf]), bentuk lama juga dibaca (lihat [oldSeriesDirsOf])
      * supaya unduhan yang dibuat build sebelumnya tidak dianggap hilang.
+     * Kalau ketiganya kosong, fallback terakhir: cari lewat isi info.txt.
      */
     fun listDownloadedChapters(
         series: SeriesInfo,
         settings: DownloadSettings
-    ): Set<String> = candidateSeriesDirs(series).flatMap { seriesDir ->
-        if (settings.outputMode == OutputMode.ZIP) {
-            storage.listZipNames(seriesDir)
-        } else {
-            storage.listChapterDirs(seriesDir)
-        }
-    }.toSet()
+    ): Set<String> {
+        val fromKnown = candidateSeriesDirs(series).flatMap { seriesDir ->
+            if (settings.outputMode == OutputMode.ZIP) {
+                storage.listZipNames(seriesDir)
+            } else {
+                storage.listChapterDirs(seriesDir)
+            }
+        }.toSet()
+        if (fromKnown.isNotEmpty()) return fromKnown
+        return infoTxtLookup(series).keys.toSet()
+    }
 
     fun canWriteStorage(): Boolean = storage.canWrite()
 
