@@ -105,7 +105,11 @@ class ComicRepository(
     private fun infoTxtLookup(series: SeriesInfo): Map<String, String> {
         val key = "${series.source.id}:${series.comicId}"
         return infoTxtCache.getOrPut(key) {
-            storage.findChaptersByInfoTxt(series.source.id, series.comicId)
+            storage.findChaptersByInfoTxt(
+                series.source.displayName,
+                series.title,
+                series.comicId
+            )
         }
     }
 
@@ -445,6 +449,7 @@ class ComicRepository(
             if (series.author.isNotBlank()) appendLine("Penulis: ${series.author}")
             appendLine("Chapter: ${chapter.title}")
             appendLine("Sumber: ${series.source.displayName}")
+            appendLine("comicId: ${series.comicId}")
             appendLine("Berhasil: $done dari $total halaman")
             if (settings.cropBanner && series.source == Source.BAOZIMH) {
                 appendLine(

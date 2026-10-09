@@ -199,18 +199,29 @@ class StorageWriter(private val context: Context) {
     }
 
     /**
-     * Cari semua folder chapter yang info.txt-nya menyebut series dengan
-     * [comicId] dari sumber [sourceId]. Tidak peduli nama folder series
-     * bagaimana pun — yang penting isi info.txt cocok.
+     * Cari semua folder chapter yang info.txt-nya milik series ini.
      *
-     * Dipakai sebagai fallback terakhir saat nama folder tidak dikenali
-     * (mis. judul series di situs berubah setelah unduhan dibuat).
+     * Format info.txt yang ditulis app (lihat ComicRepository):
+     * ```
+     * Judul Series
+     * Penulis: …          (opsional)
+     * Chapter: Judul Chapter
+     * Sumber: Nama Sumber
+     * …
+     * comicId: <id>       (ditambahkan sejak build ini)
+     * ```
+     *
+     * Match diprioritaskan ke `comicId:` (paling stabil); kalau tidak
+     * ada (file lama), fallback ke baris pertama (judul) + `Sumber:`.
      *
      * @return map namaFolderChapter → pathSeries relatif terhadap
-     *         Download/TrialFetch (mis. "Judul Series" atau
-     *         "Baozimh/Judul Series").
+     *         Download/TrialFetch.
      */
-    fun findChaptersByInfoTxt(sourceId: String, comicId: String): Map<String, String> {
+    fun findChaptersByInfoTxt(
+        sourceDisplayName: String,
+        seriesTitle: String,
+        comicId: String
+    ): Map<String, String> {
         val result = mutableMapOf<String, String>()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             val root = java.io.File(
@@ -219,7 +230,7 @@ class StorageWriter(private val context: Context) {
                 ),
                 OutputPaths.ROOT
             )
-            scanInfoTxt(root, sourceId, comicId, result, root, 0)
+            scanInfoTxt(root, sourceDisplayName, seriesTitle, comicId, result, root, 0)
         } else {
             val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             resolver.query(
@@ -239,12 +250,9 @@ class StorageWriter(private val context: Context) {
                         resolver.openInputStream(uri)
                             ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
                     }.getOrNull() ?: continue
-                    if (!content.contains("source=$sourceId") ||
-                        !content.contains("comicId=$comicId")
-                    ) continue
+                    if (!infoTxtMatches(content, sourceDisplayName, seriesTitle, comicId)) continue
                     // relPath = "Download/TrialFetch/<...>/<chapter>/"
                     val parts = relPath.trimEnd('/').split("/")
-                    // ["Download","TrialFetch", …series…, "chapter"]
                     if (parts.size >= 4) {
                         result[parts.last()] = parts.drop(2).dropLast(1).joinToString("/")
                     }
@@ -254,10 +262,35 @@ class StorageWriter(private val context: Context) {
         return result
     }
 
+    /**
+     * true bila isi [content] (satu file info.txt) milik series yang dicari.
+     *
+     * Prioritas: baris `comicId:` kalau ada (file baru). File lama tidak
+     * punya itu, jadi cocokkan judul (baris pertama) + `Sumber:`.
+     */
+    private fun infoTxtMatches(
+        content: String,
+        sourceDisplayName: String,
+        seriesTitle: String,
+        comicId: String
+    ): Boolean {
+        val lines = content.lines()
+        // File baru: ada baris comicId.
+        val infoComicId = lines.firstOrNull { it.startsWith("comicId:") }
+            ?.removePrefix("comicId:")?.trim()
+        if (infoComicId != null) return infoComicId == comicId
+        // File lama: judul di baris pertama + Sumber.
+        val title = lines.firstOrNull()?.trim() ?: return false
+        val source = lines.firstOrNull { it.startsWith("Sumber: ") }
+            ?.removePrefix("Sumber: ")?.trim() ?: return false
+        return title == seriesTitle && source == sourceDisplayName
+    }
+
     /** Rekursif: cari info.txt yang cocok, catat nama folder chapter-nya. */
     private fun scanInfoTxt(
         dir: java.io.File,
-        sourceId: String,
+        sourceDisplayName: String,
+        seriesTitle: String,
         comicId: String,
         out: MutableMap<String, String>,
         root: java.io.File,
@@ -267,12 +300,10 @@ class StorageWriter(private val context: Context) {
         val children = dir.listFiles() ?: return
         for (child in children) {
             if (child.isDirectory) {
-                scanInfoTxt(child, sourceId, comicId, out, root, depth + 1)
+                scanInfoTxt(child, sourceDisplayName, seriesTitle, comicId, out, root, depth + 1)
             } else if (child.name == "info.txt") {
                 val content = runCatching { child.readText() }.getOrNull() ?: continue
-                if (!content.contains("source=$sourceId") ||
-                    !content.contains("comicId=$comicId")
-                ) continue
+                if (!infoTxtMatches(content, sourceDisplayName, seriesTitle, comicId)) continue
                 val chapterDir = child.parentFile?.name ?: continue
                 val seriesDir = child.parentFile?.parentFile ?: continue
                 out[chapterDir] = seriesDir.relativeTo(root).path
