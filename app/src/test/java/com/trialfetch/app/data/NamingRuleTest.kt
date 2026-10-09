@@ -39,8 +39,10 @@ class NamingRuleTest {
     }
 
     @Test fun padTidakMasukAkalTetapAman() {
-        // 0 -> 1, 99 -> dibatasi 8 supaya tidak bikin nama file raksasa.
-        assertEquals("0001.jpg", NamingRule("{n}", 0).fileName(1, "jpg"))
+        // 0 -> 1 digit (padStart(1) tidak menambah nol), 99 -> dibatasi 8
+        // supaya tidak bikin nama file raksasa.
+        assertEquals("1.jpg", NamingRule("{n}", 0).fileName(1, "jpg"))
+        assertEquals("12345678.jpg", NamingRule("{n}", 0).fileName(12345678, "jpg"))
         assertEquals("00000001.jpg", NamingRule("{n}", 99).fileName(1, "jpg"))
         assertEquals("001.jpg", NamingRule("{n}", 3).fileName(1, "jpg"))
     }
