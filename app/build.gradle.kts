@@ -41,9 +41,13 @@ val hasReleaseSigning = !tfStorePassword.isNullOrBlank() &&
 // sebaliknya. Karena itu ekstensinya ikut dikonfigurasi (default "jks",
 // ubah ke "p12" kalau nanti kamu pakai PKCS#12).
 val stagingDir = rootProject.layout.buildDirectory.dir("signing").get().asFile
+// takeIf { isNotBlank }: env yang terpetakan tapi kosong (secret belum
+// diisi di CI) HARUS jatuh ke default, bukan menghasilkan ekstensi "".
 val storeExt = ((System.getenv("TF_STORE_EXT") as String?)
-    ?: (project.findProperty("TF_STORE_EXT") as String?)
-    ?: "jks").trim().removePrefix(".").lowercase()
+    ?: (project.findProperty("TF_STORE_EXT") as String?))
+    ?.trim()?.removePrefix(".")?.lowercase()
+    ?.takeIf { it.isNotBlank() }
+    ?: "jks"
 
 val releaseStoreFile: File? = when {
     !hasReleaseSigning -> null
@@ -87,7 +91,15 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 wajib: tanpa ini semua string literal (termasuk kunci AES
+            // sumber) terbaca apa adanya lewat `strings`/apktool, dan APK
+            // jauh lebih besar. Aturan keep ada di proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             // Kalau signing belum disiapkan, jatuh ke debug key supaya
             // `assembleRelease` tetap menghasilkan APK yang bisa diuji.
             // Ini disengaja untuk alur testing (lihat komentar Keystore di
@@ -121,21 +133,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
     }
 
     // Empat ABI + satu universal APK.
     //
-    // Catatan: proyek ini tidak punya kode native (murni Kotlin/Java), jadi
-    // secara teknis semua APK ini berisi kelas yang sama dan tidak ada
-    // perbedaan ukuran nyata. Split tetap dikonfigurasi karena
-    // perangkat lawas sering butuh paket per-ABI, dan universal dipakai
-    // untuk pengguna yang mengutamakan kemudahan install.
+    // Proyek punya kode native lewat dependensi org.opencv:opencv (berisi
+    // .so per-ABI, dipakai pemotong banner), jadi split benar-benar
+    // memperkecil paket per-ABI. Universal tetap disediakan untuk pengguna
+    // yang mengutamakan kemudahan install.
     splits {
         abi {
             isEnable = true
@@ -149,6 +156,14 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+}
+
+// kotlinOptions {} sudah deprecated sejak Kotlin 2.0 / AGP 8.7 —
+// pakai compilerOptions di ekstensi kotlin (di luar blok android).
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
@@ -180,6 +195,10 @@ dependencies {
 
     // Unit test JVM murni (UrlParser, NamingRule, cleanText — tanpa API Android).
     testImplementation(libs.junit4)
+    // runBlocking dipakai test yang memanggil suspend fun sumber
+    // (seriesIdFromChapterUrl). Dideklarasikan eksplisit supaya tidak
+    // bergantung pada cara AGP mewariskan dependensi main ke test.
+    testImplementation(libs.kotlinx.coroutines.android)
 
     debugImplementation(libs.androidx.ui.tooling)
 }

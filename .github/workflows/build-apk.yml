@@ -51,14 +51,27 @@ jobs:
       # tidak akan ikut ter-commit kalaupun langkah ini gagal.
       # ---------------------------------------------------------------
 
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace --no-daemon
-
+      # Test duluan supaya test yang gagal tidak menyusul setelah build
+      # debug+release habis waktu (dan biar kegagalan terlihat paling awal).
       - name: Unit test (JVM)
         run: gradle :app:testDebugUnitTest --stacktrace --no-daemon
 
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      # Secret dipetakan sebagai env — build.gradle.kts membaca TF_STORE_*
+      # dari environment lebih dulu. Tanpa blok ini secret yang terpasang
+      # di repo TIDAK PERNAH sampai ke Gradle dan signing selalu jatuh ke
+      # debug key. Secret yang belum diisi = string kosong, dan itu sudah
+      # ditangani (dianggap tidak ada).
       - name: Build release APK
         run: gradle :app:assembleRelease --stacktrace --no-daemon
+        env:
+          TF_STORE_BASE64: ${{ secrets.TF_STORE_BASE64 }}
+          TF_STORE_PASSWORD: ${{ secrets.TF_STORE_PASSWORD }}
+          TF_KEY_ALIAS: ${{ secrets.TF_KEY_ALIAS }}
+          TF_KEY_PASSWORD: ${{ secrets.TF_KEY_PASSWORD }}
+          TF_STORE_EXT: ${{ secrets.TF_STORE_EXT }}
 
       # Wiping signing material happens no matter what — sukses atau gagal.
       # `if: always()` guarantees this step runs even when an earlier step
@@ -84,3 +97,8 @@ jobs:
           name: trialfetch-release
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      # Setelah upload supaya temuan lint tetap menggagalkan workflow
+      # tanpa menghapus APK yang sudah jadi dari artefak.
+      - name: Lint
+        run: gradle :app:lintDebug --stacktrace --no-daemon

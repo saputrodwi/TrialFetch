@@ -22,7 +22,14 @@
       Certifikat disalin dari trust store sistem Debian, bukan dari sumber
       lain, supaya tidak ada CA asing yang tersisip.
     -->
-    <base-config cleartextTrafficPermitted="true">
+    <!--
+      Semua sumber memakai HTTPS, jadi cleartext (HTTP) dimatikan di
+      seluruh domain — mencegah downgrade MITM. Kalau suatu saat ada
+      sumber yang benar-benar butuh HTTP, jangan kembalikan nilai di
+      base-config: buat <domain-config cleartextTrafficPermitted="true">
+      khusus untuk host itu saja.
+    -->
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
             <certificates src="@raw/sectigo_root_r46" />
