@@ -64,6 +64,19 @@ class HttpClient(
                 .followRedirects(true)
                 .followSslRedirects(true)
                 .retryOnConnectionFailure(true)
+                // Tempel cookie hasil verifikasi WebView (cf_clearance)
+                // ke semua request yang menuju host yang sudah diverifikasi.
+                .addInterceptor { chain ->
+                    val req = chain.request()
+                    val cookie = CloudflareCookieStore.cookieHeader(req.url.host)
+                    if (cookie != null) {
+                        chain.proceed(
+                            req.newBuilder().header("Cookie", cookie).build()
+                        )
+                    } else {
+                        chain.proceed(req)
+                    }
+                }
             if (dns != null) b.dns(dns)
             return b.build()
         }
@@ -91,10 +104,14 @@ class HttpClient(
         if (referer != null) builder.header("Referer", referer)
 
         client.newCall(builder.build()).execute().use { res ->
+            val body = res.body?.string()
+            if (body != null && Cloudflare.isChallenge(res.code, body)) {
+                throw CloudflareChallengeException(url)
+            }
             if (!res.isSuccessful) {
                 throw HttpException(res.code, url)
             }
-            res.body?.string() ?: throw HttpException(-1, url)
+            body ?: throw HttpException(-1, url)
         }
     }
 
@@ -111,8 +128,12 @@ class HttpClient(
         val builder = Request.Builder().url(url)
         for ((k, v) in headers) builder.header(k, v)
         client.newCall(builder.build()).execute().use { res ->
+            val body = res.body?.string()
+            if (body != null && Cloudflare.isChallenge(res.code, body)) {
+                throw CloudflareChallengeException(url)
+            }
             if (!res.isSuccessful) throw HttpException(res.code, url)
-            res.body?.string() ?: throw HttpException(-1, url)
+            body ?: throw HttpException(-1, url)
         }
     }
 
@@ -166,8 +187,12 @@ class HttpClient(
             .post(ByteArray(0).toRequestBody(null))
         for ((k, v) in headers) builder.header(k, v)
         client.newCall(builder.build()).execute().use { res ->
+            val body = res.body?.string()
+            if (body != null && Cloudflare.isChallenge(res.code, body)) {
+                throw CloudflareChallengeException(url)
+            }
             if (!res.isSuccessful) throw HttpException(res.code, url)
-            res.body?.string() ?: throw HttpException(-1, url)
+            body ?: throw HttpException(-1, url)
         }
     }
 

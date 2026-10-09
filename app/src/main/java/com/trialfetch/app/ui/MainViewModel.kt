@@ -16,6 +16,7 @@ import com.trialfetch.app.data.QueueItem
 import android.util.Log
 import com.trialfetch.app.core.DohConfig
 import com.trialfetch.app.core.HttpClient
+import com.trialfetch.app.core.CloudflareChallengeException
 import com.trialfetch.app.data.BookmarkStore
 import com.trialfetch.app.data.HistoryEntry
 import com.trialfetch.app.data.ReadHistoryStore
@@ -286,6 +287,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
                 _readerPages.value = repo.streamPages(series, page)
+            } catch (e: CloudflareChallengeException) {
+                if (_reader.value?.chapter?.chapterId != chapter.chapterId) return@launch
+                _readerError.value = "Cloudflare memblokir akses — verifikasi diperlukan"
+                requestCloudflareVerify(e.url) { openReader(series, chapter, initialPage) }
             } catch (e: Exception) {
                 if (_reader.value?.chapter?.chapterId != chapter.chapterId) return@launch
                 _readerError.value = e.message ?: "Gagal memuat chapter"
@@ -297,6 +302,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _reader.value = null
         _readerPages.value = null
         _readerError.value = null
+    }
+
+    // --- Verifikasi Cloudflare (WebView manual) ---
+    data class CloudflareVerify(
+        val url: String,
+        val retry: () -> Unit
+    )
+
+    private val _cloudflare = MutableStateFlow<CloudflareVerify?>(null)
+    val cloudflare: StateFlow<CloudflareVerify?> = _cloudflare.asStateFlow()
+
+    val userAgent: String get() = repo.userAgent
+
+    fun requestCloudflareVerify(url: String, retry: () -> Unit) {
+        _cloudflare.value = CloudflareVerify(url, retry)
+    }
+
+    fun onCloudflareDone() {
+        val v = _cloudflare.value
+        _cloudflare.value = null
+        v?.retry?.invoke()
+    }
+
+    fun closeCloudflareVerify() {
+        _cloudflare.value = null
     }
 
     fun removeBookmark(item: SavedSeries) {
@@ -332,6 +362,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val info = repo.openUrl(url)
                 _series.value = SeriesUiState(info = info)
                 onLoaded(info)
+            } catch (e: CloudflareChallengeException) {
+                _series.value = SeriesUiState(error = "Cloudflare memblokir akses — verifikasi diperlukan")
+                requestCloudflareVerify(e.url) { openFromUrl(onLoaded) }
             } catch (e: Exception) {
                 val msg = e.message ?: "Gagal membuka URL"
                 _series.value = SeriesUiState(error = msg)
@@ -375,6 +408,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     repo.search(st.source, st.query.trim())
                 }
                 _search.value = _search.value.copy(loading = false, results = res)
+            } catch (e: CloudflareChallengeException) {
+                _search.value = _search.value.copy(
+                    loading = false,
+                    error = "Cloudflare memblokir akses — verifikasi diperlukan"
+                )
+                requestCloudflareVerify(e.url) { doSearch() }
             } catch (e: Exception) {
                 val msg = e.message ?: "Pencarian gagal"
                 _search.value = _search.value.copy(loading = false, error = msg)
@@ -396,6 +435,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (ch != null) {
                     openReader(info, ch, entry.page)
                 }
+            } catch (e: CloudflareChallengeException) {
+                _series.value = SeriesUiState(error = "Cloudflare memblokir akses — verifikasi diperlukan")
+                requestCloudflareVerify(e.url) { openHistory(entry) }
             } catch (e: Exception) {
                 _series.value = SeriesUiState(error = e.message ?: "Gagal memuat series")
             }
@@ -409,6 +451,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val info = repo.series(item.source, item.comicId)
                 _series.value = SeriesUiState(info = info)
                 refreshDownloaded(info)
+            } catch (e: CloudflareChallengeException) {
+                _series.value = SeriesUiState(error = "Cloudflare memblokir akses — verifikasi diperlukan")
+                requestCloudflareVerify(e.url) { openSaved(item) }
             } catch (e: Exception) {
                 _series.value = SeriesUiState(error = e.message ?: "Gagal memuat series")
             }
@@ -427,6 +472,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val info = repo.series(source, comicId)
                 _series.value = SeriesUiState(info = info)
                 refreshDownloaded(info)
+            } catch (e: CloudflareChallengeException) {
+                _series.value = SeriesUiState(error = "Cloudflare memblokir akses — verifikasi diperlukan")
+                requestCloudflareVerify(e.url) { openSeriesById(source, comicId) }
             } catch (e: Exception) {
                 _series.value = SeriesUiState(error = e.message ?: "Gagal memuat series")
             }

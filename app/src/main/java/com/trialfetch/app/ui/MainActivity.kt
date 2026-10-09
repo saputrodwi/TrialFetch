@@ -223,6 +223,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val readerPages by vm.readerPages.collectAsStateWithLifecycle()
     val readerError by vm.readerError.collectAsStateWithLifecycle()
     val readerInitialPage by vm.readerInitialPage.collectAsStateWithLifecycle()
+    val cloudflare by vm.cloudflare.collectAsStateWithLifecycle()
     val extra = LocalExtraColors.current
 
     // Izin penyimpanan: dibutuhkan hanya di Android 9 ke bawah. Android 10+
@@ -480,6 +481,18 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                     if (storageGranted) vm.download(req.series, req.chapter)
                 },
                 onRetry = { vm.openReader(req.series, req.chapter) }
+            )
+        }
+    }
+
+    // Layar verifikasi Cloudflare menutupi seluruh layar di atas route apa pun.
+    cloudflare?.let { cf ->
+        key(cf.url) {
+            CloudflareVerifyScreen(
+                url = cf.url,
+                userAgent = vm.userAgent,
+                onDone = vm::onCloudflareDone,
+                onClose = vm::closeCloudflareVerify
             )
         }
     }

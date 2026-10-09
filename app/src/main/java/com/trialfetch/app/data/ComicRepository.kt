@@ -77,6 +77,9 @@ class ComicRepository(
     val availableSources: List<Source>
         get() = sources.keys.toList()
 
+    /** UA yang dipakai HttpClient — untuk disamakan di WebView verifikasi Cloudflare. */
+    val userAgent: String get() = http.mobileUa
+
     /**
      * Ganti DNS yang dipakai (mis. nyalakan DoH) tanpa membuat repository
      * baru. Source tidak menyimpan state sehingga aman dibangun ulang;
