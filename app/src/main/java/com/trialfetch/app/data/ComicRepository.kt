@@ -102,9 +102,8 @@ class ComicRepository(
         settings: DownloadSettings
     ): List<android.net.Uri> {
         val chapterDir = sanitize(chapter.title)
-        // Coba folder kanonik (nama series) dulu; kalau kosong, jatuh ke
-        // folder ber-prefix lama supaya koleksi yang dibuat saat bentuk itu
-        // berlaku tetap bisa dibaca.
+        // Coba lokasi sekarang (<Sumber>/<Judul>) dulu; kalau kosong, jatuh
+        // ke bentuk lama supaya koleksi lama tetap bisa dibaca.
         for (seriesDir in candidateSeriesDirs(series)) {
             val images = if (settings.outputMode == OutputMode.ZIP) {
                 storage.extractZipForRead(seriesDir, "$chapterDir.zip")
@@ -147,10 +146,9 @@ class ComicRepository(
      * Nama folder chapter yang sudah terunduh untuk satu series.
      *
      * Dipakai badge "sudah diunduh" — satu panggilan untuk seluruh series.
-     * Mode ZIP: nama zip tanpa ekstensi. Selain folder kanonik
-     * ([seriesDirOf]), folder ber-prefix lama juga dibaca (lihat
-     * [prefixedSeriesDirOf]) supaya unduhan yang dibuat saat bentuk itu
-     * berlaku tidak dianggap hilang.
+     * Mode ZIP: nama zip tanpa ekstensi. Selain lokasi sekarang
+     * ([seriesDirOf]), bentuk lama juga dibaca (lihat [oldSeriesDirsOf])
+     * supaya unduhan yang dibuat build sebelumnya tidak dianggap hilang.
      */
     fun listDownloadedChapters(
         series: SeriesInfo,
@@ -239,8 +237,8 @@ class ComicRepository(
             return@withContext fail(e.message ?: "Gagal membaca chapter")
         }
 
-        // Nama folder = judul series saja (lihat seriesDirOf), sesuai
-        // permintaan: yang tampil di file manager harus nama series.
+        // Lokasi = <Sumber>/<Judul series> (lihat seriesDirOf): dua tingkat
+        // nama yang terbaca, dan sumber berbeda tidak lagi berbagi folder.
         val seriesDir = seriesDirOf(series)
         val chapterDir = sanitize(chapter.title)
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
@@ -531,32 +529,38 @@ class ComicRepository(
             name.replace(Regex("""[\\/:*?"<>|\r\n]"""), "_").trim().take(80)
 
         /**
-         * Folder series = judul series (hasil sanitize) saja, tanpa prefix.
+         * Lokasi unduhan satu series: `<Sumber>/<Judul series>`, di dalam
+         * Download/TrialFetch.
          *
-         * Sengaja begitu: yang ingin dilihat user di file manager adalah
-         * nama series, bupa kode sumber. Konsekuensinya dua series judul
-         * sama dari sumber berbeda berbagi folder — chapter yang sama
-         * dari dua sumber bisa saling menimpa waktu diunduh ulang.
+         * Dua tingkat nama yang terbaca di file manager (Baozimh/Judul),
+         * bukan campuran kode sumber di dalam nama folder. Dengan pemisah
+         * per sumber, dua series judul sama dari sumber berbeda tidak lagi
+         * berbagi folder — chapternya tidak bisa saling menimpa.
          */
-        fun seriesDirOf(series: SeriesInfo): String = sanitize(series.title)
+        fun seriesDirOf(series: SeriesInfo): String =
+            "${sanitize(series.source.displayName)}/${sanitize(series.title)}"
 
         /**
-         * Folder ber-prefix "<id sumber>_" — bentuk sementara yang pernah
-         * dipakai build di antara (commit fc661ef s.d. sebelum dikembalikan
-         * ke nama polos). Hanya untuk MEMBACA; unduhan baru selalu ditulis
-         * ke [seriesDirOf]. Tanpa fallback ini koleksi yang diunduh saat
-         * bentuk ber-prefix mendadak tidak terbaca (badge hilang dan
-         * "buka dari hasil unduhan" gagal).
+         * Bentuk lama yang pernah dipakai build sebelumnya, hanya untuk
+         * MEMBACA; unduhan baru selalu ditulis ke [seriesDirOf]:
+         *  - `<Judul>` saja (nama polos, tanpa sumber)
+         *  - `<id sumber>_<Judul>` (prefix satu tingkat)
+         *
+         * Tanpa fallback ini koleksi yang diunduh saat bentuk lama berlaku
+         * mendadak tidak terbaca (badge hilang dan "buka dari hasil
+         * unduhan" gagal) walaupun filenya masih ada.
          */
-        fun prefixedSeriesDirOf(series: SeriesInfo): String =
+        fun oldSeriesDirsOf(series: SeriesInfo): List<String> = listOf(
+            sanitize(series.title),
             "${series.source.id}_${sanitize(series.title)}"
+        )
 
         /**
-         * Semua lokasi yang mungkin berisi unduhan series ini: nama polos
-         * (kanonik) dulu, baru bentuk ber-prefix. Urutannya penting —
+         * Semua lokasi yang mungkin berisi unduhan series ini: bentuk
+         * sekarang dulu (kanonik), baru bentuk lama. Urutannya penting —
          * yang kanonik menang kalau keduanya berisi.
          */
         fun candidateSeriesDirs(series: SeriesInfo): List<String> =
-            listOf(seriesDirOf(series), prefixedSeriesDirOf(series)).distinct()
+            (listOf(seriesDirOf(series)) + oldSeriesDirsOf(series)).distinct()
     }
 }

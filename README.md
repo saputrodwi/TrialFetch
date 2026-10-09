@@ -1,8 +1,9 @@
 # TrialFetch
 
 Aplikasi Android native (Kotlin + Jetpack Compose) untuk mencari dan
-mengunduh komik dari berbagai sumber, lalu menyimpannya ke folder
-`Download/TrialFetch` sebagai folder gambar atau arsip ZIP.
+mengunduh komik dari berbagai sumber, lalu menyimpannya ke
+`Download/TrialFetch/<Sumber>/<Judul series>/…` — satu subfolder per
+chapter berisi gambar, atau satu arsip ZIP per chapter (mode ZIP).
 
 Aplikasi pendamping dari Trial Fetch versi web — logika scraping,
 API app, dan pemotong banner diport dari sana supaya hasilnya identik.
