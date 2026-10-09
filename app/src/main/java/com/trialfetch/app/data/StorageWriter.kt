@@ -553,8 +553,11 @@ class StorageWriter(private val context: Context) {
             if (closed) return
             closed = true
             runCatching { zos.close() }
-            if (uri != null) runCatching { owner.resolver.delete(uri, null, null) }
-            if (file != null) runCatching { file.delete() }
+            // ?.let, bukan if (x != null) { runCatching { x… } }: pengecekan
+            // null di luar lambda tidak dibawa masuk ke dalamnya (lambda
+            // menangkap nilai mentah, jadi masih dianggap nullable).
+            uri?.let { runCatching { owner.resolver.delete(it, null, null) } }
+            file?.let { runCatching { it.delete() } }
             Log.i(TAG, "zip dibatalkan, file setengah jadi dihapus")
         }
     }
