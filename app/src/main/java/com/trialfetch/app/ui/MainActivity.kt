@@ -339,7 +339,7 @@ fun AppRoot(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(3.dp)
+                        .height(2.dp)
                         .background(MaterialTheme.colorScheme.onBackground)
                 )
             }
@@ -350,7 +350,7 @@ fun AppRoot(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(3.dp)
+                        .height(2.dp)
                         .background(MaterialTheme.colorScheme.onBackground)
                 )
                 NavigationBar(
@@ -1410,7 +1410,7 @@ private fun ReaderScreen(
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .height(3.dp)
+                                .height(2.dp)
                                 .background(MaterialTheme.colorScheme.onBackground)
                         )
                     }
@@ -1426,7 +1426,7 @@ private fun ReaderScreen(
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .height(3.dp)
+                                .height(2.dp)
                                 .background(MaterialTheme.colorScheme.onBackground)
                         )
                         Column(
@@ -1549,7 +1549,7 @@ private fun ReaderCircleButton(
     val shape = androidx.compose.foundation.shape.CircleShape
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(36.dp)
             .hardShadow(extra.shadow, 2.dp, shape)
             .background(
                 if (enabled) MaterialTheme.colorScheme.surface

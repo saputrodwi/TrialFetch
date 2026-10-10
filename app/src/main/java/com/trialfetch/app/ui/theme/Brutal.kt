@@ -33,8 +33,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Ketebalan garis tinta, mengikuti border 3px di web. */
-val InkWidth = 3.dp
+/** Ketebalan garis tinta: 2dp ala mockup minimalis yang disetujui. */
+val InkWidth = 2.dp
 
 /** Radius sudut membulat, mengikuti nilai px di web. */
 private val CardShape = RoundedCornerShape(14.dp)
@@ -145,7 +145,7 @@ fun BrutalCard(
     shape: Shape = CardShape,
     borderColor: Color = MaterialTheme.colorScheme.onBackground,
     borderWidth: Dp = InkWidth,
-    shadowOffset: Dp = 4.dp,
+    shadowOffset: Dp = 2.dp,
     contentPadding: PaddingValues = PaddingValues(14.dp),
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
@@ -178,7 +178,7 @@ fun BrutalButton(
 
     Box(
         modifier = modifier
-            .hardShadow(shadowColor, 3.dp, ButtonShape)
+            .hardShadow(shadowColor, 2.dp, ButtonShape)
             .background(if (enabled) background else background.copy(alpha = 0.5f), ButtonShape)
             .border(InkWidth, borderColor, ButtonShape)
             .clickable(enabled = enabled) { onClick() }
