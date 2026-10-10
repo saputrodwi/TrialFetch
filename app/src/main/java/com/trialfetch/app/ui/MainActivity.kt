@@ -1358,7 +1358,8 @@ private fun ReaderScreen(
                                 item = item,
                                 active = true,
                                 flow = true,
-                                onLockChange = setLock
+                                onLockChange = setLock,
+                                onImageTap = { menusVisible = !menusVisible }
                             )
                         }
                     }
@@ -1371,7 +1372,8 @@ private fun ReaderScreen(
                         ZoomablePage(
                             item = list[page],
                             active = hState.currentPage == page,
-                            onLockChange = setLock
+                            onLockChange = setLock,
+                            onImageTap = { menusVisible = !menusVisible }
                         )
                     }
                 }
@@ -1668,7 +1670,12 @@ private fun ZoomablePage(
     item: ReaderPage,
     active: Boolean,
     onLockChange: (Boolean) -> Unit,
-    flow: Boolean = false
+    flow: Boolean = false,
+    // Ketuk gambar toggle menu via clickable STANDAR (bukan adu
+    // gesture detector): clickable hanya memakan ketuk murni, geser
+    // untuk pindah halaman dan cubit-zoom tetap lolos. Tanpa ripple
+    // (indication=null) supaya tidak ada kilatan di atas gambar.
+    onImageTap: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var scale by remember(item.uri) { mutableFloatStateOf(1f) }
@@ -1756,6 +1763,13 @@ private fun ZoomablePage(
                             .transformable(
                                 state = transform,
                                 canPan = { scale > 1f }
+                            )
+                            .clickable(
+                                interactionSource = remember(item.uri) {
+                                    androidx.compose.foundation.interaction.MutableInteractionSource()
+                                },
+                                indication = null,
+                                onClick = onImageTap
                             )
                     )
 }
