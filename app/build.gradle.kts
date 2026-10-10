@@ -135,6 +135,9 @@ android {
 
     buildFeatures {
         compose = true
+        // Dibutuhkan layar Pengaturan untuk menampilkan nomor build
+        // (BuildConfig.VERSION_CODE) supaya jelas APK mana yang terpasang.
+        buildConfig = true
     }
 
     // Empat ABI + satu universal APK.
