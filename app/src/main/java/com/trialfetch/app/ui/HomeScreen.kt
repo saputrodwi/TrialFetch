@@ -1,5 +1,6 @@
 package com.trialfetch.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -367,13 +368,35 @@ private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (r.author.isNotBlank()) {
-                    Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        r.author,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        r.source.displayName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LocalExtraColors.current.onAccent,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .border(
+                                2.dp,
+                                MaterialTheme.colorScheme.onBackground,
+                                RoundedCornerShape(999.dp)
+                            )
+                            .background(
+                                LocalExtraColors.current.blue,
+                                RoundedCornerShape(999.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
                     )
+                    if (r.author.isNotBlank()) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            r.author,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }

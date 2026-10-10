@@ -24,60 +24,77 @@ class DownloadNotifier(private val context: Context) {
 
     companion object {
         const val CHANNEL_ID = "downloads"
+        const val CHANNEL_UPDATES = "updates"
         const val NOTIFICATION_ID = 1001
         const val NOTIF_UPDATE_ID = 1002
+
+        const val EXTRA_OPEN = "trialfetch.open"
+        const val OPEN_DOWNLOADS = "downloads"
+        const val OPEN_SAVED = "saved"
     }
 
     fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Unduhan",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Progres mengunduh chapter komik"
-            setShowBadge(false)
-        }
-        manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                "Unduhan",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Progres mengunduh chapter komik"
+                setShowBadge(false)
+            }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_UPDATES,
+                "Update chapter",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Chapter baru dari series tersimpan"
+                setShowBadge(true)
+            }
+        )
     }
 
-    private fun contentIntent(): PendingIntent {
+    /** Intent buka aplikasi langsung ke layar tertentu (Unduhan/Simpan). */
+    private fun openIntent(target: String, requestCode: Int): PendingIntent {
         val intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra(EXTRA_OPEN, target)
         return PendingIntent.getActivity(
-            context, 0, intent,
+            context, requestCode, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
 
-    private fun build(
-        title: String,
-        text: String,
-        progress: Int?,
-        ongoing: Boolean
-    ): Notification {
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setContentIntent(contentIntent())
-            .setOngoing(ongoing)
+    private fun base(channel: String, icon: Int, target: String, requestCode: Int) =
+        NotificationCompat.Builder(context, channel)
+            .setSmallIcon(icon)
+            .setContentIntent(openIntent(target, requestCode))
             .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-
-        if (progress != null) {
-            builder.setProgress(100, progress, false)
-        } else {
-            builder.setProgress(0, 0, true)
-        }
-        return builder.build()
-    }
+            .setAutoCancel(true)
 
     fun showRunning(title: String, done: Int, total: Int) {
         ensureChannel()
         val percent = if (total > 0) (done * 100 / total) else 0
         val text = if (total > 0) "$done dari $total halaman ($percent%)" else "Menyiapkan…"
-        manager.notify(NOTIFICATION_ID, build(title, text, percent, true))
+        val n = base(
+            CHANNEL_ID, android.R.drawable.stat_sys_download,
+            OPEN_DOWNLOADS, 1
+        )
+            .setContentTitle(title)
+            .setContentText(text)
+            .setProgress(100, percent, total <= 0)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(
+                android.R.drawable.ic_menu_view, "Lihat",
+                openIntent(OPEN_DOWNLOADS, 2)
+            )
+            .build()
+        manager.notify(NOTIFICATION_ID, n)
     }
 
     fun showDone(title: String, done: Int, path: String?) {
@@ -89,26 +106,80 @@ class DownloadNotifier(private val context: Context) {
                 append(path)
             }
         }
-        val n = build(title, text, 100, false)
-        manager.notify(NOTIFICATION_ID, n)
         // JANGAN cancel di sini: notifikasi selesai harus tetap terlihat
         // sampai user menutupnya sendiri, supaya path hasil unduhan sempat
-        // dibaca. (Sebelumnya ada cancel() persis setelah notify sehingga
-        // notifikasi hilang dalam milidetik.) Notifikasi berjalan (progress)
-        // ditimpa otomatis oleh notify berikutnya dengan ID yang sama.
+        // dibaca. Notifikasi berjalan (progress) ditimpa otomatis oleh
+        // notify berikutnya dengan ID yang sama.
+        val n = base(
+            CHANNEL_ID, android.R.drawable.stat_sys_download_done,
+            OPEN_DOWNLOADS, 3
+        )
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setProgress(0, 0, false)
+            .setOngoing(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(
+                android.R.drawable.ic_menu_view, "Lihat",
+                openIntent(OPEN_DOWNLOADS, 4)
+            )
+            .build()
+        manager.notify(NOTIFICATION_ID, n)
     }
 
     fun showFailed(title: String, reason: String) {
         ensureChannel()
-        manager.notify(NOTIFICATION_ID, build(title, reason, null, false))
+        val n = base(
+            CHANNEL_ID, android.R.drawable.stat_notify_error,
+            OPEN_DOWNLOADS, 5
+        )
+            .setContentTitle("Gagal: $title")
+            .setContentText(reason)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(reason))
+            .setProgress(0, 0, false)
+            .setOngoing(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(
+                android.R.drawable.ic_menu_view, "Lihat",
+                openIntent(OPEN_DOWNLOADS, 6)
+            )
+            .build()
+        manager.notify(NOTIFICATION_ID, n)
     }
 
     /** Notifikasi sistem saat cek update menemukan chapter baru. */
     fun showBookmarkUpdates(count: Int, titles: List<String>) {
         ensureChannel()
-        val text = if (titles.isEmpty()) "$count update"
-        else titles.first() + if (titles.size > 1) " (+${titles.size - 1} lagi)" else ""
-        manager.notify(NOTIF_UPDATE_ID, build("Chapter baru tersedia ($count)", text, null, false))
+        val headline = "Chapter baru tersedia ($count)"
+        val n = base(
+            CHANNEL_UPDATES, android.R.drawable.stat_notify_more,
+            OPEN_SAVED, 7
+        )
+            .setContentTitle(headline)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setOngoing(false)
+            .apply {
+                if (titles.size <= 1) {
+                    val text = titles.firstOrNull() ?: "$count update"
+                    setContentText(text)
+                    setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                } else {
+                    setContentText("${titles.first()} (+${titles.size - 1} lagi)")
+                    setStyle(
+                        NotificationCompat.InboxStyle()
+                            .setBigContentTitle(headline)
+                            .also { style -> titles.take(5).forEach { style.addLine(it) } }
+                            .setSummaryText("+${titles.size - 5} lagi".takeIf { titles.size > 5 })
+                    )
+                }
+            }
+            .addAction(
+                android.R.drawable.ic_menu_view, "Lihat simpanan",
+                openIntent(OPEN_SAVED, 8)
+            )
+            .build()
+        manager.notify(NOTIF_UPDATE_ID, n)
     }
 
     fun cancel() = manager.cancel(NOTIFICATION_ID)

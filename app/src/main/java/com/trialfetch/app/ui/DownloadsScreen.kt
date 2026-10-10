@@ -1,5 +1,6 @@
 package com.trialfetch.app.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,8 +14,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,9 +29,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.trialfetch.app.data.QueueItem
 import com.trialfetch.app.data.QueueItemState
 import com.trialfetch.app.ui.theme.BrutalCard
@@ -171,6 +178,21 @@ internal fun QueueRow(
 ) {
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Sampul series: baris antrian langsung terbaca tanpa buka detail.
+            AsyncImage(
+                model = item.series.coverUrl.ifBlank { null },
+                contentDescription = null,
+                modifier = Modifier
+                    .size(width = 40.dp, height = 54.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .border(
+                        2.dp,
+                        MaterialTheme.colorScheme.onBackground,
+                        RoundedCornerShape(6.dp)
+                    ),
+                contentScale = ContentScale.Crop
+            )
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     item.chapter.title,
@@ -184,11 +206,14 @@ internal fun QueueRow(
                     QueueItemState.ACTIVE -> MaterialTheme.colorScheme.primary
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 }
+                val percent = if (item.state == QueueItemState.ACTIVE && item.total > 0)
+                    " · ${(item.done * 100 / item.total).coerceIn(0, 100)}%" else ""
                 Text(
                     when (item.state) {
                         QueueItemState.QUEUED -> "● Menunggu"
                         QueueItemState.ACTIVE ->
-                            if (item.total > 0) "● Mengunduh ${item.done}/${item.total}" else "● Mengunduh…"
+                            if (item.total > 0) "● Mengunduh ${item.done}/${item.total}$percent"
+                            else "● Mengunduh…"
                         QueueItemState.DONE -> "● Selesai"
                         QueueItemState.FAILED -> "● Gagal${item.error?.let { ": $it" } ?: ""}"
                         QueueItemState.CANCELLED -> "● Dibatalkan"
@@ -202,15 +227,26 @@ internal fun QueueRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            // Tombol ikon kompak: teks "Batal/Hapus/Ulangi" memenuhi baris.
             when (item.state) {
-                QueueItemState.ACTIVE -> TextButton(onClick = onCancel) { Text("Batal") }
-                QueueItemState.QUEUED -> TextButton(onClick = onRemove) { Text("Hapus") }
+                QueueItemState.ACTIVE -> IconButton(onClick = onCancel) {
+                    Icon(Icons.Default.Cancel, contentDescription = "Batalkan unduhan")
+                }
+                QueueItemState.QUEUED -> IconButton(onClick = onRemove) {
+                    Icon(Icons.Default.Delete, contentDescription = "Hapus dari antrian")
+                }
                 QueueItemState.FAILED -> {
-                    TextButton(onClick = onRetry) { Text("Ulangi") }
-                    TextButton(onClick = onRemove) { Text("Hapus") }
+                    IconButton(onClick = onRetry) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Ulangi unduhan")
+                    }
+                    IconButton(onClick = onRemove) {
+                        Icon(Icons.Default.Delete, contentDescription = "Hapus dari antrian")
+                    }
                 }
                 QueueItemState.DONE, QueueItemState.CANCELLED ->
-                    TextButton(onClick = onRemove) { Text("Hapus") }
+                    IconButton(onClick = onRemove) {
+                        Icon(Icons.Default.Delete, contentDescription = "Hapus dari antrian")
+                    }
             }
         }
         if (item.state == QueueItemState.ACTIVE && item.total > 0) {

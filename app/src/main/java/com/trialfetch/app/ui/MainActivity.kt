@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import android.app.Activity
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -65,15 +66,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -147,6 +153,17 @@ import com.trialfetch.app.ui.theme.PolkaDotBackground
 import com.trialfetch.app.ui.theme.TrialFetchTheme
 
 class MainActivity : ComponentActivity() {
+    /** Target layar dari ketukan notifikasi; dikonsumsi sekali oleh AppRoot. */
+    private var deepLinkTarget by mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        deepLinkTarget = intent.getStringExtra(
+            com.trialfetch.app.data.DownloadNotifier.EXTRA_OPEN
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() harus dipanggil sebelum super.onCreate supaya
         // layar splash Android 12+ langsung mengambil alih dan tidak ada
@@ -171,7 +188,13 @@ class MainActivity : ComponentActivity() {
                         Modifier.fillMaxSize(),
                         color = Color.Transparent
                     ) {
-                        AppRoot(vm)
+                        AppRoot(
+                            vm = vm,
+                            deepLink = intent.getStringExtra(
+                                com.trialfetch.app.data.DownloadNotifier.EXTRA_OPEN
+                            ) ?: deepLinkTarget,
+                            onDeepLinkConsumed = { deepLinkTarget = null }
+                        )
                     }
                 }
             }
@@ -183,7 +206,11 @@ private const val EXIT_PRESS_WINDOW_MS = 2000L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppRoot(vm: MainViewModel = viewModel()) {
+fun AppRoot(
+    vm: MainViewModel = viewModel(),
+    deepLink: String? = null,
+    onDeepLinkConsumed: () -> Unit = {}
+) {
     val context = LocalContext.current
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
@@ -255,6 +282,22 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     LaunchedEffect(Unit) {
         StoragePermission.required()?.let { storageLauncher.launch(it) }
         StoragePermission.notificationRequired()?.let { notifLauncher.launch(it) }
+    }
+
+    // Ketukan aksi notifikasi mendarat di sini: lompat ke layar tujuan sekali.
+    LaunchedEffect(deepLink) {
+        when (deepLink) {
+            com.trialfetch.app.data.DownloadNotifier.OPEN_DOWNLOADS ->
+                nav.navigate(Routes.DOWNLOADS) { launchSingleTop = true }
+            com.trialfetch.app.data.DownloadNotifier.OPEN_SAVED ->
+                nav.navigate(Routes.SAVED) {
+                    popUpTo(Routes.HOME)
+                    launchSingleTop = true
+                }
+            null -> return@LaunchedEffect
+            else -> return@LaunchedEffect
+        }
+        onDeepLinkConsumed()
     }
 
     val series = seriesState.info
@@ -460,6 +503,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
         key(req.chapter.chapterId) {
             ReaderScreen(
                 title = req.chapter.title,
+                seriesTitle = req.series.title,
                 pages = readerPages,
                 error = readerError,
                 isStreaming = streaming,
@@ -1058,6 +1102,7 @@ private fun SavedScreen(
 @OptIn(ExperimentalFoundationApi::class)
 private fun ReaderScreen(
     title: String,
+    seriesTitle: String = "",
     pages: List<ReaderPage>?,
     error: String?,
     isStreaming: Boolean,
@@ -1214,6 +1259,9 @@ private fun ReaderScreen(
                     }
                 }
                 // Bilah atas ala Mihon: sembunyi/tampil mengikuti ketukan.
+                // Aksi sekunder (unduh/daftar chapter) masuk menu ⋮ supaya
+                // bilah tidak berdesakan.
+                var menuOpen by remember { mutableStateOf(false) }
                 AnimatedVisibility(
                     visible = menusVisible,
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -1230,24 +1278,62 @@ private fun ReaderScreen(
                         IconButton(onClick = onClose) {
                             Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White)
                         }
-                        Text(
-                            title,
-                            Modifier.weight(1f),
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (isStreaming) {
+                        Column(Modifier.weight(1f)) {
                             Text(
-                                "online",
+                                seriesTitle.ifBlank { title },
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                (if (seriesTitle.isNotBlank()) "$title" else "Membaca") +
+                                    if (isStreaming) " • online" else "",
                                 color = Color.White.copy(alpha = 0.6f),
                                 style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.padding(end = 8.dp)
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                        IconButton(onClick = onDownload) {
-                            Icon(Icons.Default.Download, contentDescription = "Unduh chapter", tint = Color.White)
+                        Box {
+                            IconButton(onClick = { menuOpen = true }) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = "Menu baca",
+                                    tint = Color.White
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = menuOpen,
+                                onDismissRequest = { menuOpen = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Unduh chapter") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Download,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    onClick = {
+                                        menuOpen = false
+                                        onDownload()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Daftar chapter") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.List,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    onClick = {
+                                        menuOpen = false
+                                        onOpenSeries()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -1306,27 +1392,33 @@ private fun ReaderScreen(
                             else Color.White.copy(alpha = 0.3f)
                         )
                     }
-                    // Tombol daftar chapter pindah ke sini supaya bilah
-                    // atas tidak berdesakan (judul + counter + unduh).
-                    IconButton(onClick = onOpenSeries) {
-                        Icon(
-                            Icons.Default.List,
-                            contentDescription = "Buka daftar chapter",
-                            tint = Color.White
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-                    // Label eksplisit mode AKTIF (bukan target) supaya
-                    // jelas sedang pakai yang mana; ketuk untuk ganti.
+                    // Toggle mode kompak: ikon + label pendek mode AKTIF.
+                    // Ketuk untuk ganti (ada Toast konfirmasi), supaya
+                    // baris tombol tidak berdesakan.
+                    val ctx = LocalContext.current
                     TextButton(onClick = {
-                        onModeChange(
-                            if (mode == ReaderMode.WEBTOON) ReaderMode.PAGED
-                            else ReaderMode.WEBTOON
-                        )
+                        val next = if (mode == ReaderMode.WEBTOON) ReaderMode.PAGED
+                        else ReaderMode.WEBTOON
+                        onModeChange(next)
+                        Toast.makeText(
+                            ctx,
+                            if (next == ReaderMode.WEBTOON) "Mode: Webtoon"
+                            else "Mode: Halaman",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }) {
+                        Icon(
+                            if (mode == ReaderMode.WEBTOON) Icons.Default.ViewAgenda
+                            else Icons.Default.AutoStories,
+                            contentDescription = "Ganti mode baca",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
                         Text(
-                            if (mode == ReaderMode.WEBTOON) "Mode: Webtoon" else "Mode: Halaman",
-                            color = Color.White.copy(alpha = 0.85f)
+                            if (mode == ReaderMode.WEBTOON) "Webtoon" else "Halaman",
+                            color = Color.White.copy(alpha = 0.85f),
+                            style = MaterialTheme.typography.labelLarge
                         )
                     }
                     Spacer(Modifier.weight(1f))
