@@ -1106,9 +1106,11 @@ private fun SavedScreen(
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onCheckUpdates, enabled = !checking) {
-                    Text(if (checking) "Mengecek…" else "Cek update")
-                }
+                com.trialfetch.app.ui.theme.BrutalButton(
+                    text = if (checking) "Mengecek…" else "Cek update",
+                    onClick = onCheckUpdates,
+                    enabled = !checking
+                )
                 Spacer(Modifier.weight(1f))
                 if (updates.isNotEmpty()) {
                     TextButton(onClick = onClearUpdates) { Text("Bersihkan") }
@@ -1165,15 +1167,36 @@ private fun SavedScreen(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            item.source.displayName +
-                                (if (item.author.isNotBlank()) " · ${item.author}" else ""),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                item.source.displayName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = extra.onAccent,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .border(
+                                        2.dp,
+                                        MaterialTheme.colorScheme.onBackground,
+                                        RoundedCornerShape(999.dp)
+                                    )
+                                    .background(
+                                        extra.blue,
+                                        RoundedCornerShape(999.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                            if (item.author.isNotBlank()) {
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    item.author,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                     IconButton(onClick = { onRemove(item) }) {
                         Icon(Icons.Default.Delete, contentDescription = "Hapus ${item.title}")

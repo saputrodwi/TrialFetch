@@ -1,5 +1,6 @@
 package com.trialfetch.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -108,8 +109,10 @@ fun HistoryScreen(
                         )
                         if (h.totalPages > 0) {
                             Spacer(Modifier.height(6.dp))
+                            val pct = h.fraction?.let { (it * 100).toInt().coerceIn(0, 100) }
                             Text(
-                                "Terakhir dibaca: hal ${h.page} dari ${h.totalPages}",
+                                if (pct != null) "Terakhir dibaca: hal ${h.page} dari ${h.totalPages} · $pct%"
+                                else "Terakhir dibaca: hal ${h.page} dari ${h.totalPages}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -119,12 +122,34 @@ fun HistoryScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            SimpleDateFormat("d MMM HH:mm", Locale.getDefault()).format(Date(h.updatedAt)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Spacer(Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                h.source.displayName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LocalExtraColors.current.onAccent,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .border(
+                                        2.dp,
+                                        MaterialTheme.colorScheme.onBackground,
+                                        RoundedCornerShape(999.dp)
+                                    )
+                                    .background(
+                                        LocalExtraColors.current.blue,
+                                        RoundedCornerShape(999.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                SimpleDateFormat("d MMM HH:mm", Locale.getDefault()).format(Date(h.updatedAt)),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                     IconButton(onClick = { onRemove(h.key()) }) {
                         Icon(Icons.Default.Delete, contentDescription = "Hapus riwayat")

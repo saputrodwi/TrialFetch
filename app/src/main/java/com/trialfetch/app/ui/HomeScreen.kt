@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -36,6 +35,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,7 +57,6 @@ import com.trialfetch.app.data.HistoryEntry
 import com.trialfetch.app.ui.theme.BrutalButton
 import com.trialfetch.app.ui.theme.BrutalCard
 import com.trialfetch.app.ui.theme.BrutalDashedBox
-import com.trialfetch.app.ui.theme.BrutalChoiceRow
 import com.trialfetch.app.ui.theme.BrutalTitle
 import com.trialfetch.app.ui.theme.hardShadow
 import com.trialfetch.app.ui.theme.LocalExtraColors
@@ -210,16 +210,27 @@ fun HomeScreen(
         )
 
         Spacer(Modifier.height(10.dp))
-        // Pil sumber brutal (bukan FilterChip Material) agar seirama tema.
-        BrutalChoiceRow(
-            options = listOf("Semua sumber") + sources.map { it.displayName },
-            selectedIndex = if (allSelected) 0
-            else sources.indexOf(source).takeIf { it >= 0 }?.plus(1) ?: 0,
-            onSelect = { i ->
-                if (i == 0) onAllSources() else onSourceChange(sources[i - 1])
-            },
-            accent = LocalExtraColors.current.yellow
-        )
+        // Pil sumber satu baris geser (bukan wrap berantakan),
+        // seperti mockup yang disetujui.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SourcePill(
+                text = "Semua sumber",
+                selected = allSelected,
+                onClick = onAllSources
+            )
+            sources.forEach { s ->
+                SourcePill(
+                    text = s.displayName,
+                    selected = !allSelected && source == s,
+                    onClick = { onSourceChange(s) }
+                )
+            }
+        }
 
         // Kedua sumber ini sering membatasi pencarian judul dari
         // jaringan tertentu (seperti versi web yang menonaktifkannya).
@@ -236,31 +247,6 @@ fun HomeScreen(
 
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Tombol pil berbingkai (bukan teks polos) supaya terlihat.
-            Box(
-                modifier = Modifier
-                    .border(
-                        2.dp,
-                        MaterialTheme.colorScheme.onBackground,
-                        RoundedCornerShape(999.dp)
-                    )
-                    .background(
-                        MaterialTheme.colorScheme.surface,
-                        RoundedCornerShape(999.dp)
-                    )
-                    .clickable { showUrlDialog = true }
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Link,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text("Buka dari URL", style = MaterialTheme.typography.labelLarge)
-                }
-            }
             Spacer(Modifier.weight(1f))
             // Reset: hapus query + hasil cari + error + URL sekaligus.
             if (query.isNotBlank() || results.isNotEmpty() || error != null || urlInput.isNotBlank()) {
@@ -343,6 +329,48 @@ fun HomeScreen(
                 }
             }
         }
+        // Tautan URL di kaki Beranda (tidak ganggu mockup, tetap ada).
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = { showUrlDialog = true }) {
+                Text("Buka dari URL", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+}
+
+/** Pil sumber brutal satu baris geser (tidak wrap berantakan). */
+@Composable
+private fun SourcePill(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val extra = LocalExtraColors.current
+    val shape = RoundedCornerShape(999.dp)
+    Box(
+        modifier = Modifier
+            .border(2.dp, MaterialTheme.colorScheme.onBackground, shape)
+            .background(
+                if (selected) extra.yellow else MaterialTheme.colorScheme.surface,
+                shape
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) extra.onAccent
+            else MaterialTheme.colorScheme.onBackground,
+            maxLines = 1
+        )
     }
 }
 
