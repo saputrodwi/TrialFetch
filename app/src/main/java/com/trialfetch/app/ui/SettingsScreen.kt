@@ -1,10 +1,9 @@
 package com.trialfetch.app.ui
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -28,6 +26,7 @@ import com.trialfetch.app.data.NamingRule
 import com.trialfetch.app.data.OutputMode
 import com.trialfetch.app.data.ReaderMode
 import com.trialfetch.app.data.ThemeMode
+import com.trialfetch.app.ui.theme.BrutalButton
 import com.trialfetch.app.ui.theme.BrutalCard
 import com.trialfetch.app.ui.theme.BrutalChoiceRow
 import com.trialfetch.app.ui.theme.BrutalTitle
@@ -38,7 +37,7 @@ import com.trialfetch.app.ui.theme.LocalExtraColors
  * pilihan (pil brutal untuk opsi sedikit, chip untuk opsi banyak),
  * tanpa paragraf penjelasan.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settings: DownloadSettings,
@@ -96,18 +95,15 @@ fun SettingsScreen(
                 }
             )
             Spacer(Modifier.height(12.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                NamingRule.PRESETS.forEach { (rule, label) ->
-                    FilterChip(
-                        selected = settings.naming == rule,
-                        onClick = { onChange(settings.copy(naming = rule)) },
-                        label = { Text(label) }
-                    )
-                }
-            }
+            BrutalChoiceRow(
+                options = NamingRule.PRESETS.map { it.second },
+                selectedIndex = NamingRule.PRESETS.indexOfFirst { it.first == settings.naming }
+                    .takeIf { it >= 0 } ?: 0,
+                onSelect = { i ->
+                    onChange(settings.copy(naming = NamingRule.PRESETS[i].first))
+                },
+                accent = LocalExtraColors.current.green
+            )
             Spacer(Modifier.height(10.dp))
             PreviewRow(settings.naming)
             Spacer(Modifier.height(8.dp))
@@ -151,13 +147,18 @@ fun SettingsScreen(
         Spacer(Modifier.height(16.dp))
 
         SectionCard("Data") {
-            TextButton(onClick = onExportBackup) {
-                Text("Cadangkan bookmark & riwayat")
-            }
-            Spacer(Modifier.height(4.dp))
-            TextButton(onClick = onImportBackup) {
-                Text("Pulihkan dari cadangan")
-            }
+            BrutalButton(
+                text = "Cadangkan bookmark & riwayat",
+                onClick = onExportBackup,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            BrutalButton(
+                text = "Pulihkan dari cadangan",
+                onClick = onImportBackup,
+                modifier = Modifier.fillMaxWidth(),
+                background = LocalExtraColors.current.blue
+            )
         }
 
         Spacer(Modifier.height(16.dp))
@@ -191,11 +192,26 @@ private fun SectionCard(
 @Composable
 private fun PreviewRow(naming: NamingRule) {
     val examples = listOf(1, 2, 12, 121)
-    Column(Modifier.fillMaxWidth()) {
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                2.dp,
+                MaterialTheme.colorScheme.onBackground,
+                androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+            )
+            .background(
+                MaterialTheme.colorScheme.surface,
+                androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
         Text(
             "Contoh: " + examples.joinToString("  ") { naming.fileName(it, "jpg") },
             style = MaterialTheme.typography.bodyMedium,
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
     }
 }

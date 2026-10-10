@@ -68,6 +68,30 @@ class DownloadNotifier(private val context: Context) {
         )
     }
 
+    /** Muat bitmap kecil untuk BigPicture; null bila gagal (fallback teks). */
+    private fun loadBitmap(url: String?): android.graphics.Bitmap? {
+        if (url.isNullOrBlank()) return null
+        return try {
+            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile)")
+            conn.connect()
+            if (conn.responseCode !in 200..299) return null
+            val raw = conn.inputStream.use { it.readBytes() }
+            val bounds = android.graphics.BitmapFactory.Options()
+            bounds.inJustDecodeBounds = true
+            android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.size, bounds)
+            val w = bounds.outWidth
+            val sample = if (w > 512) (w / 512) else 1
+            val opts = android.graphics.BitmapFactory.Options()
+            opts.inSampleSize = sample
+            android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.size, opts)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun base(channel: String, icon: Int, target: String, requestCode: Int) =
         NotificationCompat.Builder(context, channel)
             .setSmallIcon(icon)
@@ -80,7 +104,7 @@ class DownloadNotifier(private val context: Context) {
         val percent = if (total > 0) (done * 100 / total) else 0
         val text = if (total > 0) "$done dari $total halaman ($percent%)" else "Menyiapkan…"
         val n = base(
-            CHANNEL_ID, android.R.drawable.stat_sys_download,
+            CHANNEL_ID, com.trialfetch.app.R.drawable.ic_notif_download,
             OPEN_DOWNLOADS, 1
         )
             .setContentTitle(title)
@@ -97,7 +121,7 @@ class DownloadNotifier(private val context: Context) {
         manager.notify(NOTIFICATION_ID, n)
     }
 
-    fun showDone(title: String, done: Int, path: String?) {
+    fun showDone(title: String, done: Int, path: String?, coverUrl: String? = null) {
         ensureChannel()
         val text = buildString {
             append("$done halaman tersimpan")
@@ -110,13 +134,19 @@ class DownloadNotifier(private val context: Context) {
         // sampai user menutupnya sendiri, supaya path hasil unduhan sempat
         // dibaca. Notifikasi berjalan (progress) ditimpa otomatis oleh
         // notify berikutnya dengan ID yang sama.
+        val cover = loadBitmap(coverUrl)
         val n = base(
-            CHANNEL_ID, android.R.drawable.stat_sys_download_done,
+            CHANNEL_ID, com.trialfetch.app.R.drawable.ic_notif_done,
             OPEN_DOWNLOADS, 3
         )
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setStyle(
+                if (cover != null) NotificationCompat.BigPictureStyle()
+                    .bigPicture(cover)
+                    .setSummaryText(text)
+                else NotificationCompat.BigTextStyle().bigText(text)
+            )
             .setProgress(0, 0, false)
             .setOngoing(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -131,7 +161,7 @@ class DownloadNotifier(private val context: Context) {
     fun showFailed(title: String, reason: String) {
         ensureChannel()
         val n = base(
-            CHANNEL_ID, android.R.drawable.stat_notify_error,
+            CHANNEL_ID, com.trialfetch.app.R.drawable.ic_notif_error,
             OPEN_DOWNLOADS, 5
         )
             .setContentTitle("Gagal: $title")
@@ -153,7 +183,7 @@ class DownloadNotifier(private val context: Context) {
         ensureChannel()
         val headline = "Chapter baru tersedia ($count)"
         val n = base(
-            CHANNEL_UPDATES, android.R.drawable.stat_notify_more,
+            CHANNEL_UPDATES, com.trialfetch.app.R.drawable.ic_notif_update,
             OPEN_SAVED, 7
         )
             .setContentTitle(headline)

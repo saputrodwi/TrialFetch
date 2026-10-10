@@ -80,36 +80,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- Cadangan data (bookmark + riwayat) ---
 
-    /** Ekspor bookmark + riwayat ke Download/TrialFetch/cadangan_data.json. */
-    fun exportBackup() {
-        val ok = try {
-            val json = buildString {
-                append("{\"version\":1,\"bookmarks\":")
-                append(org.json.JSONArray().apply {
-                    _bookmarks.value.forEach { put(it.toJson()) }
-                }.toString())
-                append(",\"history\":")
-                append(org.json.JSONArray().apply {
-                    _history.value.forEach { put(it.toJson()) }
-                }.toString())
-                append("}")
-            }
-            repo.storage.writeText("", "cadangan_data.json", json) != null
-        } catch (e: Exception) {
-            false
-        }
-        if (ok) {
-            Toast.makeText(getApplication(), "Cadangan tersimpan: Download/TrialFetch/cadangan_data.json", Toast.LENGTH_LONG).show()
-        } else {
-            Toast.makeText(getApplication(), "Gagal menyimpan cadangan", Toast.LENGTH_LONG).show()
-        }
+    /** Bangun JSON cadangan (bookmark + riwayat) untuk ditulis pemanggil. */
+    fun backupJson(): String = buildString {
+        append("{\"version\":1,\"bookmarks\":")
+        append(org.json.JSONArray().apply {
+            _bookmarks.value.forEach { put(it.toJson()) }
+        }.toString())
+        append(",\"history\":")
+        append(org.json.JSONArray().apply {
+            _history.value.forEach { put(it.toJson()) }
+        }.toString())
+        append("}")
     }
 
-    /** Pulihkan bookmark + riwayat dari cadangan_data.json yang ada. */
-    fun importBackup() {
-        val count = try {
-            val text = repo.storage.readText("", "cadangan_data.json")
-                ?: return Toast.makeText(getApplication(), "File cadangan tidak ditemukan", Toast.LENGTH_LONG).show()
+    /**
+     * Gabungkan JSON cadangan: entri baru ditambah, duplikat di-skip.
+     * @return jumlah entri baru, atau -1 bila file rusak.
+     */
+    fun restoreJson(text: String): Int {
+        return try {
             val obj = org.json.JSONObject(text)
             var n = 0
             obj.optJSONArray("bookmarks")?.let { arr ->
@@ -137,11 +126,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             n
         } catch (e: Exception) {
             -1
-        }
-        when {
-            count > 0 -> Toast.makeText(getApplication(), "Pulih $count entri cadangan", Toast.LENGTH_LONG).show()
-            count == 0 -> Toast.makeText(getApplication(), "Tidak ada entri baru di cadangan", Toast.LENGTH_LONG).show()
-            else -> Toast.makeText(getApplication(), "File cadangan rusak", Toast.LENGTH_LONG).show()
         }
     }
 

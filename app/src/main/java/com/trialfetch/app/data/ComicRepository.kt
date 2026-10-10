@@ -493,7 +493,7 @@ class ComicRepository(
         } else {
             ""
         }
-        notifier.showDone(chapter.title + bannerLine, done, savedPath)
+        notifier.showDone(chapter.title + bannerLine, done, savedPath, series.coverUrl)
         DownloadProgress(
             total = total, done = done, state = DownloadProgress.State.DONE,
             savedPath = savedPath, chapterTitle = chapter.title,

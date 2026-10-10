@@ -262,6 +262,39 @@ fun AppRoot(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { storageGranted = StoragePermission.isGranted(context) }
 
+    // Cadangan via file picker sistem (SAF): bisa simpan ke Drive/WA/
+    // Bluetooth lalu pulihkan di HP baru. Tidak terkunci di folder app.
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        try {
+            context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use {
+                it.write(vm.backupJson())
+            } ?: throw IllegalStateException("tak tertulis")
+            Toast.makeText(context, "Cadangan tersimpan", Toast.LENGTH_LONG).show()
+        } catch (_: Exception) {
+            Toast.makeText(context, "Gagal menyimpan cadangan", Toast.LENGTH_LONG).show()
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        try {
+            val text = context.contentResolver.openInputStream(uri)
+                ?.bufferedReader()?.use { it.readText() }
+                ?: throw IllegalStateException("tak terbaca")
+            when (val n = vm.restoreJson(text)) {
+                -1 -> Toast.makeText(context, "File cadangan rusak", Toast.LENGTH_LONG).show()
+                0 -> Toast.makeText(context, "Tidak ada entri baru di cadangan", Toast.LENGTH_LONG).show()
+                else -> Toast.makeText(context, "Pulih $n entri cadangan", Toast.LENGTH_LONG).show()
+            }
+        } catch (_: Exception) {
+            Toast.makeText(context, "Gagal membaca file", Toast.LENGTH_LONG).show()
+        }
+    }
+
     val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
@@ -502,8 +535,8 @@ fun AppRoot(
                         settings = settings,
                         onChange = vm::updateSettings,
                         onReset = { vm.updateSettings(DownloadSettings()) },
-                        onExportBackup = vm::exportBackup,
-                        onImportBackup = vm::importBackup
+                        onExportBackup = { exportLauncher.launch("trialfetch-backup.json") },
+                        onImportBackup = { importLauncher.launch(arrayOf("application/json")) }
                     )
                 }
             }
@@ -581,16 +614,20 @@ private fun RowScope.BottomTab(
                 Icon(icon, contentDescription = label)
             }
         },
-        // maxLines=1 eksplisit: di layar sempit label 5 tab bisa
-        // bungkus ke 2 baris dan terlihat rusak.
+        // labelSmall 11sp: labelLarge 14sp terbukti kepotong ("Beran…",
+        // "Riway…") di 5 tab layar sempit. Selalu satu baris.
         label = {
             Text(
                 label,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelLarge
+                style = MaterialTheme.typography.labelSmall
             )
-        }
+        },
+        // Indikator kuning brutal, bukan pil ungu bawaan Material.
+        colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+            indicatorColor = LocalExtraColors.current.yellow
+        )
     )
 }
 
@@ -1309,7 +1346,8 @@ private fun ReaderScreen(
                                 item = item,
                                 active = true,
                                 flow = true,
-                                onLockChange = setLock
+                                onLockChange = setLock,
+                                onTap = { menusVisible = !menusVisible }
                             )
                         }
                     }
@@ -1322,7 +1360,8 @@ private fun ReaderScreen(
                         ZoomablePage(
                             item = list[page],
                             active = hState.currentPage == page,
-                            onLockChange = setLock
+                            onLockChange = setLock,
+                            onTap = { menusVisible = !menusVisible }
                         )
                     }
                 }
@@ -1356,7 +1395,9 @@ private fun ReaderScreen(
                                 com.trialfetch.app.ui.theme.BrutalTitle(
                                     text = seriesTitle.ifBlank { title },
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     (if (seriesTitle.isNotBlank()) title else "Membaca") +
@@ -1509,22 +1550,28 @@ private fun ReaderScreen(
                                 Spacer(Modifier.weight(1f))
                                 // Pilihan mode segmented brutal, bukan teks
                                 // sempit yang membingungkan.
+                                // Dua pil fixed (bukan FlowRow): lebar total
+                                // pasti muat, tidak bisa clip/overflow.
                                 val ctx = LocalContext.current
-                                com.trialfetch.app.ui.theme.BrutalChoiceRow(
-                                    options = listOf("Halaman", "Webtoon"),
-                                    selectedIndex = if (mode == ReaderMode.WEBTOON) 1 else 0,
-                                    onSelect = { i ->
-                                        val next = if (i == 1) ReaderMode.WEBTOON
-                                        else ReaderMode.PAGED
-                                        onModeChange(next)
-                                        Toast.makeText(
-                                            ctx,
-                                            if (next == ReaderMode.WEBTOON) "Mode: Webtoon"
-                                            else "Mode: Halaman",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    },
-                                    accent = LocalExtraColors.current.yellow
+                                val setMode = { next: ReaderMode ->
+                                    onModeChange(next)
+                                    Toast.makeText(
+                                        ctx,
+                                        if (next == ReaderMode.WEBTOON) "Mode: Webtoon"
+                                        else "Mode: Halaman",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                                ModePill(
+                                    text = "Halaman",
+                                    selected = mode != ReaderMode.WEBTOON,
+                                    onClick = { setMode(ReaderMode.PAGED) }
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                ModePill(
+                                    text = "Webtoon",
+                                    selected = mode == ReaderMode.WEBTOON,
+                                    onClick = { setMode(ReaderMode.WEBTOON) }
                                 )
                             }
                         }
@@ -1532,6 +1579,39 @@ private fun ReaderScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Pil mode kecil fixed: selalu muat berdampingan dengan pill counter,
+ * tidak seperti FlowRow yang bisa overflow/clip di layar sempit.
+ */
+@Composable
+private fun ModePill(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val extra = LocalExtraColors.current
+    val shape = androidx.compose.foundation.shape.CircleShape
+    Box(
+        modifier = Modifier
+            .border(2.dp, MaterialTheme.colorScheme.onBackground, shape)
+            .background(
+                if (selected) extra.yellow else MaterialTheme.colorScheme.surface,
+                shape
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) extra.onAccent
+            else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
+        )
     }
 }
 
@@ -1578,7 +1658,11 @@ private fun ZoomablePage(
     item: ReaderPage,
     active: Boolean,
     onLockChange: (Boolean) -> Unit,
-    flow: Boolean = false
+    flow: Boolean = false,
+    // Ketuk gambar = toggle menu reader. WAJIB di detektor ini (paling
+    // dalam): detektor luar tidak pernah kebagian event karena
+    // detectTapGestures di sini mengonsumsi down duluan.
+    onTap: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var scale by remember(item.uri) { mutableFloatStateOf(1f) }
@@ -1656,6 +1740,7 @@ private fun ZoomablePage(
                             // oleh transformable sehingga keduanya akur.
                             .pointerInput(item.uri) {
                                 detectTapGestures(
+                                    onTap = { onTap() },
                                     onDoubleTap = {
                                         scale = 1f
                                         offset = Offset.Zero
