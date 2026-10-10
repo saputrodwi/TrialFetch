@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -27,12 +26,12 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,8 +52,11 @@ import coil.compose.AsyncImage
 import com.trialfetch.app.core.SearchResult
 import com.trialfetch.app.core.Source
 import com.trialfetch.app.data.HistoryEntry
+import com.trialfetch.app.ui.theme.BrutalButton
 import com.trialfetch.app.ui.theme.BrutalCard
+import com.trialfetch.app.ui.theme.BrutalChoiceRow
 import com.trialfetch.app.ui.theme.BrutalTitle
+import com.trialfetch.app.ui.theme.hardShadow
 import com.trialfetch.app.ui.theme.LocalExtraColors
 
 /**
@@ -126,13 +129,14 @@ fun HomeScreen(
                 }
             },
             confirmButton = {
-                TextButton(
+                BrutalButton(
+                    text = "Buka",
                     onClick = {
                         onOpenUrl()
                         showUrlDialog = false
                     },
                     enabled = !urlLoading && urlInput.isNotBlank()
-                ) { Text("Buka") }
+                )
             },
             dismissButton = {
                 TextButton(onClick = { showUrlDialog = false }) { Text("Batal") }
@@ -165,10 +169,31 @@ fun HomeScreen(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .hardShadow(
+                    LocalExtraColors.current.shadow,
+                    3.dp,
+                    RoundedCornerShape(14.dp)
+                )
+                .background(
+                    MaterialTheme.colorScheme.surface,
+                    RoundedCornerShape(14.dp)
+                )
+                .border(
+                    3.dp,
+                    MaterialTheme.colorScheme.onBackground,
+                    RoundedCornerShape(14.dp)
+                ),
             label = { Text("Cari judul komik") },
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent,
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent
+            ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch() }),
             trailingIcon = {
@@ -183,22 +208,16 @@ fun HomeScreen(
         )
 
         Spacer(Modifier.height(10.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item {
-                FilterChip(
-                    selected = allSelected,
-                    onClick = { onAllSources() },
-                    label = { Text("Semua sumber") }
-                )
-            }
-            items(sources) { s ->
-                FilterChip(
-                    selected = !allSelected && source == s,
-                    onClick = { onSourceChange(s) },
-                    label = { Text(s.displayName) }
-                )
-            }
-        }
+        // Pil sumber brutal (bukan FilterChip Material) agar seirama tema.
+        BrutalChoiceRow(
+            options = listOf("Semua sumber") + sources.map { it.displayName },
+            selectedIndex = if (allSelected) 0
+            else sources.indexOf(source).takeIf { it >= 0 }?.plus(1) ?: 0,
+            onSelect = { i ->
+                if (i == 0) onAllSources() else onSourceChange(sources[i - 1])
+            },
+            accent = LocalExtraColors.current.yellow
+        )
 
         // Kedua sumber ini sering membatasi pencarian judul dari
         // jaringan tertentu (seperti versi web yang menonaktifkannya).

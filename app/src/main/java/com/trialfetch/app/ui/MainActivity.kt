@@ -40,7 +40,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -81,7 +80,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.animation.AnimatedVisibility
@@ -150,6 +149,7 @@ import com.trialfetch.app.data.QueueItem
 import com.trialfetch.app.data.QueueItemState
 import com.trialfetch.app.ui.theme.BrutalCard
 import com.trialfetch.app.ui.theme.PolkaDotBackground
+import com.trialfetch.app.ui.theme.hardShadow
 import com.trialfetch.app.ui.theme.TrialFetchTheme
 
 class MainActivity : ComponentActivity() {
@@ -306,38 +306,56 @@ fun AppRoot(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                title = {
-                    Text(
-                        when {
-                            route == null || route == Routes.HOME -> "Trial Fetch"
-                            route.startsWith(Routes.SERIES) -> series?.title ?: "Series"
-                            route == Routes.SAVED -> "Tersimpan"
-                            route == Routes.HISTORY -> "Riwayat"
-                            route == Routes.DOWNLOADS -> "Unduhan"
-                            route == Routes.SETTINGS -> "Pengaturan"
-                            else -> "Trial Fetch"
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
-                navigationIcon = {
-                    if (!onHome) {
-                        IconButton(onClick = { nav.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+            // TopBar brutal: permukaan surface + garis tinta bawah 3dp,
+            // judul Baloo2 dengan title-shadow khas web.
+            Column {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    title = {
+                        com.trialfetch.app.ui.theme.BrutalTitle(
+                            text = when {
+                                route == null || route == Routes.HOME -> "Trial Fetch"
+                                route.startsWith(Routes.SERIES) -> series?.title ?: "Series"
+                                route == Routes.SAVED -> "Tersimpan"
+                                route == Routes.HISTORY -> "Riwayat"
+                                route == Routes.DOWNLOADS -> "Unduhan"
+                                route == Routes.SETTINGS -> "Pengaturan"
+                                else -> "Trial Fetch"
+                            },
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    },
+                    navigationIcon = {
+                        if (!onHome) {
+                            IconButton(onClick = { nav.popBackStack() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                            }
                         }
                     }
-                }
-            )
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .background(MaterialTheme.colorScheme.onBackground)
+                )
+            }
         },
         bottomBar = {
-            NavigationBar {
+            // BottomNav brutal: garis tinta atas 3dp, bukan Material polos.
+            Column {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .background(MaterialTheme.colorScheme.onBackground)
+                )
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ) {
                 BottomTab(
                     selected = onHome,
                     onClick = {
@@ -394,6 +412,7 @@ fun AppRoot(
                     icon = Icons.Default.Settings,
                     label = "Atur"
                 )
+                }
             }
         }
     ) { pad ->
@@ -687,76 +706,96 @@ private fun SeriesScreen(
     Column(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
             item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark) }
+            // Seluruh daftar chapter dalam satu kartu brutal (bukan
+            // baris-baris polos), lengkap dengan sekat antar baris.
             item {
-                // Baris aksi daftar chapter: pilih banyak vs unduh biasa.
-                Row(
-                    Modifier
+                BrutalCard(
+                    modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    background = extra.cardLight
                 ) {
-                    Text(
-                        "Chapter (${info.chapters.size})",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    IconButton(onClick = { newestFirst = !newestFirst }) {
-                        Icon(
-                            if (newestFirst) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                            contentDescription = if (newestFirst) "Urut lama ke baru" else "Urut baru ke lama"
+                    // Baris aksi daftar chapter: pilih banyak vs unduh biasa.
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Chapter (${info.chapters.size})",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        ReaderCircleButton(onClick = { newestFirst = !newestFirst }) {
+                            Icon(
+                                if (newestFirst) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                contentDescription = if (newestFirst) "Urut lama ke baru" else "Urut baru ke lama",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        if (selecting) {
+                            ReaderCircleButton(onClick = {
+                                selecting = false
+                                selectedIds = emptySet()
+                            }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Batalkan pilihan",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        } else {
+                            com.trialfetch.app.ui.theme.BrutalButton(
+                                text = "Pilih",
+                                onClick = { selecting = true }
+                            )
+                        }
                     }
                     if (selecting) {
-                        IconButton(onClick = {
-                            selecting = false
-                            selectedIds = emptySet()
-                        }) {
-                            Icon(Icons.Default.Close, contentDescription = "Batalkan pilihan")
-                        }
-                    } else {
-                        TextButton(onClick = { selecting = true }) {
-                            Text("Pilih")
+                        Spacer(Modifier.height(8.dp))
+                        // Baris aksi sendiri di bawah judul agar tombol-tombol
+                        // tidak berdesakan segaris dengan judul di layar sempit.
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val allSelected = selectedIds.size == info.chapters.size
+                            TextButton(onClick = {
+                                selectedIds = if (allSelected) {
+                                    emptySet()
+                                } else {
+                                    info.chapters.map { it.chapterId }.toSet()
+                                }
+                            }) {
+                                Text(if (allSelected) "Kosongkan" else "Semua")
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            com.trialfetch.app.ui.theme.BrutalButton(
+                                text = "Unduh (${selectedIds.size})",
+                                onClick = {
+                                    val picked = info.chapters.filter { it.chapterId in selectedIds }
+                                    if (picked.isNotEmpty()) onEnqueue(picked)
+                                    selecting = false
+                                    selectedIds = emptySet()
+                                },
+                                enabled = selectedIds.isNotEmpty()
+                            )
                         }
                     }
-                }
-            }
-            if (selecting) item {
-                // Baris aksi sendiri di bawah judul agar tombol-tombol
-                // tidak berdesakan segaris dengan judul di layar sempit.
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val allSelected = selectedIds.size == info.chapters.size
-                    TextButton(onClick = {
-                        selectedIds = if (allSelected) {
-                            emptySet()
-                        } else {
-                            info.chapters.map { it.chapterId }.toSet()
+                    Spacer(Modifier.height(4.dp))
+                    shownChapters.forEachIndexed { index, ch ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                thickness = 2.dp,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f)
+                            )
                         }
-                    }) {
-                        Text(if (allSelected) "Kosongkan" else "Semua")
-                    }
-                    TextButton(
-                        onClick = {
-                            val picked = info.chapters.filter { it.chapterId in selectedIds }
-                            if (picked.isNotEmpty()) onEnqueue(picked)
-                            selecting = false
-                            selectedIds = emptySet()
-                        },
-                        enabled = selectedIds.isNotEmpty()
-                    ) {
-                        Text("Unduh (${selectedIds.size})")
-                    }
-                }
-            }
-            items(shownChapters, key = { it.chapterId }) { ch ->
-                val entry = readMap[ch.chapterId]
+                        val entry = readMap[ch.chapterId]
                 ChapterRow(
                     chapter = ch,
                     progress = progress,
@@ -778,6 +817,8 @@ private fun SeriesScreen(
                         }
                     }
                 )
+                    }
+                }
             }
         }
     }
@@ -932,7 +973,7 @@ private fun ChapterRow(
                     }
                 } else Modifier
             )
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (selecting) {
@@ -978,8 +1019,13 @@ private fun ChapterRow(
         if (busy) {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         } else if (!selecting) {
-            IconButton(onClick = { onDownload(chapter) }) {
-                Icon(Icons.Default.Download, contentDescription = "Unduh ${chapter.title}")
+            ReaderCircleButton(onClick = { onDownload(chapter) }) {
+                Icon(
+                    Icons.Default.Download,
+                    contentDescription = "Unduh ${chapter.title}",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
@@ -1141,58 +1187,80 @@ private fun ReaderScreen(
     // cubit/geser tetap jalan, double-tap zoom juga akur.
     var menusVisible by remember { mutableStateOf(true) }
     val readerScope = rememberCoroutineScope()
+    val readerBg = MaterialTheme.colorScheme.background
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(readerBg)
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { menusVisible = !menusVisible })
             }
     ) {
         when {
-            error != null -> Column(
+            error != null -> Box(
                 Modifier
                     .fillMaxSize()
                     .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    error,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(Modifier.height(20.dp))
-                TextButton(onClick = onRetry) {
-                    Text("Coba lagi", color = Color.White)
-                }
-                Spacer(Modifier.height(4.dp))
-                TextButton(onClick = onDownload) {
-                    Text("Unduh saja", color = Color.White.copy(alpha = 0.8f))
-                }
-                Spacer(Modifier.height(4.dp))
-                TextButton(onClick = onClose) {
-                    Text("Tutup", color = Color.White.copy(alpha = 0.7f))
+                com.trialfetch.app.ui.theme.BrutalCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    background = MaterialTheme.colorScheme.surface
+                ) {
+                    Text(
+                        error,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    com.trialfetch.app.ui.theme.BrutalButton(
+                        text = "Coba lagi",
+                        onClick = onRetry,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = onDownload, modifier = Modifier.fillMaxWidth()) {
+                        Text("Unduh saja")
+                    }
+                    TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
+                        Text("Tutup")
+                    }
                 }
             }
             pages == null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                CircularProgressIndicator(color = Color.White)
+                com.trialfetch.app.ui.theme.BrutalCard(
+                    background = MaterialTheme.colorScheme.surface
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+                        Spacer(Modifier.width(14.dp))
+                        Text(
+                            "Memuat halaman…",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
+                }
             }
-            pages.isEmpty() -> Column(
+            pages.isEmpty() -> Box(
                 Modifier
                     .fillMaxSize()
                     .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    "Tidak ada gambar untuk dibaca.",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(Modifier.height(20.dp))
-                TextButton(onClick = onClose) {
-                    Text("Tutup", color = Color.White.copy(alpha = 0.7f))
+                com.trialfetch.app.ui.theme.BrutalCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    background = MaterialTheme.colorScheme.surface
+                ) {
+                    Text(
+                        "Tidak ada gambar untuk dibaca.",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    com.trialfetch.app.ui.theme.BrutalButton(
+                        text = "Tutup",
+                        onClick = onClose,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
             else -> {
@@ -1258,9 +1326,9 @@ private fun ReaderScreen(
                         )
                     }
                 }
-                // Bilah atas ala Mihon: sembunyi/tampil mengikuti ketukan.
-                // Aksi sekunder (unduh/daftar chapter) masuk menu ⋮ supaya
-                // bilah tidak berdesakan.
+                // Bilah atas brutal: kartu surface + garis tinta bawah,
+                // judul Baloo2, tombol lingkaran. Sembunyi/tampil
+                // mengikuti ketukan ala Mihon.
                 var menuOpen by remember { mutableStateOf(false) }
                 AnimatedVisibility(
                     visible = menusVisible,
@@ -1268,39 +1336,43 @@ private fun ReaderScreen(
                     enter = fadeIn() + slideInVertically { -it },
                     exit = fadeOut() + slideOutVertically { -it }
                 ) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Color.Black.copy(alpha = 0.6f))
-                            .padding(horizontal = 4.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = onClose) {
-                            Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White)
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                seriesTitle.ifBlank { title },
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                (if (seriesTitle.isNotBlank()) "$title" else "Membaca") +
-                                    if (isStreaming) " • online" else "",
-                                color = Color.White.copy(alpha = 0.6f),
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        Box {
-                            IconButton(onClick = { menuOpen = true }) {
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            ReaderCircleButton(onClick = onClose) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Tutup",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                com.trialfetch.app.ui.theme.BrutalTitle(
+                                    text = seriesTitle.ifBlank { title },
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    (if (seriesTitle.isNotBlank()) title else "Membaca") +
+                                        if (isStreaming) " • online" else "",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            ReaderCircleButton(onClick = { menuOpen = true }) {
                                 Icon(
                                     Icons.Default.MoreVert,
                                     contentDescription = "Menu baca",
-                                    tint = Color.White
+                                    tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                             DropdownMenu(
@@ -1335,6 +1407,12 @@ private fun ReaderScreen(
                                 )
                             }
                         }
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .background(MaterialTheme.colorScheme.onBackground)
+                        )
                     }
                 }
                 // Bilah bawah ala Mihon: slider halaman + tombol navigasi.
@@ -1344,100 +1422,145 @@ private fun ReaderScreen(
                     enter = fadeIn() + slideInVertically { it },
                     exit = fadeOut() + slideOutVertically { it }
                 ) {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Color.Black.copy(alpha = 0.6f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Slider(
-                                value = currentPage.toFloat()
-                                    .coerceIn(0f, (list.size - 1).coerceAtLeast(0).toFloat()),
-                                onValueChange = { v ->
-                                    val target = v.toInt().coerceIn(0, list.size - 1)
-                                    readerScope.launch {
-                                        if (mode == ReaderMode.WEBTOON) {
-                                            vList.scrollToItem(target)
-                                        } else {
-                                            hState.scrollToPage(target)
+                    Column(Modifier.fillMaxWidth()) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .background(MaterialTheme.colorScheme.onBackground)
+                        )
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ReaderCircleButton(
+                                    onClick = { prevChapter?.let(onNavigate) },
+                                    enabled = prevChapter != null
+                                ) {
+                                    Icon(
+                                        Icons.Default.SkipPrevious,
+                                        contentDescription = "Chapter sebelumnya",
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = if (prevChapter != null) 1f else 0.3f
+                                        )
+                                    )
+                                }
+                                Slider(
+                                    value = currentPage.toFloat()
+                                        .coerceIn(0f, (list.size - 1).coerceAtLeast(0).toFloat()),
+                                    onValueChange = { v ->
+                                        val target = v.toInt().coerceIn(0, list.size - 1)
+                                        readerScope.launch {
+                                            if (mode == ReaderMode.WEBTOON) {
+                                                vList.scrollToItem(target)
+                                            } else {
+                                                hState.scrollToPage(target)
+                                            }
                                         }
-                                    }
-                                },
-                                valueRange = 0f..(list.size - 1).coerceAtLeast(1).toFloat(),
-                                steps = (list.size - 2).coerceAtLeast(0),
-                                modifier = Modifier.weight(1f),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = Color.White,
-                                    activeTrackColor = Color.White,
-                                    inactiveTrackColor = Color.White.copy(alpha = 0.3f)
+                                    },
+                                    valueRange = 0f..(list.size - 1).coerceAtLeast(1).toFloat(),
+                                    steps = (list.size - 2).coerceAtLeast(0),
+                                    modifier = Modifier.weight(1f),
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = MaterialTheme.colorScheme.primary,
+                                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.outline
+                                    )
                                 )
-                            )
-                            Text(
-                                "${currentPage + 1}/${list.size}",
-                                color = Color.White.copy(alpha = 0.8f),
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = { prevChapter?.let(onNavigate) },
-                        enabled = prevChapter != null
-                    ) {
-                        Icon(
-                            Icons.Default.SkipPrevious,
-                            contentDescription = "Chapter sebelumnya",
-                            tint = if (prevChapter != null) Color.White
-                            else Color.White.copy(alpha = 0.3f)
-                        )
-                    }
-                    // Toggle mode kompak: ikon + label pendek mode AKTIF.
-                    // Ketuk untuk ganti (ada Toast konfirmasi), supaya
-                    // baris tombol tidak berdesakan.
-                    val ctx = LocalContext.current
-                    TextButton(onClick = {
-                        val next = if (mode == ReaderMode.WEBTOON) ReaderMode.PAGED
-                        else ReaderMode.WEBTOON
-                        onModeChange(next)
-                        Toast.makeText(
-                            ctx,
-                            if (next == ReaderMode.WEBTOON) "Mode: Webtoon"
-                            else "Mode: Halaman",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }) {
-                        Icon(
-                            if (mode == ReaderMode.WEBTOON) Icons.Default.ViewAgenda
-                            else Icons.Default.AutoStories,
-                            contentDescription = "Ganti mode baca",
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            if (mode == ReaderMode.WEBTOON) "Webtoon" else "Halaman",
-                            color = Color.White.copy(alpha = 0.85f),
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-                    IconButton(
-                        onClick = { nextChapter?.let(onNavigate) },
-                        enabled = nextChapter != null
-                    ) {
-                        Icon(
-                            Icons.Default.SkipNext,
-                            contentDescription = "Chapter berikutnya",
-                            tint = if (nextChapter != null) Color.White
-                            else Color.White.copy(alpha = 0.3f)
-                        )
-                    }
+                                ReaderCircleButton(
+                                    onClick = { nextChapter?.let(onNavigate) },
+                                    enabled = nextChapter != null
+                                ) {
+                                    Icon(
+                                        Icons.Default.SkipNext,
+                                        contentDescription = "Chapter berikutnya",
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = if (nextChapter != null) 1f else 0.3f
+                                        )
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Pill counter halaman.
+                                Box(
+                                    modifier = Modifier
+                                        .border(
+                                            2.dp,
+                                            MaterialTheme.colorScheme.onBackground,
+                                            androidx.compose.foundation.shape.CircleShape
+                                        )
+                                        .background(
+                                            LocalExtraColors.current.card,
+                                            androidx.compose.foundation.shape.CircleShape
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        "${currentPage + 1} / ${list.size}",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        maxLines = 1
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
+                                // Pilihan mode segmented brutal, bukan teks
+                                // sempit yang membingungkan.
+                                val ctx = LocalContext.current
+                                com.trialfetch.app.ui.theme.BrutalChoiceRow(
+                                    options = listOf("Halaman", "Webtoon"),
+                                    selectedIndex = if (mode == ReaderMode.WEBTOON) 1 else 0,
+                                    onSelect = { i ->
+                                        val next = if (i == 1) ReaderMode.WEBTOON
+                                        else ReaderMode.PAGED
+                                        onModeChange(next)
+                                        Toast.makeText(
+                                            ctx,
+                                            if (next == ReaderMode.WEBTOON) "Mode: Webtoon"
+                                            else "Mode: Halaman",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    accent = LocalExtraColors.current.yellow
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * Tombol ikon lingkaran bergaris tinta + bayangan keras untuk reader.
+ * Pengganti IconButton polos yang tenggelam di atas gambar.
+ */
+@Composable
+private fun ReaderCircleButton(
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val extra = LocalExtraColors.current
+    val shape = androidx.compose.foundation.shape.CircleShape
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .hardShadow(extra.shadow, 2.dp, shape)
+            .background(
+                if (enabled) MaterialTheme.colorScheme.surface
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                shape
+            )
+            .border(2.dp, MaterialTheme.colorScheme.onBackground, shape)
+            .clickable(enabled = enabled) { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        content()
     }
 }
 
