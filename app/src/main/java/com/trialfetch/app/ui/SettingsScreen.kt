@@ -167,6 +167,15 @@ fun SettingsScreen(
             Text("Kembalikan bawaan")
         }
 
+        Spacer(Modifier.height(16.dp))
+        // Info build: supaya jelas APK mana yang terpasang saat lapor bug
+        // (versionName statis "1.0" tidak bisa dipakai pembeda).
+        Text(
+            "TrialFetch 1.0 (build ${com.trialfetch.app.BuildConfig.VERSION_CODE})",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
         Spacer(Modifier.height(24.dp))
     }
 }

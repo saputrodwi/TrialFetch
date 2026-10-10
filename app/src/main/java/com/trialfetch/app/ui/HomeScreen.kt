@@ -345,8 +345,10 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
                 )
                 if (entry.totalPages > 0) {
                     Spacer(Modifier.height(6.dp))
+                    val pct = entry.fraction?.let { (it * 100).toInt().coerceIn(0, 100) }
                     Text(
-                        "Hal ${entry.page} dari ${entry.totalPages}",
+                        if (pct != null) "Hal ${entry.page} dari ${entry.totalPages} · $pct%"
+                        else "Hal ${entry.page} dari ${entry.totalPages}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

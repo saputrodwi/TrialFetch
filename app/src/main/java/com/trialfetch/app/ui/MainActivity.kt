@@ -17,8 +17,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.pager.HorizontalPager
@@ -1230,7 +1233,16 @@ private fun ReaderScreen(
             .fillMaxSize()
             .background(readerBg)
             .pointerInput(Unit) {
-                detectTapGestures(onTap = { menusVisible = !menusVisible })
+                // Detektor tahan-banting: requireUnconsumed=false sehingga
+                // ketuk TERDETEKSI walau gambar/pager mengonsumsi duluan.
+                // waitForUpOrCancellation = null saat geser/cubit (sudah
+                // dikonsumsi scroll/zoom) sehingga hanya ketuk murni yang
+                // toggle. Double-tap = toggle 2x (netral) + reset zoom.
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    val up = waitForUpOrCancellation()
+                    if (up != null) menusVisible = !menusVisible
+                }
             }
     ) {
         when {
@@ -1346,8 +1358,7 @@ private fun ReaderScreen(
                                 item = item,
                                 active = true,
                                 flow = true,
-                                onLockChange = setLock,
-                                onTap = { menusVisible = !menusVisible }
+                                onLockChange = setLock
                             )
                         }
                     }
@@ -1360,8 +1371,7 @@ private fun ReaderScreen(
                         ZoomablePage(
                             item = list[page],
                             active = hState.currentPage == page,
-                            onLockChange = setLock,
-                            onTap = { menusVisible = !menusVisible }
+                            onLockChange = setLock
                         )
                     }
                 }
@@ -1658,11 +1668,7 @@ private fun ZoomablePage(
     item: ReaderPage,
     active: Boolean,
     onLockChange: (Boolean) -> Unit,
-    flow: Boolean = false,
-    // Ketuk gambar = toggle menu reader. WAJIB di detektor ini (paling
-    // dalam): detektor luar tidak pernah kebagian event karena
-    // detectTapGestures di sini mengonsumsi down duluan.
-    onTap: () -> Unit = {}
+    flow: Boolean = false
 ) {
     val context = LocalContext.current
     var scale by remember(item.uri) { mutableFloatStateOf(1f) }
@@ -1740,7 +1746,6 @@ private fun ZoomablePage(
                             // oleh transformable sehingga keduanya akur.
                             .pointerInput(item.uri) {
                                 detectTapGestures(
-                                    onTap = { onTap() },
                                     onDoubleTap = {
                                         scale = 1f
                                         offset = Offset.Zero
