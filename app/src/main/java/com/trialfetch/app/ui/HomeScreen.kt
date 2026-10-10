@@ -2,6 +2,7 @@ package com.trialfetch.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,6 +55,7 @@ import com.trialfetch.app.core.Source
 import com.trialfetch.app.data.HistoryEntry
 import com.trialfetch.app.ui.theme.BrutalButton
 import com.trialfetch.app.ui.theme.BrutalCard
+import com.trialfetch.app.ui.theme.BrutalDashedBox
 import com.trialfetch.app.ui.theme.BrutalChoiceRow
 import com.trialfetch.app.ui.theme.BrutalTitle
 import com.trialfetch.app.ui.theme.hardShadow
@@ -234,10 +236,30 @@ fun HomeScreen(
 
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { showUrlDialog = true }) {
-                Icon(Icons.Default.Link, contentDescription = null)
-                Spacer(Modifier.width(4.dp))
-                Text("Buka dari URL")
+            // Tombol pil berbingkai (bukan teks polos) supaya terlihat.
+            Box(
+                modifier = Modifier
+                    .border(
+                        2.dp,
+                        MaterialTheme.colorScheme.onBackground,
+                        RoundedCornerShape(999.dp)
+                    )
+                    .background(
+                        MaterialTheme.colorScheme.surface,
+                        RoundedCornerShape(999.dp)
+                    )
+                    .clickable { showUrlDialog = true }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Link,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Buka dari URL", style = MaterialTheme.typography.labelLarge)
+                }
             }
             Spacer(Modifier.weight(1f))
             // Reset: hapus query + hasil cari + error + URL sekaligus.
@@ -278,10 +300,9 @@ fun HomeScreen(
                 val recent = history.take(5)
                 if (recent.isEmpty()) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        Text(
-                            "Cari judul di atas.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        BrutalDashedBox(
+                            modifier = Modifier.padding(horizontal = 32.dp),
+                            text = "Cari judul di atas."
                         )
                     }
                 } else {
@@ -291,11 +312,28 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         item {
-                            BrutalTitle(
-                                text = "Terakhir dibaca",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    BrutalTitle(
+                                        text = "Terakhir dibaca",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Box(
+                                        Modifier
+                                            .width(72.dp)
+                                            .height(3.dp)
+                                            .background(MaterialTheme.colorScheme.onBackground)
+                                    )
+                                }
+                                Text(
+                                    "${recent.size} komik",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
                             Spacer(Modifier.height(8.dp))
                         }
                         items(recent, key = { it.key() }) { h ->
