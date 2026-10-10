@@ -1375,9 +1375,9 @@ private fun ReaderScreen(
                         )
                     }
                 }
-                // Bilah atas brutal: kartu surface + garis tinta bawah,
-                // judul Baloo2, tombol lingkaran. Sembunyi/tampil
-                // mengikuti ketukan ala Mihon.
+                // Bilah atas full-width sesuai mockup Stitch yang
+                // disetujui: surface krem + garis tinta bawah 2dp.
+                // Sembunyi/tampil mengikuti ketukan ala Mihon.
                 var menuOpen by remember { mutableStateOf(false) }
                 AnimatedVisibility(
                     visible = menusVisible,
