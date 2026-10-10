@@ -370,6 +370,14 @@ fun AppRoot(
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                             }
                         }
+                    },
+                    // Aksi cari di Beranda sesuai mockup (ikon 🔍 kanan atas).
+                    actions = {
+                        if (onHome) {
+                            IconButton(onClick = vm::doSearch) {
+                                Icon(Icons.Default.Search, contentDescription = "Cari")
+                            }
+                        }
                     }
                 )
                 Box(
@@ -1430,7 +1438,20 @@ private fun ReaderScreen(
                             }
                             DropdownMenu(
                                 expanded = menuOpen,
-                                onDismissRequest = { menuOpen = false }
+                                onDismissRequest = { menuOpen = false },
+                                shape = RoundedCornerShape(12.dp),
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier
+                                    .border(
+                                        2.dp,
+                                        MaterialTheme.colorScheme.onBackground,
+                                        RoundedCornerShape(12.dp)
+                                    )
+                                    .hardShadow(
+                                        LocalExtraColors.current.shadow,
+                                        3.dp,
+                                        RoundedCornerShape(12.dp)
+                                    )
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("Unduh chapter") },
@@ -1516,12 +1537,12 @@ private fun ReaderScreen(
                                     },
                                     valueRange = 0f..(list.size - 1).coerceAtLeast(1).toFloat(),
                                     steps = (list.size - 2).coerceAtLeast(0),
-                                    modifier = Modifier.weight(1f),
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = MaterialTheme.colorScheme.primary,
-                                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                                        inactiveTrackColor = MaterialTheme.colorScheme.outline
-                                    )
+                                modifier = Modifier.weight(1f),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = Color(0xFF2563EB),
+                                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.outline
+                                )
                                 )
                                 ReaderCircleButton(
                                     onClick = { nextChapter?.let(onNavigate) },

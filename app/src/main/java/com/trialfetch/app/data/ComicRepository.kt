@@ -123,31 +123,56 @@ class ComicRepository(
      * Mode Folder: langsung dari Download. Mode ZIP: diekstrak dulu ke
      * cache internal (dipakai ulang bila sudah ada).
      */
+    /**
+     * Folder chapter aktual di disk untuk chapter ini, atau null.
+     *
+     * Ala Mihon identitas stabil didahulukan: nama persis, lalu token
+     * nomor depan (tahan terhadap anotasi ekor judul yang berubah),
+     * lalu folder info.txt milik series ini. Mengembalikan
+     * (seriesDir, namaFolderChapter tanpa ekstensi zip).
+     */
+    fun resolveChapterFolder(
+        series: SeriesInfo,
+        chapter: Chapter,
+        settings: DownloadSettings
+    ): Pair<String, String>? {
+        val zip = settings.outputMode == OutputMode.ZIP
+        val wanted = sanitize(chapter.title)
+        val listings = candidateSeriesDirs(series).associateWith { dir ->
+            if (zip) storage.listZipNames(dir) else storage.listChapterDirs(dir)
+        }
+        // 1. Nama persis.
+        for ((dir, names) in listings) {
+            if (wanted in names) return dir to wanted
+        }
+        val token = chapterToken(chapter.title) ?: return null
+        // 2. Token nomor sama di daftar folder.
+        for ((dir, names) in listings) {
+            val hit = names.firstOrNull { chapterToken(it) == token }
+            if (hit != null) return dir to hit
+        }
+        // 3. Token sama di folder info.txt milik series ini.
+        for ((folder, dir) in infoTxtLookup(series)) {
+            if (chapterToken(folder) == token) return dir to folder
+        }
+        return null
+    }
+
     fun getReadableImages(
         series: SeriesInfo,
         chapter: Chapter,
         settings: DownloadSettings
     ): List<android.net.Uri> {
-        val chapterDir = sanitize(chapter.title)
         // Coba lokasi sekarang (<Sumber>/<Judul>) dulu; kalau kosong, jatuh
         // ke bentuk lama supaya koleksi lama tetap bisa dibaca.
-        for (seriesDir in candidateSeriesDirs(series)) {
-            val images = if (settings.outputMode == OutputMode.ZIP) {
-                storage.extractZipForRead(seriesDir, "$chapterDir.zip")
-                    .map { android.net.Uri.fromFile(it) }
-            } else {
-                storage.listImages(listOf(seriesDir, chapterDir).joinToString("/"))
-            }
-            if (images.isNotEmpty()) return images
-        }
-        // Fallback terakhir: cari lewat isi info.txt (nama folder bisa
-        // apa pun — judul di situs mungkin berbeda dari nama folder).
-        val foundDir = infoTxtSeriesDir(series) ?: return emptyList()
+        val resolved = resolveChapterFolder(series, chapter, settings)
+            ?: return emptyList()
+        val (seriesDir, folder) = resolved
         return if (settings.outputMode == OutputMode.ZIP) {
-            storage.extractZipForRead(foundDir, "$chapterDir.zip")
+            storage.extractZipForRead(seriesDir, "$folder.zip")
                 .map { android.net.Uri.fromFile(it) }
         } else {
-            storage.listImages(listOf(foundDir, chapterDir).joinToString("/"))
+            storage.listImages(listOf(seriesDir, folder).joinToString("/"))
         }
     }
 
@@ -157,17 +182,7 @@ class ComicRepository(
         chapter: Chapter,
         settings: DownloadSettings
     ): Boolean {
-        val chapterDir = sanitize(chapter.title)
-        val inKnown = candidateSeriesDirs(series).any { seriesDir ->
-            if (settings.outputMode == OutputMode.ZIP) {
-                storage.hasFile(seriesDir, "$chapterDir.zip")
-            } else {
-                storage.countFiles(listOf(seriesDir, chapterDir).joinToString("/")) > 0
-            }
-        }
-        if (inKnown) return true
-        // Fallback: cek lewat info.txt.
-        return infoTxtLookup(series).containsKey(chapterDir)
+        return resolveChapterFolder(series, chapter, settings) != null
     }
 
     /** Kembalikan progres ke IDLE (menutup panel unduhan). */
@@ -193,15 +208,28 @@ class ComicRepository(
         series: SeriesInfo,
         settings: DownloadSettings
     ): Set<String> {
-        val fromKnown = candidateSeriesDirs(series).flatMap { seriesDir ->
-            if (settings.outputMode == OutputMode.ZIP) {
-                storage.listZipNames(seriesDir)
-            } else {
-                storage.listChapterDirs(seriesDir)
+        val zip = settings.outputMode == OutputMode.ZIP
+        val listings = candidateSeriesDirs(series).associateWith { seriesDir ->
+            if (zip) storage.listZipNames(seriesDir)
+            else storage.listChapterDirs(seriesDir)
+        }
+        val out = listings.values.flatten().toMutableSet()
+        if (out.isEmpty()) return infoTxtLookup(series).keys.toSet()
+        // Alias badge: judul sekarang yang foldernya ketemu lewat token
+        // ikut ditandai supaya badge tidak hilang saat judul berubah.
+        val byToken = mutableMapOf<String, String>()
+        for (names in listings.values) {
+            for (n in names) {
+                chapterToken(n)?.let { byToken.putIfAbsent(it, n) }
             }
-        }.toSet()
-        if (fromKnown.isNotEmpty()) return fromKnown
-        return infoTxtLookup(series).keys.toSet()
+        }
+        for (ch in series.chapters) {
+            val name = sanitize(ch.title)
+            if (name in out) continue
+            val tok = chapterToken(ch.title)
+            if (tok != null && byToken.containsKey(tok)) out += name
+        }
+        return out
     }
 
     fun canWriteStorage(): Boolean = storage.canWrite()
@@ -448,6 +476,10 @@ class ComicRepository(
             appendLine(series.title)
             if (series.author.isNotBlank()) appendLine("Penulis: ${series.author}")
             appendLine("Chapter: ${chapter.title}")
+            // Identitas stabil ala Mihon: jangan andalkan judul saja,
+            // judul situs bisa berubah (anotasi ekor) setelah diunduh.
+            appendLine("chapterId: ${chapter.chapterId}")
+            appendLine("chapterUrl: ${chapter.url}")
             appendLine("Sumber: ${series.source.displayName}")
             appendLine("comicId: ${series.comicId}")
             appendLine("Berhasil: $done dari $total halaman")
@@ -606,5 +638,21 @@ class ComicRepository(
          */
         fun candidateSeriesDirs(series: SeriesInfo): List<String> =
             (listOf(seriesDirOf(series)) + oldSeriesDirsOf(series)).distinct()
+
+        /**
+         * Token nomor depan judul chapter ("第369话" → "D369",
+         * "605 ..." → "N605"). Bagian ini stabil walau anotasi di
+         * ekor judul berubah ("343 下不为例" → "343 ..."), sementara
+         * sanitize(judul) utuh ikut berubah dan bikin folder tak ketemu.
+         */
+        fun chapterToken(name: String): String? {
+            Regex("""第(\d+)[话話章]""").find(name)?.groupValues?.get(1)?.let {
+                return "D$it"
+            }
+            Regex("""^(\d+)""").find(name.trim())?.groupValues?.get(1)?.let {
+                return "N$it"
+            }
+            return null
+        }
     }
 }
