@@ -290,9 +290,9 @@ class ComicRepository(
                 }
                 series?.sortedBy { it.name }?.firstNotNullOfOrNull { descend(it, 0) }
             }.getOrNull()
-            if (firstChapter != null) {
-                out.appendLine("drill=${firstChapter.name}")
-                val files = firstChapter.listFiles()?.filter { it.isFile }?.take(5)
+            if (drillDir != null) {
+                out.appendLine("drill=${drillDir.name}")
+                val files = drillDir.listFiles()?.filter { it.isFile }?.take(5)
                 out.appendLine("drillFileLihat=${files?.size ?: "null"}")
                 files?.forEach { f ->
                     out.appendLine("  f ${f.name} ${f.length()}B canRead=${f.canRead()}")
