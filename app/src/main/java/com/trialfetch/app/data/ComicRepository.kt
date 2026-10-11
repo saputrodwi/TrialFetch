@@ -277,6 +277,10 @@ class ComicRepository(
         } catch (e: Exception) {
             out.appendLine("fileAPI error: ${e.message}")
         }
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            out.appendLine("mediaRows=skipped-sdk<29")
+            return@withContext out.toString().trim()
+        }
         try {
             val collection = android.provider.MediaStore.Downloads
                 .getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
