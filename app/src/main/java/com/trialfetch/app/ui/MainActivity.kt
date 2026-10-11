@@ -571,7 +571,9 @@ fun AppRoot(
                         onChange = vm::updateSettings,
                         onReset = { vm.updateSettings(DownloadSettings()) },
                         onExportBackup = { exportLauncher.launch("trialfetch-backup.json") },
-                        onImportBackup = { importLauncher.launch(arrayOf("application/json")) }
+                        onImportBackup = { importLauncher.launch(arrayOf("application/json")) },
+                        diagResult = vm.diagResult.collectAsStateWithLifecycle().value,
+                        onRunDiagnostics = vm::runDiagnostics
                     )
                 }
             }

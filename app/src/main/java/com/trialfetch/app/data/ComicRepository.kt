@@ -246,6 +246,63 @@ class ComicRepository(
 
     fun canWriteStorage(): Boolean = storage.canWrite()
 
+    /**
+     * Diagnostik satu ketuk untuk kasus "file ada di file manager tapi
+     * aplikasi tidak bisa baca". Membandingkan apa yang terlihat lewat
+     * File API vs MediaStore di pohon Download/TrialFetch.
+     */
+    suspend fun diagnoseStorage(): String = withContext(Dispatchers.IO) {
+        val out = StringBuilder()
+        out.appendLine("SDK=${android.os.Build.VERSION.SDK_INT}")
+        val manage = if (android.os.Build.VERSION.SDK_INT >= 30) {
+            android.os.Environment.isExternalStorageManager()
+        } else null
+        out.appendLine("manageAllFiles=$manage")
+        try {
+            val root = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS
+            )
+            out.appendLine("downloadRoot=${root.absolutePath} ada=${root.exists()}")
+            val tree = java.io.File(root, com.trialfetch.app.data.OutputPaths.ROOT)
+            out.appendLine("treeAda=${tree.exists()} treeIsDir=${tree.isDirectory}")
+            val series = tree.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name }
+            out.appendLine("seriesViaFile=${series?.size ?: "null"}")
+            series?.take(5)?.forEach { s ->
+                val kids = s.listFiles()
+                val nImg = kids?.count {
+                    it.isFile && it.name.matches(Regex(""".*\.(jpg|jpeg|png|webp|gif|bmp|avif|heic|jxl)$""", RegexOption.IGNORE_CASE))
+                } ?: 0
+                out.appendLine("- ${s.name} sub=${kids?.size ?: "null"} img=$nImg")
+            }
+        } catch (e: Exception) {
+            out.appendLine("fileAPI error: ${e.message}")
+        }
+        try {
+            val collection = android.provider.MediaStore.Downloads
+                .getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val c = context.contentResolver.query(
+                collection,
+                arrayOf(android.provider.MediaStore.Downloads.DISPLAY_NAME),
+                "${android.provider.MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
+                arrayOf("${android.os.Environment.DIRECTORY_DOWNLOADS}/${com.trialfetch.app.data.OutputPaths.ROOT}/%"),
+                null
+            )
+            var n = 0
+            var nInfo = 0
+            c?.use {
+                val nameIdx = it.getColumnIndex(android.provider.MediaStore.Downloads.DISPLAY_NAME)
+                while (it.moveToNext()) {
+                    n++
+                    if (it.getString(nameIdx) == "info.txt") nInfo++
+                }
+            }
+            out.appendLine("mediaRows=$n mediaInfoTxt=$nInfo")
+        } catch (e: Exception) {
+            out.appendLine("mediaStore error: ${e.message}")
+        }
+        out.toString().trim()
+    }
+
     suspend fun search(source: Source, query: String): List<SearchResult> =
         sources[source]?.search(query)
             ?: throw SourceException("Sumber ${source.displayName} belum didukung")

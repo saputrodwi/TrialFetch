@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,8 +56,11 @@ fun SettingsScreen(
     onChange: (DownloadSettings) -> Unit,
     onReset: () -> Unit = {},
     onExportBackup: () -> Unit = {},
-    onImportBackup: () -> Unit = {}
+    onImportBackup: () -> Unit = {},
+    diagResult: String = "",
+    onRunDiagnostics: () -> Unit = {}
 ) {
+    val ctx = LocalContext.current
     Column(
         Modifier
             .fillMaxSize()
@@ -169,6 +174,42 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 background = LocalExtraColors.current.blue
             )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        SectionCard("Diagnostik", Icons.Default.BugReport) {
+            Text(
+                "Bila unduhan tak terbaca padahal file ada, jalankan ini lalu kirim hasilnya.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BrutalButton(
+                    text = "Jalankan",
+                    onClick = onRunDiagnostics
+                )
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = {
+                    val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                        as android.content.ClipboardManager
+                    cm.setPrimaryClip(
+                        android.content.ClipData.newPlainText("diagnostik", diagResult)
+                    )
+                    android.widget.Toast.makeText(ctx, "Hasil disalin", android.widget.Toast.LENGTH_SHORT).show()
+                }) {
+                    Text("Salin")
+                }
+            }
+            if (diagResult.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    diagResult,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+            }
         }
 
         Spacer(Modifier.height(16.dp))

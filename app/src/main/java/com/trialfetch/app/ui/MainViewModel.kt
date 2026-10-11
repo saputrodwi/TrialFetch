@@ -129,6 +129,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // --- Diagnostik penyimpanan (satu ketuk) ---
+    private val _diagResult = MutableStateFlow("")
+    val diagResult: StateFlow<String> = _diagResult.asStateFlow()
+
+    fun runDiagnostics() {
+        viewModelScope.launch {
+            _diagResult.value = "Menjalankan…"
+            _diagResult.value = try {
+                repo.diagnoseStorage()
+            } catch (e: Exception) {
+                "gagal: ${e.message}"
+            }
+        }
+    }
+
     // --- Cek update series yang di-bookmark ---
     private val _bookmarkUpdates = MutableStateFlow<List<String>>(emptyList())
     val bookmarkUpdates: StateFlow<List<String>> = _bookmarkUpdates.asStateFlow()
