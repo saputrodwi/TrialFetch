@@ -1077,7 +1077,11 @@ private fun SeriesWebScreen(
     onClose: () -> Unit
 ) {
     var loading by remember { mutableStateOf(true) }
+    var webViewRef by remember { mutableStateOf<android.webkit.WebView?>(null) }
     BackHandler(onBack = onClose)
+    DisposableEffect(Unit) {
+        onDispose { webViewRef?.destroy() }
+    }
     Column(
         Modifier
             .fillMaxSize()
@@ -1137,9 +1141,9 @@ private fun SeriesWebScreen(
                             }
                         }
                         loadUrl(url)
+                        webViewRef = this
                     }
-                },
-                onRelease { it.destroy() }
+                }
             )
         }
     }
