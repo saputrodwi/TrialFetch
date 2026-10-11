@@ -49,6 +49,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
@@ -159,6 +160,8 @@ import com.trialfetch.app.ui.theme.TrialFetchTheme
 class MainActivity : ComponentActivity() {
     /** Target layar dari ketukan notifikasi; dikonsumsi sekali oleh AppRoot. */
     private var deepLinkTarget by mutableStateOf<String?>(null)
+    /** Link situs yang dibuka lewat browser (ACTION_VIEW); dikonsumsi sekali. */
+    private var viewLinkTarget by mutableStateOf<String?>(null)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -166,6 +169,9 @@ class MainActivity : ComponentActivity() {
         deepLinkTarget = intent.getStringExtra(
             com.trialfetch.app.data.DownloadNotifier.EXTRA_OPEN
         )
+        if (intent.action == Intent.ACTION_VIEW) {
+            viewLinkTarget = intent.dataString
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -197,7 +203,11 @@ class MainActivity : ComponentActivity() {
                             deepLink = intent.getStringExtra(
                                 com.trialfetch.app.data.DownloadNotifier.EXTRA_OPEN
                             ) ?: deepLinkTarget,
-                            onDeepLinkConsumed = { deepLinkTarget = null }
+                            onDeepLinkConsumed = { deepLinkTarget = null },
+                            viewLink = intent.dataString
+                                .takeIf { intent.action == Intent.ACTION_VIEW }
+                                ?: viewLinkTarget,
+                            onViewLinkConsumed = { viewLinkTarget = null }
                         )
                     }
                 }
@@ -213,7 +223,9 @@ private const val EXIT_PRESS_WINDOW_MS = 2000L
 fun AppRoot(
     vm: MainViewModel = viewModel(),
     deepLink: String? = null,
-    onDeepLinkConsumed: () -> Unit = {}
+    onDeepLinkConsumed: () -> Unit = {},
+    viewLink: String? = null,
+    onViewLinkConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val nav = rememberNavController()
@@ -335,6 +347,17 @@ fun AppRoot(
             else -> return@LaunchedEffect
         }
         onDeepLinkConsumed()
+    }
+
+    // Link situs dari browser (ACTION_VIEW ala Mihon): buka sebagai series
+    // lewat jalur tempel-URL yang sama (sudah menangani chapter → series).
+    LaunchedEffect(viewLink) {
+        val url = viewLink ?: return@LaunchedEffect
+        vm.onUrlChange(url)
+        vm.openFromUrl { info ->
+            nav.navigate(Routes.series(info.source.id, info.comicId))
+        }
+        onViewLinkConsumed()
     }
 
     val series = seriesState.info
@@ -1910,6 +1933,9 @@ private fun ZoomablePage(
     // Aspek asli diketahui setelah gambar termuat; sebelum itu pakai
     // placeholder ramping agar tidak ada lompatan besar.
     var aspect by remember(item.uri) { mutableStateOf<Float?>(null) }
+    // Gagal muat (file rusak/bukan gambar, URL kedaluwarsa) WAJIB
+    // terlihat sebagai error, bukan blank "seperti loading selamanya".
+    var loadFailed by remember(item.uri) { mutableStateOf(false) }
     val transform = rememberTransformableState { zoom, pan, _ ->
         var next = (scale * zoom).coerceIn(1f, 4f)
         // Snap: cegah drift float (mis. 1,0003 dari jitter jari)
@@ -1944,6 +1970,29 @@ private fun ZoomablePage(
     } else {
         Modifier.fillMaxSize()
     }
+    if (loadFailed) {
+        Column(
+            sizeMod
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                Icons.Default.BrokenImage,
+                contentDescription = "Gambar gagal dimuat",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Gambar ${item.page} gagal dimuat",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        return
+    }
     AsyncImage(
         model = model,
         contentDescription = "Halaman",
@@ -1954,6 +2003,7 @@ private fun ZoomablePage(
                 aspect = s.width / s.height
             }
         },
+        onError = { loadFailed = true },
         modifier = sizeMod
             .graphicsLayer(
                 scaleX = if (active) scale else 1f,

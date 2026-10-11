@@ -165,15 +165,24 @@ class ComicRepository(
     ): List<android.net.Uri> {
         // Coba lokasi sekarang (<Sumber>/<Judul>) dulu; kalau kosong, jatuh
         // ke bentuk lama supaya koleksi lama tetap bisa dibaca.
-        val resolved = resolveChapterFolder(series, chapter, settings)
-            ?: return emptyList()
-        val (seriesDir, folder) = resolved
-        return if (settings.outputMode == OutputMode.ZIP) {
-            storage.extractZipForRead(seriesDir, "$folder.zip")
-                .map { android.net.Uri.fromFile(it) }
-        } else {
-            storage.listImages(listOf(seriesDir, folder).joinToString("/"))
+        // Mode lain (Folder/ZIP) ikut dicoba: ganti mode di Pengaturan
+        // tidak boleh membuat unduhan lama yatim.
+        val modes = listOf(settings.outputMode) +
+            OutputMode.entries.filter { it != settings.outputMode }
+        for (mode in modes) {
+            val resolved = resolveChapterFolder(
+                series, chapter, settings.copy(outputMode = mode)
+            ) ?: continue
+            val (seriesDir, folder) = resolved
+            val images = if (mode == OutputMode.ZIP) {
+                storage.extractZipForRead(seriesDir, "$folder.zip")
+                    .map { android.net.Uri.fromFile(it) }
+            } else {
+                storage.listImages(listOf(seriesDir, folder).joinToString("/"))
+            }
+            if (images.isNotEmpty()) return images
         }
+        return emptyList()
     }
 
     /** true bila chapter sudah terunduh (ringan, tanpa membaca isi). */
@@ -182,7 +191,10 @@ class ComicRepository(
         chapter: Chapter,
         settings: DownloadSettings
     ): Boolean {
-        return resolveChapterFolder(series, chapter, settings) != null
+        if (resolveChapterFolder(series, chapter, settings) != null) return true
+        // Mode lain ikut dicek (lihat getReadableImages).
+        val other = OutputMode.entries.first { it != settings.outputMode }
+        return resolveChapterFolder(series, chapter, settings.copy(outputMode = other)) != null
     }
 
     /** Kembalikan progres ke IDLE (menutup panel unduhan). */

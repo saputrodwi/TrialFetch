@@ -40,6 +40,36 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Buka link situs langsung di aplikasi ala Mihon: ketuk link
+                di browser → dialog "buka dengan" → TrialFetch membuka
+                series-nya. Tanpa autoVerify (domain bukan milik kita)
+                sehingga selalu lewat chooser, bukan klaim sepihak. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="baozimh.com" />
+                <data android:host="www.baozimh.com" />
+                <data android:host="twmanga.com" />
+                <data android:host="www.twmanga.com" />
+                <data android:host="manwang.net" />
+                <data android:host="www.manwang.net" />
+                <data android:host="wmanhua.com" />
+                <data android:host="www.wmanhua.com" />
+                <data android:host="koudaimh.com" />
+                <data android:host="m.koudaimh.com" />
+                <data android:host="jjabtoon001.com" />
+                <data android:host="www.jjaptoon008.com" />
+                <data android:host="jjaptoon008.com" />
+                <data android:host="goodtoon.top" />
+                <data android:host="www.goodtoon005.com" />
+                <data android:host="rumanhua.org" />
+                <data android:host="www.rumanhua.org" />
+                <data android:host="manhuahao.com" />
+                <data android:host="m.manhuahao.com" />
+                <data android:pathPattern="/.*" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>
