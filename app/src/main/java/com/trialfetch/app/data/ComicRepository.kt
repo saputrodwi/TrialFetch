@@ -258,6 +258,7 @@ class ComicRepository(
             android.os.Environment.isExternalStorageManager()
         } else null
         out.appendLine("manageAllFiles=$manage")
+        var drillDir: java.io.File? = null
         try {
             val root = android.os.Environment.getExternalStoragePublicDirectory(
                 android.os.Environment.DIRECTORY_DOWNLOADS
@@ -273,6 +274,19 @@ class ComicRepository(
                     it.isFile && it.name.matches(Regex(""".*\.(jpg|jpeg|png|webp|gif|bmp|avif|heic|jxl)$""", RegexOption.IGNORE_CASE))
                 } ?: 0
                 out.appendLine("- ${s.name} sub=${kids?.size ?: "null"} img=$nImg")
+            }
+            // Drill satu chapter pertama: bandingkan File API vs MediaStore
+            // per file — memastikan buta-indeks vs buta-pemilik.
+            val firstChapter = series?.firstOrNull()
+                ?.listFiles()?.firstOrNull { it.isDirectory }
+            drillDir = firstChapter
+            if (firstChapter != null) {
+                out.appendLine("drill=${firstChapter.name}")
+                val files = firstChapter.listFiles()?.filter { it.isFile }?.take(5)
+                out.appendLine("drillFileLihat=${files?.size ?: "null"}")
+                files?.forEach { f ->
+                    out.appendLine("  f ${f.name} ${f.length()}B canRead=${f.canRead()}")
+                }
             }
         } catch (e: Exception) {
             out.appendLine("fileAPI error: ${e.message}")
@@ -301,6 +315,38 @@ class ComicRepository(
                 }
             }
             out.appendLine("mediaRows=$n mediaInfoTxt=$nInfo")
+            // Baris MediaStore untuk path drill (dengan flag pending).
+            if (drillDir != null) {
+                val abs = drillDir.absolutePath
+                val rootAbs = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                ).absolutePath
+                if (abs.startsWith(rootAbs)) {
+                    val rel = abs.removePrefix(rootAbs).trim('/') + "/"
+                    val cc = context.contentResolver.query(
+                        collection,
+                        arrayOf(
+                            android.provider.MediaStore.Downloads.DISPLAY_NAME,
+                            "is_pending"
+                        ),
+                        "${android.provider.MediaStore.Downloads.RELATIVE_PATH} = ?",
+                        arrayOf(rel),
+                        null
+                    )
+                    var m = 0
+                    var pend = 0
+                    cc?.use {
+                        val pIdx = it.getColumnIndex("is_pending")
+                        while (it.moveToNext()) {
+                            m++
+                            if (pIdx >= 0 && it.getInt(pIdx) != 0) pend++
+                        }
+                    }
+                    out.appendLine("drillMediaRows=$m drillPending=$pend rel=$rel")
+                } else {
+                    out.appendLine("drillDiLuarDownloadPrimer")
+                }
+            }
         } catch (e: Exception) {
             out.appendLine("mediaStore error: ${e.message}")
         }
