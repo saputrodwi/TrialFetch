@@ -129,6 +129,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -932,25 +933,22 @@ private fun SeriesScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        ReaderCircleButton(onClick = { newestFirst = !newestFirst }) {
+                        IconButton(onClick = { newestFirst = !newestFirst }) {
                             Icon(
                                 if (newestFirst) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
                                 contentDescription = if (newestFirst) "Urut lama ke baru" else "Urut baru ke lama",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(20.dp)
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        Spacer(Modifier.width(8.dp))
                         if (selecting) {
-                            ReaderCircleButton(onClick = {
+                            IconButton(onClick = {
                                 selecting = false
                                 selectedIds = emptySet()
                             }) {
                                 Icon(
                                     Icons.Default.Close,
                                     contentDescription = "Batalkan pilihan",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(20.dp)
+                                    tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         } else {
@@ -1338,12 +1336,11 @@ private fun ChapterRow(
         if (busy) {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         } else if (!selecting) {
-            ReaderCircleButton(onClick = { onDownload(chapter) }) {
+            IconButton(onClick = { onDownload(chapter) }) {
                 Icon(
                     Icons.Default.Download,
                     contentDescription = "Unduh ${chapter.title}",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -1679,10 +1676,11 @@ private fun ReaderScreen(
                         )
                     }
                 }
-                // Bilah atas full-width sesuai mockup Stitch yang
-                // disetujui: surface krem + garis tinta bawah 2dp.
-                // Sembunyi/tampil mengikuti ketukan ala Mihon.
+                // Bilah atas ala Mihon: surface translusen TANPA garis
+                // tinta/border — bersih di atas gambar. Sembunyi/tampil
+                // mengikuti ketukan.
                 var menuOpen by remember { mutableStateOf(false) }
+                val barBg = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
                 AnimatedVisibility(
                     visible = menusVisible,
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -1693,11 +1691,11 @@ private fun ReaderScreen(
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface)
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                                .background(barBg)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            ReaderCircleButton(onClick = onClose) {
+                            IconButton(onClick = onClose) {
                                 Icon(
                                     Icons.Default.Close,
                                     contentDescription = "Tutup",
@@ -1723,7 +1721,7 @@ private fun ReaderScreen(
                                 )
                             }
                             Spacer(Modifier.width(10.dp))
-                            ReaderCircleButton(onClick = { menuOpen = true }) {
+                            IconButton(onClick = { menuOpen = true }) {
                                 Icon(
                                     Icons.Default.MoreVert,
                                     contentDescription = "Menu baca",
@@ -1775,36 +1773,25 @@ private fun ReaderScreen(
                                 )
                             }
                         }
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(2.dp)
-                                .background(MaterialTheme.colorScheme.onBackground)
-                        )
                     }
                 }
-                // Bilah bawah ala Mihon: slider halaman + tombol navigasi.
+                // Bilah bawah ala Mihon: navigator chapter terpadu
+                // (prev + slider + next) lalu barisan ikon fungsi.
+                // Surface translusen tanpa border — bersih di atas gambar.
                 AnimatedVisibility(
                     visible = menusVisible,
                     modifier = Modifier.align(Alignment.BottomCenter),
                     enter = fadeIn() + slideInVertically { it },
                     exit = fadeOut() + slideOutVertically { it }
                 ) {
-                    Column(Modifier.fillMaxWidth()) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(2.dp)
-                                .background(MaterialTheme.colorScheme.onBackground)
-                        )
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface)
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                        ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(barBg)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ReaderCircleButton(
+                                IconButton(
                                     onClick = { prevChapter?.let(onNavigate) },
                                     enabled = prevChapter != null
                                 ) {
@@ -1829,16 +1816,33 @@ private fun ReaderScreen(
                                             }
                                         }
                                     },
-                                    valueRange = 0f..(list.size - 1).coerceAtLeast(1).toFloat(),
-                                    steps = (list.size - 2).coerceAtLeast(0),
+                                valueRange = 0f..(list.size - 1).coerceAtLeast(1).toFloat(),
+                                steps = (list.size - 2).coerceAtLeast(0),
                                 modifier = Modifier.weight(1f),
+                                // Thumb bulat kecil biru berbingkai (mockup),
+                                // bukan kapsul bawaan yang terlihat seperti bar.
+                                thumb = {
+                                    Box(
+                                        Modifier
+                                            .size(16.dp)
+                                            .border(
+                                                2.dp,
+                                                MaterialTheme.colorScheme.onBackground,
+                                                androidx.compose.foundation.shape.CircleShape
+                                            )
+                                            .background(
+                                                Color(0xFF2563EB),
+                                                androidx.compose.foundation.shape.CircleShape
+                                            )
+                                    )
+                                },
                                 colors = SliderDefaults.colors(
                                     thumbColor = Color(0xFF2563EB),
                                     activeTrackColor = MaterialTheme.colorScheme.primary,
                                     inactiveTrackColor = MaterialTheme.colorScheme.outline
                                 )
                                 )
-                                ReaderCircleButton(
+                                IconButton(
                                     onClick = { nextChapter?.let(onNavigate) },
                                     enabled = nextChapter != null
                                 ) {
@@ -1851,36 +1855,18 @@ private fun ReaderScreen(
                                     )
                                 }
                             }
-                            Spacer(Modifier.height(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                // Pill counter halaman.
-                                Box(
-                                    modifier = Modifier
-                                        .border(
-                                            2.dp,
-                                            MaterialTheme.colorScheme.onBackground,
-                                            androidx.compose.foundation.shape.CircleShape
-                                        )
-                                        .background(
-                                            LocalExtraColors.current.card,
-                                            androidx.compose.foundation.shape.CircleShape
-                                        )
-                                        .padding(horizontal = 12.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        "${currentPage + 1} / ${list.size}",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        maxLines = 1
-                                    )
-                                }
-                                Spacer(Modifier.weight(1f))
-                                // Pilihan mode segmented brutal, bukan teks
-                                // sempit yang membingungkan.
-                                // Dua pil fixed (bukan FlowRow): lebar total
-                                // pasti muat, tidak bisa clip/overflow.
-                                val ctx = LocalContext.current
-                                val setMode = { next: ReaderMode ->
+                            Spacer(Modifier.height(4.dp))
+                            // Barisan ikon fungsi rata (ala Mihon): mode,
+                            // daftar chapter, unduh. Tanpa pil/border.
+                            val ctx = LocalContext.current
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = {
+                                    val next = if (mode == ReaderMode.WEBTOON) ReaderMode.PAGED
+                                    else ReaderMode.WEBTOON
                                     onModeChange(next)
                                     Toast.makeText(
                                         ctx,
@@ -1888,57 +1874,67 @@ private fun ReaderScreen(
                                         else "Mode: Halaman",
                                         Toast.LENGTH_SHORT
                                     ).show()
+                                }) {
+                                    Icon(
+                                        if (mode == ReaderMode.WEBTOON) Icons.Default.ViewAgenda
+                                        else Icons.Default.AutoStories,
+                                        contentDescription = "Ganti mode baca",
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
-                                ModePill(
-                                    text = "Halaman",
-                                    selected = mode != ReaderMode.WEBTOON,
-                                    onClick = { setMode(ReaderMode.PAGED) }
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                ModePill(
-                                    text = "Webtoon",
-                                    selected = mode == ReaderMode.WEBTOON,
-                                    onClick = { setMode(ReaderMode.WEBTOON) }
-                                )
+                                IconButton(onClick = onOpenSeries) {
+                                    Icon(
+                                        Icons.Default.List,
+                                        contentDescription = "Daftar chapter",
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                IconButton(onClick = onDownload) {
+                                    Icon(
+                                        Icons.Default.Download,
+                                        contentDescription = "Unduh chapter",
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
                             }
                         }
                     }
                 }
+                // Indikator halaman ala Mihon: teks stroke (putih + outline
+                // gelap) selalu terbaca di atas gambar, bahkan saat bilah
+                // disembunyikan.
+                ReaderPageIndicator(
+                    text = "${currentPage + 1} / ${list.size}",
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 12.dp)
+                )
             }
         }
     }
 }
 
 /**
- * Pil mode kecil fixed: selalu muat berdampingan dengan pill counter,
- * tidak seperti FlowRow yang bisa overflow/clip di layar sempit.
+ * Teks indikator halaman dengan outline, meniru ReaderPageIndicator
+ * Mihon: terbaca di atas gambar apa pun tanpa latar.
  */
 @Composable
-private fun ModePill(
+private fun ReaderPageIndicator(
     text: String,
-    selected: Boolean,
-    onClick: () -> Unit
+    modifier: Modifier = Modifier
 ) {
-    val extra = LocalExtraColors.current
-    val shape = androidx.compose.foundation.shape.CircleShape
-    Box(
-        modifier = Modifier
-            .border(2.dp, MaterialTheme.colorScheme.onBackground, shape)
-            .background(
-                if (selected) extra.yellow else MaterialTheme.colorScheme.surface,
-                shape
-            )
-            .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) extra.onAccent
-            else MaterialTheme.colorScheme.onSurface,
-            maxLines = 1
-        )
+    val style = MaterialTheme.typography.labelLarge.copy(
+        color = Color.White,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp
+    )
+    val stroke = style.copy(
+        color = Color.Black.copy(alpha = 0.85f),
+        drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f)
+    )
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Text(text = text, style = stroke, maxLines = 1)
+        Text(text = text, style = style, maxLines = 1)
     }
 }
 
