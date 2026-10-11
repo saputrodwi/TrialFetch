@@ -1986,7 +1986,7 @@ private fun ZoomablePage(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "Gambar ${item.page} gagal dimuat",
+                "Gambar gagal dimuat",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
