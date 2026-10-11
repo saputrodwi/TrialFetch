@@ -275,11 +275,21 @@ class ComicRepository(
                 } ?: 0
                 out.appendLine("- ${s.name} sub=${kids?.size ?: "null"} img=$nImg")
             }
-            // Drill satu chapter pertama: bandingkan File API vs MediaStore
-            // per file — memastikan buta-indeks vs buta-pemilik.
-            val firstChapter = series?.firstOrNull()
-                ?.listFiles()?.firstOrNull { it.isDirectory }
-            drillDir = firstChapter
+            // Drill folder chapter pertama yang berisi file (bukan cuma
+            // subfolder): bandingkan File API vs MediaStore per file —
+            // memastikan buta-indeks vs buta-pemilik.
+            drillDir = runCatching {
+                fun descend(dir: java.io.File, depth: Int): java.io.File? {
+                    if (depth > 3) return null
+                    val kids = dir.listFiles() ?: return null
+                    if (kids.any { it.isFile }) return dir
+                    for (sub in kids.filter { it.isDirectory }.sortedBy { it.name }) {
+                        descend(sub, depth + 1)?.let { return it }
+                    }
+                    return null
+                }
+                series?.sortedBy { it.name }?.firstNotNullOfOrNull { descend(it, 0) }
+            }.getOrNull()
             if (firstChapter != null) {
                 out.appendLine("drill=${firstChapter.name}")
                 val files = firstChapter.listFiles()?.filter { it.isFile }?.take(5)
