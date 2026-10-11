@@ -686,9 +686,14 @@ private fun RowScope.BottomTab(
                 style = MaterialTheme.typography.labelSmall
             )
         },
-        // Indikator kuning brutal, bukan pil ungu bawaan Material.
+        // Indikator kuning brutal + ikon tinta saat terpilih (bukan
+        // pil ungu + ikon pink bawaan Material yang terlihat aneh).
         colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-            indicatorColor = LocalExtraColors.current.yellow
+            indicatorColor = LocalExtraColors.current.yellow,
+            selectedIconColor = MaterialTheme.colorScheme.onBackground,
+            selectedTextColor = MaterialTheme.colorScheme.onBackground,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
     )
 }
