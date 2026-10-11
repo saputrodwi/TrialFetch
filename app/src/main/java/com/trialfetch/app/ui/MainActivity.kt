@@ -1898,8 +1898,6 @@ private fun ReaderScreen(
                                 }
                             }
                         }
-                    }
-                }
                 // Indikator halaman ala Mihon: teks stroke (putih + outline
                 // gelap) selalu terbaca di atas gambar, bahkan saat bilah
                 // disembunyikan.
@@ -1909,10 +1907,11 @@ private fun ReaderScreen(
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 12.dp)
                 )
+                    }
+                }
             }
         }
     }
-}
 
 /**
  * Teks indikator halaman dengan outline, meniru ReaderPageIndicator
