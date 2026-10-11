@@ -68,6 +68,22 @@ class StorageWriter(private val context: Context) {
         "Download/${OutputPaths.ROOT}/" + subPath.trim('/')
 
     /**
+     * File langsung di bawah Download/TrialFetch/... .
+     *
+     * Pembacaan (list/hitung/cek) MENGUTAMAKAN File API: terbukti di
+     * lapangan MediaStore bisa buta total (0 baris) sementara File API
+     * melihat pohon foldernya. Penulisan tetap lewat MediaStore (wajib
+     * di Android 10+).
+     */
+    private fun treeFile(subPath: String): java.io.File {
+        @Suppress("DEPRECATION")
+        val root = android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOWNLOADS
+        )
+        return java.io.File(root, "${OutputPaths.ROOT}/${subPath.trim('/')}")
+    }
+
+    /**
      * Menghapus semua file yang ada di dalam satu folder sebelum chapter
      * diunduh ulang.
      *
@@ -112,12 +128,8 @@ class StorageWriter(private val context: Context) {
 
     /** true bila file bernama ada di folder (tanpa membaca isinya). */
     fun hasFile(folderPath: String, fileName: String): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            val root = android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOWNLOADS
-            )
-            return java.io.File(root, "${OutputPaths.ROOT}/${folderPath.trim('/')}/$fileName").exists()
-        }
+        if (treeFile("$folderPath/$fileName").exists()) return true
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         return findExisting(collection, fileName, fullRelativePath(folderPath)) != null
     }
@@ -128,19 +140,18 @@ class StorageWriter(private val context: Context) {
      * satu query untuk seluruh series, bukan satu query per chapter.
      */
     fun listChapterDirs(seriesDir: String): Set<String> {
+        // File dulu (tahan terhadap MediaStore yang buta/telat indeks).
+        val viaFile = runCatching {
+            treeFile(seriesDir).listFiles()
+                ?.filter { it.isDirectory }
+                ?.map { it.name }
+                .orEmpty().toSet()
+        }.getOrDefault(emptySet())
+        if (viaFile.isNotEmpty() || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return viaFile
+        }
         // RELATIVE_PATH MediaStore selalu diawali "Download/...".
         val cleaned = fullRelativePath(seriesDir)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return runCatching {
-                val root = android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOWNLOADS
-                )
-                java.io.File(root, "${OutputPaths.ROOT}/${seriesDir.trim('/')}/").listFiles()
-                    ?.filter { it.isDirectory }
-                    ?.map { it.name }
-                    .orEmpty().toSet()
-            }.getOrDefault(emptySet())
-        }
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         return runCatching {
             val out = HashSet<String>()
@@ -166,16 +177,14 @@ class StorageWriter(private val context: Context) {
      * Pasangan [listChapterDirs] untuk mode ZIP.
      */
     fun listZipNames(seriesDir: String): Set<String> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return runCatching {
-                val root = android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOWNLOADS
-                )
-                java.io.File(root, "${OutputPaths.ROOT}/${seriesDir.trim('/')}/").listFiles()
-                    ?.filter { it.isFile && it.name.endsWith(".zip", true) }
-                    ?.map { it.name.removeSuffix(".zip").removeSuffix(".ZIP") }
-                    .orEmpty().toSet()
-            }.getOrDefault(emptySet())
+        val viaFile = runCatching {
+            treeFile(seriesDir).listFiles()
+                ?.filter { it.isFile && it.name.endsWith(".zip", true) }
+                ?.map { it.name.removeSuffix(".zip").removeSuffix(".ZIP") }
+                .orEmpty().toSet()
+        }.getOrDefault(emptySet())
+        if (viaFile.isNotEmpty() || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return viaFile
         }
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         return runCatching {
@@ -313,14 +322,11 @@ class StorageWriter(private val context: Context) {
 
     /** Berapa file yang masih ada di folder, untuk dipakai sebagai peringatan. */
     fun countFiles(folderPath: String): Int {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return runCatching {
-                val root = android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOWNLOADS
-                )
-                java.io.File(root, "${OutputPaths.ROOT}/${folderPath.trim('/')}")
-                    .listFiles()?.count { it.isFile } ?: 0
-            }.getOrDefault(0)
+        val viaFile = runCatching {
+            treeFile(folderPath).listFiles()?.count { it.isFile } ?: 0
+        }.getOrDefault(0)
+        if (viaFile > 0 || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return viaFile
         }
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val relative = fullRelativePath(folderPath)
@@ -341,8 +347,17 @@ class StorageWriter(private val context: Context) {
      * Mengembalikan Uri MediaStore yang bisa langsung dimuat Coil.
      */
     fun listImages(folderPath: String): List<Uri> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return listImagesLegacy(folderPath)
+        // File dulu: Uri file:// langsung bisa dimuat Coil, tanpa
+        // tergantung indeks MediaStore.
+        val viaFile = runCatching {
+            treeFile(folderPath).listFiles()
+                ?.filter { it.isFile && isImageName(it.name) }
+                ?.sortedBy { it.name }
+                ?.map { Uri.fromFile(it) }
+                .orEmpty()
+        }.getOrDefault(emptyList())
+        if (viaFile.isNotEmpty() || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return viaFile
         }
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val relative = fullRelativePath(folderPath)

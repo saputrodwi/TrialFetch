@@ -322,7 +322,8 @@ class ComicRepository(
                     android.os.Environment.DIRECTORY_DOWNLOADS
                 ).absolutePath
                 if (abs.startsWith(rootAbs)) {
-                    val rel = abs.removePrefix(rootAbs).trim('/') + "/"
+                    // RELATIVE_PATH MediaStore diawali "Download/".
+                    val rel = "Download/" + abs.removePrefix(rootAbs).trim('/') + "/"
                     val cc = context.contentResolver.query(
                         collection,
                         arrayOf(
