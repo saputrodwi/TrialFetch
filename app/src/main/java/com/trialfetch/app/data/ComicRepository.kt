@@ -272,6 +272,22 @@ class ComicRepository(
         sources[source]?.series(comicId)
             ?: throw SourceException("Sumber ${source.displayName} belum didukung")
 
+    /**
+     * URL halaman series di situs aslinya (untuk tombol Web).
+     * Pola disalin dari UrlParser supaya konsisten dengannya.
+     */
+    fun seriesPageUrl(source: Source, comicId: String): String = when (source) {
+        Source.BAOZIMH -> "https://www.twmanga.com/comic/$comicId"
+        Source.MANWANG -> "https://manwang.net/book/$comicId"
+        Source.WMANHUA -> "https://www.wmanhua.com/comic/$comicId.html"
+        Source.KOUDAIMH -> "https://m.koudaimh.com/manhua/$comicId"
+        Source.JJABTOON -> "https://jjabtoon001.com/webtoons/$comicId"
+        Source.JJAPTOON -> "https://www.jjaptoon008.com/comics/$comicId"
+        Source.GOODTOON -> "https://www.goodtoon005.com/manga/$comicId/"
+        Source.RUMAN -> "https://www.rumanhua.org/news/$comicId"
+        Source.MANHUAHAO -> "https://m.manhuahao.com/$comicId"
+    }
+
     suspend fun chapter(source: Source, url: String): ChapterPage =
         sources[source]?.chapter(url)
             ?: throw SourceException("Sumber ${source.displayName} belum didukung")

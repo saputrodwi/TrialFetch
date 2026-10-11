@@ -72,6 +72,7 @@ import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SkipNext
@@ -664,6 +665,7 @@ private fun SeriesRoute(
         }
     }
 
+    var webUrl by remember { mutableStateOf<String?>(null) }
     val info = seriesState.info
     when {
         seriesState.loading || info == null && seriesState.error == null -> {
@@ -709,8 +711,21 @@ private fun SeriesRoute(
                     if (storageGranted) vm.enqueueChapters(infoNow, chapters)
                 },
                 downloadedIds = downloadedIds,
-                readMap = readMap
+                readMap = readMap,
+                onOpenWeb = {
+                    webUrl = vm.repo.seriesPageUrl(infoNow.source, infoNow.comicId)
+                },
+                onContinue = { ch, page -> vm.openReader(infoNow, ch, page) }
             )
+            // Overlay WebView halaman situs asli (tombol globe di header).
+            webUrl?.let { url ->
+                SeriesWebScreen(
+                    title = infoNow.title,
+                    url = url,
+                    userAgent = vm.userAgent,
+                    onClose = { webUrl = null }
+                )
+            }
         }
     }
 }
@@ -726,7 +741,9 @@ private fun SeriesScreen(
     onRead: (Chapter) -> Unit,
     onEnqueue: (List<Chapter>) -> Unit,
     downloadedIds: Set<String>,
-    readMap: Map<String, HistoryEntry>
+    readMap: Map<String, HistoryEntry>,
+    onOpenWeb: () -> Unit = {},
+    onContinue: (Chapter, Int) -> Unit = { _, _ -> }
 ) {
     val extra = LocalExtraColors.current
     var selecting by remember { mutableStateOf(false) }
@@ -734,10 +751,16 @@ private fun SeriesScreen(
     // true = terbaru di atas. Normalisasi selalu dari urutan menaik agar
     // konsisten antar-sumber (ada yang memberi lama-dulu, ada yang baru-dulu).
     var newestFirst by remember { mutableStateOf(true) }
-    val shownChapters = remember(info.chapters, newestFirst) {
+    var chapterFilter by remember { mutableStateOf("") }
+    val shownChapters = remember(info.chapters, newestFirst, chapterFilter) {
+        val q = chapterFilter.trim()
         val asc = info.chapters.mapIndexed { i, c -> Triple(c, c.chapterNumber, i) }
             .sortedWith(compareBy({ it.second ?: Int.MAX_VALUE }, { it.third }))
             .map { it.first }
+            .filter {
+                q.isBlank() || it.title.contains(q, ignoreCase = true) ||
+                    (it.chapterNumber?.toString() == q)
+            }
         if (newestFirst) asc.asReversed() else asc
     }
     // Nama folder unduhan bisa beda kapitalisasi dengan judul chapter yang
@@ -751,9 +774,45 @@ private fun SeriesScreen(
         selecting = false
         selectedIds = emptySet()
     }
+    // Kartu "Lanjutkan": lompat ke posisi terakhir dibaca di series ini.
+    val lastRead = remember(readMap) { readMap.values.maxByOrNull { it.updatedAt } }
+    val lastChapter = lastRead?.let { e -> info.chapters.firstOrNull { it.chapterId == e.chapterId } }
     Column(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
-            item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark) }
+            item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark, onOpenWeb) }
+            if (lastRead != null && lastChapter != null) {
+                item {
+                    BrutalCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        background = extra.yellow
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Lanjutkan membaca",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = extra.onAccent
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    lastRead.chapterTitle,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = extra.onAccent,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            com.trialfetch.app.ui.theme.BrutalButton(
+                                text = "Lanjut",
+                                onClick = { onContinue(lastChapter, lastRead.page) }
+                            )
+                        }
+                    }
+                }
+            }
             // Seluruh daftar chapter dalam satu kartu brutal (bukan
             // baris-baris polos), lengkap dengan sekat antar baris.
             item {
@@ -769,7 +828,7 @@ private fun SeriesScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "Chapter (${info.chapters.size})",
+                            "Chapter (${shownChapters.size})",
                             style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.weight(1f),
                             maxLines = 1,
@@ -835,6 +894,28 @@ private fun SeriesScreen(
                             )
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    // Saring chapter (penting untuk series 100+ chapter).
+                    OutlinedTextField(
+                        value = chapterFilter,
+                        onValueChange = { chapterFilter = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Saring judul/nomor…") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        trailingIcon = {
+                            if (chapterFilter.isNotBlank()) {
+                                IconButton(onClick = { chapterFilter = "" }) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Bersihkan saringan"
+                                    )
+                                }
+                            } else {
+                                Icon(Icons.Default.Search, contentDescription = null)
+                            }
+                        }
+                    )
                     Spacer(Modifier.height(4.dp))
                     shownChapters.forEachIndexed { index, ch ->
                         if (index > 0) {
@@ -877,7 +958,8 @@ private fun SeriesHeader(
     info: SeriesInfo,
     extra: com.trialfetch.app.ui.theme.ExtraColors,
     isBookmarked: Boolean,
-    onToggleBookmark: () -> Unit
+    onToggleBookmark: () -> Unit,
+    onOpenWeb: () -> Unit = {}
 ) {
     BrutalCard(
         modifier = Modifier
@@ -904,6 +986,13 @@ private fun SeriesHeader(
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
+                    IconButton(onClick = onOpenWeb) {
+                        Icon(
+                            Icons.Default.Public,
+                            contentDescription = "Buka halaman situs asli",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = onToggleBookmark) {
                         Icon(
                             if (isBookmarked) Icons.Default.Bookmark
@@ -972,6 +1061,86 @@ private fun SeriesHeader(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * WebView halaman situs asli sebuah series (tombol globe di header).
+ * Menutupi layar series; tombol kembali/tutup menutupnya.
+ */
+@Composable
+private fun SeriesWebScreen(
+    title: String,
+    url: String,
+    userAgent: String,
+    onClose: () -> Unit
+) {
+    var loading by remember { mutableStateOf(true) }
+    BackHandler(onBack = onClose)
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ReaderCircleButton(onClick = onClose) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Tutup web",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                title,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(MaterialTheme.colorScheme.onBackground)
+        )
+        Box(Modifier.fillMaxSize()) {
+            if (loading) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+            androidx.compose.ui.viewinterop.AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    android.webkit.WebView(context).apply {
+                        if (userAgent.isNotBlank()) {
+                            settings.userAgentString = userAgent
+                        }
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.setSupportZoom(true)
+                        settings.builtInZoomControls = true
+                        settings.displayZoomControls = false
+                        webViewClient = object : android.webkit.WebViewClient() {
+                            override fun onPageFinished(view: android.webkit.WebView?, u: String?) {
+                                super.onPageFinished(view, u)
+                                loading = false
+                            }
+                        }
+                        loadUrl(url)
+                    }
+                },
+                onRelease { it.destroy() }
+            )
         }
     }
 }

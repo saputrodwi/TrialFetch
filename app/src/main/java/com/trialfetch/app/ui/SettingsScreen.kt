@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -52,7 +54,7 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        SectionCard("Tampilan") {
+        SectionCard("Tampilan", Icons.Default.Palette) {
             BrutalChoiceRow(
                 options = ThemeMode.entries.map { it.label },
                 selectedIndex = ThemeMode.entries.indexOf(settings.themeMode),
@@ -64,7 +66,7 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        SectionCard("Mode baca") {
+        SectionCard("Mode baca", Icons.Default.AutoStories) {
             BrutalChoiceRow(
                 options = ReaderMode.entries.map { it.label },
                 selectedIndex = ReaderMode.entries.indexOf(settings.readerMode),
@@ -82,7 +84,7 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        SectionCard("Unduhan") {
+        SectionCard("Unduhan", Icons.Default.Download) {
             BrutalChoiceRow(
                 options = listOf("Folder", "ZIP"),
                 selectedIndex = if (settings.outputMode == OutputMode.FOLDER) 0 else 1,
@@ -116,7 +118,7 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        SectionCard("Banner Baozimh") {
+        SectionCard("Banner Baozimh", Icons.Default.Crop) {
             RowToggle(
                 title = "Potong banner otomatis",
                 subtitle = "Hapus pita iklan 200px di gambar Baozimh.",
@@ -126,7 +128,7 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        SectionCard("DNS over HTTPS") {
+        SectionCard("DNS over HTTPS", Icons.Default.Dns) {
             RowToggle(
                 title = "Pakai DoH",
                 subtitle = "Aktifkan bila situs tidak bisa dibuka padahal internet lancar.",
@@ -146,7 +148,7 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        SectionCard("Data") {
+        SectionCard("Data", Icons.Default.Folder) {
             BrutalButton(
                 text = "Cadangkan bookmark & riwayat",
                 onClick = onExportBackup,
@@ -183,15 +185,25 @@ fun SettingsScreen(
 @Composable
 private fun SectionCard(
     title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     content: @Composable () -> Unit
 ) {
     val extra = LocalExtraColors.current
     BrutalCard(modifier = Modifier.fillMaxWidth(), background = extra.card) {
-        BrutalTitle(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            BrutalTitle(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
         Spacer(Modifier.height(12.dp))
         content()
     }
