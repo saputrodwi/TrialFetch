@@ -1821,21 +1821,6 @@ private fun ReaderScreen(
                                 modifier = Modifier.weight(1f),
                                 // Thumb bulat kecil biru berbingkai (mockup),
                                 // bukan kapsul bawaan yang terlihat seperti bar.
-                                thumb = {
-                                    Box(
-                                        Modifier
-                                            .size(16.dp)
-                                            .border(
-                                                2.dp,
-                                                MaterialTheme.colorScheme.onBackground,
-                                                androidx.compose.foundation.shape.CircleShape
-                                            )
-                                            .background(
-                                                Color(0xFF2563EB),
-                                                androidx.compose.foundation.shape.CircleShape
-                                            )
-                                    )
-                                },
                                 colors = SliderDefaults.colors(
                                     thumbColor = Color(0xFF2563EB),
                                     activeTrackColor = MaterialTheme.colorScheme.primary,
