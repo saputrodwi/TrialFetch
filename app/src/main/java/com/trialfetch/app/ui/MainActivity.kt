@@ -7,6 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -333,6 +335,19 @@ fun AppRoot(
         StoragePermission.notificationRequired()?.let { notifLauncher.launch(it) }
     }
 
+    // Status akses semua file disegar tiap kembali ke aplikasi (pengguna
+    // memberi izin dari layar Settings sistem, di luar aplikasi).
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                vm.refreshManageStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+
     // Ketukan aksi notifikasi mendarat di sini: lompat ke layar tujuan sekali.
     LaunchedEffect(deepLink) {
         when (deepLink) {
@@ -573,7 +588,25 @@ fun AppRoot(
                         onExportBackup = { exportLauncher.launch("trialfetch-backup.json") },
                         onImportBackup = { importLauncher.launch(arrayOf("application/json")) },
                         diagResult = vm.diagResult.collectAsStateWithLifecycle().value,
-                        onRunDiagnostics = vm::runDiagnostics
+                        onRunDiagnostics = vm::runDiagnostics,
+                        manageGranted = vm.manageAllFiles.collectAsStateWithLifecycle().value,
+                        onRequestManage = {
+                            if (Build.VERSION.SDK_INT >= 30) {
+                                try {
+                                    context.startActivity(
+                                        Intent(
+                                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                            Uri.parse("package:${context.packageName}")
+                                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                } catch (_: Exception) {
+                                    context.startActivity(
+                                        Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }
+                            }
+                        }
                     )
                 }
             }

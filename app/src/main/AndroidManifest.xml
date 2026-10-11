@@ -20,6 +20,15 @@
     <!-- Notifikasi progres unduhan -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      Akses semua file (Android 11+): agar unduhan yang ditulis varian /
+      instalasi lain tetap terbaca — file milik paket lain disembunyikan
+      dari File API maupun MediaStore tanpa izin ini. Aplikasi sideload
+      (bukan Play Store) sehingga kebijakan Play tak berlaku. Izin ini
+      opsional: hanya diminta dari layar Pengaturan bila dibutuhkan.
+    -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
     <application
         android:name=".TrialFetchApp"
         android:allowBackup="false"

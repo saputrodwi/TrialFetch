@@ -129,6 +129,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // --- Status akses semua file (Android 11+) ---
+    private val _manageAllFiles = MutableStateFlow(false)
+    val manageAllFiles: StateFlow<Boolean> = _manageAllFiles.asStateFlow()
+
+    fun refreshManageStatus() {
+        _manageAllFiles.value = if (android.os.Build.VERSION.SDK_INT >= 30) {
+            android.os.Environment.isExternalStorageManager()
+        } else {
+            true
+        }
+    }
+
     // --- Diagnostik penyimpanan (satu ketuk) ---
     private val _diagResult = MutableStateFlow("")
     val diagResult: StateFlow<String> = _diagResult.asStateFlow()

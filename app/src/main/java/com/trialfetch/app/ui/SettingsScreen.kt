@@ -58,7 +58,9 @@ fun SettingsScreen(
     onExportBackup: () -> Unit = {},
     onImportBackup: () -> Unit = {},
     diagResult: String = "",
-    onRunDiagnostics: () -> Unit = {}
+    onRunDiagnostics: () -> Unit = {},
+    manageGranted: Boolean = true,
+    onRequestManage: () -> Unit = {}
 ) {
     val ctx = LocalContext.current
     Column(
@@ -174,6 +176,25 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 background = LocalExtraColors.current.blue
             )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        SectionCard("Akses file", Icons.Default.Folder) {
+            Text(
+                if (manageGranted) "Akses semua file: aktif — unduhan dari instalasi/varian lain ikut terbaca."
+                else "Akses semua file: MATI — unduhan dari instalasi/varian lain tidak terbaca.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (!manageGranted) {
+                Spacer(Modifier.height(8.dp))
+                BrutalButton(
+                    text = "Izinkan di Pengaturan",
+                    onClick = onRequestManage,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
 
         Spacer(Modifier.height(16.dp))
