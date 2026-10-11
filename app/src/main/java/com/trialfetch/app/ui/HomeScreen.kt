@@ -245,6 +245,15 @@ fun HomeScreen(
             )
         }
 
+        Spacer(Modifier.height(10.dp))
+        // Tombol URL yang jelas (bukan tautan kecil di kaki layar):
+        // selalu terlihat di bawah pil sumber.
+        BrutalButton(
+            text = "\uD83D\uDD17 Buka dari URL",
+            onClick = { showUrlDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+            background = LocalExtraColors.current.green
+        )
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.weight(1f))
@@ -327,18 +336,6 @@ fun HomeScreen(
                         }
                     }
                 }
-            }
-        }
-        // Tautan URL di kaki Beranda (tidak ganggu mockup, tetap ada).
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = { showUrlDialog = true }) {
-                Text("Buka dari URL", style = MaterialTheme.typography.labelLarge)
             }
         }
     }

@@ -409,14 +409,6 @@ fun AppRoot(
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                             }
                         }
-                    },
-                    // Aksi cari di Beranda sesuai mockup (ikon 🔍 kanan atas).
-                    actions = {
-                        if (onHome) {
-                            IconButton(onClick = vm::doSearch) {
-                                Icon(Icons.Default.Search, contentDescription = "Cari")
-                            }
-                        }
                     }
                 )
                 Box(
@@ -732,11 +724,54 @@ private fun SeriesRoute(
             }
         }
         seriesState.error != null && info == null -> {
-            Box(Modifier.fillMaxSize(), Alignment.Center) {
-                Text(
-                    seriesState.error ?: "Gagal memuat series",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                com.trialfetch.app.ui.theme.BrutalCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    background = MaterialTheme.colorScheme.surface
+                ) {
+                    val src = Source.from(sourceId)
+                    Text(
+                        seriesState.error ?: "Gagal memuat series",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    com.trialfetch.app.ui.theme.BrutalButton(
+                        text = "Muat ulang",
+                        onClick = {
+                            if (src != null && comicId.isNotBlank()) {
+                                vm.openSeriesById(src, comicId)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // Kalau diblokir proteksi (Cloudflare), buka halaman
+                    // situs aslinya di WebView supaya bisa dilewati manual.
+                    if (src != null && comicId.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        com.trialfetch.app.ui.theme.BrutalButton(
+                            text = "Buka di WebView",
+                            onClick = {
+                                webUrl = vm.repo.seriesPageUrl(src, comicId)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            background = LocalExtraColors.current.blue
+                        )
+                    }
+                }
+            }
+            // Overlay WebView halaman situs asli (juga dipakai header).
+            webUrl?.let { url ->
+                SeriesWebScreen(
+                    title = "Situs asli",
+                    url = url,
+                    userAgent = vm.userAgent,
+                    onClose = { webUrl = null }
                 )
             }
         }
