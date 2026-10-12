@@ -55,6 +55,16 @@ internal fun cleanText(raw: String): String = raw
     .replace(Regex("\\s+"), " ")
     .trim()
 
+/**
+ * Ambil string JSON secara aman: JsonNull juga JsonPrimitive sehingga
+ * akses `.content` langsung bisa melempar IllegalStateException.
+ */
+internal fun kotlinx.serialization.json.JsonObject.stringOrNull(key: String): String? {
+    val el = this[key] ?: return null
+    if (el is kotlinx.serialization.json.JsonNull) return null
+    return (el as? kotlinx.serialization.json.JsonPrimitive)?.content
+}
+
 internal fun Regex.firstGroupOrNull(html: String, group: Int = 1): String? =
     this.find(html)?.groupValues?.getOrNull(group)?.takeIf { it.isNotBlank() }
 

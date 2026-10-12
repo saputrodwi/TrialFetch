@@ -213,11 +213,12 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
             .orEmpty()
             .mapNotNull { el ->
                 when (el) {
+                    is kotlinx.serialization.json.JsonNull -> null
                     is kotlinx.serialization.json.JsonPrimitive -> el.content
                     is kotlinx.serialization.json.JsonObject ->
-                        el["url"]?.jsonPrimitive?.content
-                            ?: el["src"]?.jsonPrimitive?.content
-                            ?: el["image_url"]?.jsonPrimitive?.content
+                        el.stringOrNull("url")
+                            ?: el.stringOrNull("src")
+                            ?: el.stringOrNull("image_url")
                     else -> null
                 }
             }
@@ -228,8 +229,8 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
 
         return ChapterPage(
             source = source,
-            comicTitle = cleanText(json["comic_name"]?.jsonPrimitive?.content.orEmpty()),
-            chapterTitle = cleanText(json["chapter_title"]?.jsonPrimitive?.content.orEmpty()),
+            comicTitle = cleanText(json.stringOrNull("comic_name").orEmpty()),
+            chapterTitle = cleanText(json.stringOrNull("chapter_title").orEmpty()),
             images = images.mapIndexed { i, u -> ImageRef(u, i + 1) }
         )
     }

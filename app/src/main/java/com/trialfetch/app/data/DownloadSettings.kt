@@ -47,7 +47,8 @@ data class NamingRule(
          * [fileName] memakainya lagi sebagai jaring pengaman terakhir.
          */
         fun sanitizePattern(raw: String): String {
-            val cleaned = ILLEGAL.replace(raw, "_").trim()
+            var cleaned = ILLEGAL.replace(raw, "_").replace("..", "_").trim()
+            if (cleaned.isBlank()) cleaned = "{n}"
             return if (cleaned.contains("{n}") || cleaned.contains("{i}")) cleaned else "{n}"
         }
 

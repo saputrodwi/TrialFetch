@@ -86,9 +86,12 @@ object ParamsDecryptor {
         val images = json["images"]?.jsonArray.orEmpty()
             .mapNotNull { element ->
                 when (element) {
+                    // JsonNull ADALAH JsonPrimitive: .content-nya melempar
+                    // IllegalStateException bila tidak disaring dulu.
+                    is JsonNull -> null
                     is JsonPrimitive -> element.content
-                    is JsonObject -> element["url"]?.jsonPrimitive?.content
-                        ?: element["src"]?.jsonPrimitive?.content
+                    is JsonObject -> element.stringOrNull("url")
+                        ?: element.stringOrNull("src")
                     else -> null
                 }
             }

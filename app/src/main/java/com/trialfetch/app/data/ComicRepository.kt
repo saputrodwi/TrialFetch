@@ -609,6 +609,12 @@ class ComicRepository(
             // Arsip setengah jadi tidak ditinggalkan di Download.
             zipSink?.abort()
             throw e
+        } catch (e: Throwable) {
+            // Error non-Exception (mis. OOM di tengah chapter besar):
+            // arsip tetap di-abort, lalu dilaporkan sebagai gagal unduh
+            // biasa supaya tidak crash tanpa jejak.
+            zipSink?.abort()
+            return@withContext fail(e.message ?: "Gagal mengunduh chapter")
         }
 
         val done = succeeded
@@ -748,7 +754,8 @@ class ComicRepository(
 
         /** Nama folder aman untuk judul yang mengandung karakter ilegal. */
         fun sanitize(name: String): String =
-            name.replace(Regex("""[\\/:*?"<>|\r\n]"""), "_").trim().take(80)
+            name.replace(Regex("""[\\/:*?"<>|\r\n]"""), "_")
+                .replace("..", "_").trim().take(80)
 
         /**
          * Lokasi unduhan satu series: `<Sumber>/<Judul series>`, di dalam

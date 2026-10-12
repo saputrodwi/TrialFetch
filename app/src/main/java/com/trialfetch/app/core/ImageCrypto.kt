@@ -127,6 +127,7 @@ enum class ImageFormat(val mime: String, val extension: String) {
         }
 
         private fun ascii(bytes: ByteArray, from: Int, to: Int): String {
+            if (from >= bytes.size || from >= to) return ""
             return bytes.copyOfRange(from, to.coerceAtMost(bytes.size))
                 .toString(Charsets.US_ASCII)
         }

@@ -32,8 +32,9 @@ object CloudflareCookieStore {
      */
     fun syncFromWebView(url: String) {
         try {
-            val raw = CookieManager.getInstance().getCookie(url) ?: return
-            val host = java.net.URI(url).host ?: return
+            val raw = CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() } ?: return
+            val host = runCatching { java.net.URI(url).host }.getOrNull()
+                ?.takeIf { it.isNotBlank() } ?: return
             headers[host] = raw
         } catch (_: Exception) {
             // CookieManager tidak tersedia (mis. di test) — abaikan.
