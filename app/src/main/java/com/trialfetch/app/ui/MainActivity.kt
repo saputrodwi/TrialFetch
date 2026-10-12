@@ -1965,44 +1965,11 @@ private fun ReaderScreen(
                                 }
                             }
                         }
-                // Indikator halaman ala Mihon: teks stroke (putih + outline
-                // gelap) selalu terbaca di atas gambar, bahkan saat bilah
-                // disembunyikan.
-                ReaderPageIndicator(
-                    text = "${currentPage + 1} / ${list.size}",
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 12.dp)
-                )
                     }
                 }
             }
         }
     }
-
-/**
- * Teks indikator halaman dengan outline, meniru ReaderPageIndicator
- * Mihon: terbaca di atas gambar apa pun tanpa latar.
- */
-@Composable
-private fun ReaderPageIndicator(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    val style = MaterialTheme.typography.labelLarge.copy(
-        color = Color.White,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.sp
-    )
-    val stroke = style.copy(
-        color = Color.Black.copy(alpha = 0.85f),
-        drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f)
-    )
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Text(text = text, style = stroke, maxLines = 1)
-        Text(text = text, style = style, maxLines = 1)
-    }
-}
 
 /**
  * Tombol ikon lingkaran bergaris tinta + bayangan keras untuk reader.
