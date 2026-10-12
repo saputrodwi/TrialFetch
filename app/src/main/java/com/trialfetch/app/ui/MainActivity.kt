@@ -1837,7 +1837,7 @@ private fun ReaderScreen(
                         Modifier
                             .fillMaxWidth()
                             .background(barBg)
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(
