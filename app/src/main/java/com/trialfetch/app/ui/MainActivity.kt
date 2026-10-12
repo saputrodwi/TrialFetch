@@ -1852,7 +1852,33 @@ private fun ReaderScreen(
                                         )
                                     )
                                 }
-                                Slider(
+                                // Kontainer navigator ala Mihon: angka kini
+                                // kiri, total kanan, slider di tengah.
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(24.dp))
+                                        .background(barBg)
+                                        .padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Lebar stabil: angka total transparan
+                                    // di belakang agar slider tak bergeser.
+                                    Box(contentAlignment = Alignment.CenterEnd) {
+                                        Text(
+                                            text = "${list.size}",
+                                            color = Color.Transparent,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = "${currentPage + 1}",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    Slider(
                                     value = currentPage.toFloat()
                                         .coerceIn(0f, (list.size - 1).coerceAtLeast(0).toFloat()),
                                     onValueChange = { v ->
@@ -1876,6 +1902,13 @@ private fun ReaderScreen(
                                     inactiveTrackColor = MaterialTheme.colorScheme.outline
                                 )
                                 )
+                                    Text(
+                                        text = "${list.size}",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1
+                                    )
+                                }
                                 IconButton(
                                     onClick = { nextChapter?.let(onNavigate) },
                                     enabled = nextChapter != null
