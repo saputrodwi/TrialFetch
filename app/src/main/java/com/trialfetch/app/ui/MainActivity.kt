@@ -80,8 +80,10 @@ import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -269,6 +271,8 @@ fun AppRoot(
     val readerPages by vm.readerPages.collectAsStateWithLifecycle()
     val readerError by vm.readerError.collectAsStateWithLifecycle()
     val readerInitialPage by vm.readerInitialPage.collectAsStateWithLifecycle()
+    // WebView chapter dari menu ⋮ reader (di atas reader).
+    var readerWebUrl by remember { mutableStateOf<String?>(null) }
     val cloudflare by vm.cloudflare.collectAsStateWithLifecycle()
     val extra = LocalExtraColors.current
 
@@ -636,12 +640,24 @@ fun AppRoot(
                     vm.closeReader()
                     nav.navigate(Routes.series(req.series.source.id, req.series.comicId))
                 },
+                onOpenChapterWeb = { readerWebUrl = req.chapter.url },
                 onDownload = {
                     if (storageGranted) vm.download(req.series, req.chapter)
                 },
                 onRetry = { vm.openReader(req.series, req.chapter) }
             )
         }
+    }
+
+    // WebView chapter (menu ⋮ reader) menutupi reader.
+    readerWebUrl?.let { url ->
+        val req = readerReq
+        SeriesWebScreen(
+            title = req?.chapter?.title ?: "WebView",
+            url = url,
+            userAgent = vm.userAgent,
+            onClose = { readerWebUrl = null }
+        )
     }
 
     // Layar verifikasi Cloudflare menutupi seluruh layar di atas route apa pun.
@@ -687,12 +703,13 @@ private fun RowScope.BottomTab(
                 style = MaterialTheme.typography.labelSmall
             )
         },
-        // Indikator kuning brutal + ikon tinta saat terpilih (bukan
-        // pil ungu + ikon pink bawaan Material yang terlihat aneh).
+        // Indikator kuning + konten tinta gelap saat terpilih (abu
+        // terang di atas kuning yang nyaris tak terbaca itu dibuang).
+        // Tak terpilih: ikon redup tapi tetap jelas.
         colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
             indicatorColor = LocalExtraColors.current.yellow,
-            selectedIconColor = MaterialTheme.colorScheme.onBackground,
-            selectedTextColor = MaterialTheme.colorScheme.onBackground,
+            selectedIconColor = LocalExtraColors.current.onAccent,
+            selectedTextColor = LocalExtraColors.current.onAccent,
             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1207,6 +1224,37 @@ private fun SeriesWebScreen(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            Spacer(Modifier.width(4.dp))
+            // Bagikan / salin tautan halaman yang sedang dibuka
+            // (berlaku untuk series maupun chapter).
+            val ctx = LocalContext.current
+            IconButton(onClick = {
+                val link = webViewRef?.url ?: url
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, link)
+                }
+                ctx.startActivity(Intent.createChooser(send, "Bagikan tautan"))
+            }) {
+                Icon(
+                    Icons.Default.Share,
+                    contentDescription = "Bagikan tautan",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            IconButton(onClick = {
+                val link = webViewRef?.url ?: url
+                val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                    as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("tautan", link))
+                Toast.makeText(ctx, "Tautan disalin", Toast.LENGTH_SHORT).show()
+            }) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = "Salin tautan",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
         Box(
             Modifier
@@ -1500,6 +1548,7 @@ private fun ReaderScreen(
     onNavigate: (Chapter) -> Unit,
     onClose: () -> Unit,
     onOpenSeries: () -> Unit,
+    onOpenChapterWeb: () -> Unit = {},
     onDownload: () -> Unit,
     onRetry: () -> Unit
 ) {
@@ -1730,20 +1779,7 @@ private fun ReaderScreen(
                             }
                             DropdownMenu(
                                 expanded = menuOpen,
-                                onDismissRequest = { menuOpen = false },
-                                shape = RoundedCornerShape(12.dp),
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                modifier = Modifier
-                                    .border(
-                                        2.dp,
-                                        MaterialTheme.colorScheme.onBackground,
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .hardShadow(
-                                        LocalExtraColors.current.shadow,
-                                        3.dp,
-                                        RoundedCornerShape(12.dp)
-                                    )
+                                onDismissRequest = { menuOpen = false }
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("Unduh chapter") },
@@ -1769,6 +1805,19 @@ private fun ReaderScreen(
                                     onClick = {
                                         menuOpen = false
                                         onOpenSeries()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Buka di WebView") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Public,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    onClick = {
+                                        menuOpen = false
+                                        onOpenChapterWeb()
                                     }
                                 )
                             }

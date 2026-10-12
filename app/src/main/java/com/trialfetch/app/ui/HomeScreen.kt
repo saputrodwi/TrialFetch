@@ -246,13 +246,12 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(10.dp))
-        // Tombol URL yang jelas (bukan tautan kecil di kaki layar):
-        // selalu terlihat di bawah pil sumber.
+        // Tombol URL kuning primer (bukan hijau yang tabrakan
+        // dengan status sukses): selalu terlihat di bawah pil sumber.
         BrutalButton(
-            text = "\uD83D\uDD17 Buka dari URL",
+            text = "Buka dari URL",
             onClick = { showUrlDialog = true },
-            modifier = Modifier.fillMaxWidth(),
-            background = LocalExtraColors.current.green
+            modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
