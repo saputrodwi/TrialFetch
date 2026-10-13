@@ -182,10 +182,6 @@ class BannerCropper(private val context: Context) {
         // Varian A: template matching, persis seperti web.
         val top = checkRegion(src, 0)
         val bottom = checkRegion(src, h - BANNER_HEIGHT)
-        Log.i(
-            TAG,
-            "skor template atas=${"%.3f".format(top.score)} bawah=${"%.3f".format(bottom.score)}"
-        )
         val side = when {
             top.isBanner && bottom.isBanner ->
                 if (top.score >= bottom.score) Side.TOP else Side.BOTTOM
@@ -193,6 +189,10 @@ class BannerCropper(private val context: Context) {
             bottom.isBanner -> Side.BOTTOM
             else -> null
         }
+        Log.i(
+            TAG,
+            "skor template atas=${"%.3f".format(top.score)} bawah=${"%.3f".format(bottom.score)} putusan=$side"
+        )
         src.release()
         return side
     }
@@ -375,7 +375,11 @@ class BannerCropper(private val context: Context) {
             val diffScore = meanAbsDiff(rRaw, t.raw, null)
             val edgeScore =
                 if (regionEdgePixels > 60 && t.edgePixels > 60) matchSameSize(rEdge, t.edge) else 0.0
-            val darkScore = darkSimilarity(rDark, t.dark, regionDarkPixels, t.darkPixels)
+            // Web hanya menghitung darkScore bila kedua sisi > 20 piksel;
+            // tanpa guard ini skor tinta bocor ke halaman nyaris-putih
+            // (false positive). Samakan dengan bannerScoreRegion().
+            val darkScore =
+                if (regionDarkPixels > 20 && t.darkPixels > 20) darkSimilarity(rDark, t.dark, regionDarkPixels, t.darkPixels) else 0.0
 
             val combined = clamp01(
                 maskScore * W_MASK + grayScore * W_GRAY + edgeScore * W_EDGE +
@@ -429,6 +433,15 @@ class BannerCropper(private val context: Context) {
             Imgproc.dilate(mask, mask, k5)
             k5.release()
 
+            // Web melewatkan template yang mask-nya < 250 piksel
+            // (loadBannerTemplates); tanpa ini template hampa ikut
+            // menilai dan menambah false positive.
+            if (Core.countNonZero(mask) < 250) {
+                gray.release(); eq.release(); blurred.release()
+                edge.release(); dark.release(); mask.release()
+                m.release()
+                continue
+            }
             list += Template(
                 raw = gray, gray = eq, edge = edge, dark = dark, mask = mask,
                 width = gray.cols(),

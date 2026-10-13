@@ -817,6 +817,15 @@ private fun SeriesRoute(
             SeriesScreen(
                 info = infoNow,
                 progress = downloadState,
+                // Semua chapter yang QUEUED/ACTIVE di series ini ikut
+                // menampilkan spinner — bukan cuma yang sedang berjalan.
+                busyIds = queueItems
+                    .filter {
+                        (it.state == QueueItemState.QUEUED || it.state == QueueItemState.ACTIVE) &&
+                            it.series.source == infoNow.source && it.series.comicId == infoNow.comicId
+                    }
+                    .map { it.chapter.chapterId }
+                    .toSet(),
                 isBookmarked = bookmarks.any { b -> b.source == infoNow.source && b.comicId == infoNow.comicId },
                 onToggleBookmark = { vm.toggleBookmark(infoNow) },
                 onDownload = { chapter ->
@@ -851,6 +860,7 @@ private fun SeriesRoute(
 private fun SeriesScreen(
     info: SeriesInfo,
     progress: DownloadProgress,
+    busyIds: Set<String> = emptySet(),
     isBookmarked: Boolean,
     onToggleBookmark: () -> Unit,
     onDownload: (Chapter) -> Unit,
@@ -1041,6 +1051,7 @@ private fun SeriesScreen(
                 ChapterRow(
                     chapter = ch,
                     progress = progress,
+                    busyIds = busyIds,
                     downloaded = ComicRepository.sanitize(ch.title).lowercase() in downloadedKey,
                     readText = entry?.let {
                         val f = it.fraction
@@ -1320,12 +1331,17 @@ private fun ChapterRow(
     onRead: (Chapter) -> Unit,
     selecting: Boolean = false,
     selected: Boolean = false,
+    busyIds: Set<String> = emptySet(),
     onToggleSelect: ((Chapter) -> Unit)? = null
 ) {
-    // Spinner hanya untuk chapter yang sedang berjalan (state diset
-    // seketika saat unduhan mulai, jadi tidak ada delay animasi).
-    val busy = progress.state == DownloadProgress.State.RUNNING &&
-        progress.chapterId != null && progress.chapterId == chapter.chapterId
+    // Spinner untuk SEMUA chapter yang sudah dipencet unduh: yang sedang
+    // berjalan (legacy progress) maupun yang masih mengantre. Semua
+    // unduhan — satuan maupun banyak — lewat satu DownloadQueueManager,
+    // jadi progress satuan hanya menandai item AKTIF; tanpa busyIds,
+    // chapter yang mengantre tidak menunjukkan apa-apa.
+    val busy = (progress.state == DownloadProgress.State.RUNNING &&
+        progress.chapterId != null && progress.chapterId == chapter.chapterId) ||
+        chapter.chapterId in busyIds
     Row(
         Modifier
             .fillMaxWidth()
@@ -1381,15 +1397,22 @@ private fun ChapterRow(
             }
         }
         Spacer(Modifier.width(8.dp))
-        if (busy) {
-            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-        } else if (!selecting) {
-            IconButton(onClick = { onDownload(chapter) }) {
-                Icon(
-                    Icons.Default.Download,
-                    contentDescription = "Unduh ${chapter.title}",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
+        // Slot aksi berukuran TETAP 48dp (sama dengan IconButton) supaya
+        // tinggi baris tidak menyusut saat ikon unduh berganti spinner 20dp.
+        Box(
+            modifier = Modifier.size(48.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (busy) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else if (!selecting) {
+                IconButton(onClick = { onDownload(chapter) }) {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = "Unduh ${chapter.title}",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }
