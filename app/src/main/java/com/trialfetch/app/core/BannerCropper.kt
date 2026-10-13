@@ -74,16 +74,6 @@ class BannerCropper(private val context: Context) {
         const val CANNY_HIGH = 135
         const val JPEG_QUALITY = 94
 
-        /**
-         * Aturan varian B (watermark samar).
-         *
-         * Pada 106 pita atas/bawah chapter 19, pita kosong persis 0.0000
-         * konten samar, sedangkan pita varian B di 0.0147-0.0183. Ambang
-         * 0.008-0.05 duduk di celah lebar: 0.0022 di bawah, 0.0147 di atas.
-         */
-        const val FAINT_BANNER_MIN = 0.008
-        const val FAINT_BANNER_MAX = 0.05
-        const val BANNER_WHITE_MIN = 0.95
 
         val TEMPLATE_RES = intArrayOf(
             R.raw.banner_690, R.raw.banner_800, R.raw.banner_1280, R.raw.banner_2000
@@ -162,39 +152,40 @@ class BannerCropper(private val context: Context) {
         val w = bmp.width
         val h = bmp.height
         if (w <= 0 || h <= 0) return null
-        if (h <= 250) {
-            // Halaman pendek: bisa banner utuh satu halaman, tapi tidak
-            // pernah dipotong supaya tidak ikut terpotong separuh.
+        if (h in 150..250) {
+            // Halaman pendek: port bannerDetectFull() dari web (simetri +
+            // zona). Hasilnya SELALU dipertahankan utuh seperti web
+            // (skipped:true); deteksi hanya untuk statistik/log.
+            val rgba = bmpToMat(bmp)
+            val gray = Mat()
+            var full = false
+            var fullScore = 0.0
+            try {
+                Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGBA2GRAY)
+                val r = detectFullPage(gray, w, h)
+                full = r.first
+                fullScore = r.second
+            } catch (_: Exception) {
+            } finally {
+                gray.release()
+                rgba.release()
+            }
+            if (full) {
+                Log.i(TAG, "halaman ${w}x${h}: banner sehalaman (skor ${"%.2f".format(fullScore)}), dipertahankan")
+            }
             return null
         }
         if (h <= BANNER_HEIGHT) return null
 
         val src = bmpToMat(bmp)
 
-        // Varian B lebih dulu: murah, dan mustahil dikenali template.
-        val topStats = stripStats(src, 0)
-        val bottomStats = stripStats(src, h - BANNER_HEIGHT)
-        val topFaint = topStats.isFaintBanner()
-        val bottomFaint = bottomStats.isFaintBanner()
-        Log.i(
-            TAG,
-            "pita atas putih=${"%.3f".format(topStats.white)} samar=${"%.4f".format(topStats.faint)} " +
-                "bawah putih=${"%.3f".format(bottomStats.white)} samar=${"%.4f".format(bottomStats.faint)}"
-        )
-        if (topFaint && bottomFaint) {
-            src.release()
-            return if (topStats.white >= bottomStats.white) Side.TOP else Side.BOTTOM
-        } else if (topFaint) {
-            src.release()
-            return Side.TOP
-        } else if (bottomFaint) {
-            src.release()
-            return Side.BOTTOM
-        }
-
         // Varian A: template matching, persis seperti web.
         val top = checkRegion(src, 0)
         val bottom = checkRegion(src, h - BANNER_HEIGHT)
+        Log.i(
+            TAG,
+            "skor template atas=${"%.3f".format(top.score)} bawah=${"%.3f".format(bottom.score)}"
+        )
         val side = when {
             top.isBanner && bottom.isBanner ->
                 if (top.score >= bottom.score) Side.TOP else Side.BOTTOM
@@ -212,59 +203,82 @@ class BannerCropper(private val context: Context) {
         return m
     }
 
-    // ------------------------------------------------------- varian B (samar)
-
-    private data class StripStats(val white: Double, val faint: Double) {
-        fun isFaintBanner(): Boolean =
-            white >= BANNER_WHITE_MIN && faint in FAINT_BANNER_MIN..FAINT_BANNER_MAX
-    }
-
-    /**
-     * Rasio piksel hampir putih (abu > 245) dan rasio konten samar
-     * (abu 200..250) pada pita 200px mulai baris [sy].
-     */
-    private fun stripStats(src: Mat, sy: Int): StripStats {
-        val h = min(BANNER_HEIGHT, src.rows() - sy)
-        if (h <= 0) return StripStats(0.0, 0.0)
-        val band = src.submat(sy, sy + h, 0, src.cols())
+    // --------------------------------- deteksi banner sehalaman (port web)
+    //
+    // Port bannerDetectFull() dari index.html: untuk halaman pendek,
+    // web TIDAK memotong (skipped:true) tapi mencatatnya. Kriteria:
+    // putih 80-99%, simetri kiri-kanan >= 0.30, tiga zona terisi sesuai
+    // ambang, tepi kiri-kanan kosong (<5%) dan tengah berisi (>3%).
+    // Mengembalikan (isBanner, score).
+    private fun detectFullPage(gray: Mat, w: Int, h: Int): Pair<Boolean, Double> {
+        if (h > 250 || h < 150 || w < 300) return Pair(false, 0.0)
+        val bg = Mat()
         try {
-            // WAJIB: Utils.bitmapToMat menghasilkan Mat 4 channel (RGBA),
-            // sedangkan Imgproc.threshold hanya jalan di citra 1 channel.
-            // Kalau dilewatkan apa adanya, cv::threshold melempar exception
-            // yang ditangkap crop() sehingga gambar diam-diam tidak pernah
-            // dipotong.
-            val gray = Mat()
-            Imgproc.cvtColor(band, gray, Imgproc.COLOR_RGBA2GRAY)
-            try {
-                val total = gray.rows() * gray.cols()
-                if (total <= 0) return StripStats(0.0, 0.0)
-
-                val whiteMask = Mat()
-                Imgproc.threshold(gray, whiteMask, 245.0, 255.0, Imgproc.THRESH_BINARY)
-                val white = Core.countNonZero(whiteMask) / total.toDouble()
-                whiteMask.release()
-
-                // Konten samar: abu 200..250. Dihitung dengan mask atas
-                // (>=200) dikurangi mask bawah (>=250).
-                val hiMask = Mat()
-                Imgproc.threshold(gray, hiMask, 200.0, 255.0, Imgproc.THRESH_BINARY)
-                val hiCount = Core.countNonZero(hiMask)
-                hiMask.release()
-                val loMask = Mat()
-                Imgproc.threshold(gray, loMask, 250.0, 255.0, Imgproc.THRESH_BINARY)
-                val loCount = Core.countNonZero(loMask)
-                loMask.release()
-                val faint = (hiCount - loCount).coerceAtLeast(0) / total.toDouble()
-
-                return StripStats(white, faint)
-            } finally {
-                gray.release()
-            }
-        } finally {
-            band.release()
+            Imgproc.threshold(gray, bg, 245.0, 255.0, Imgproc.THRESH_BINARY)
+        } catch (_: Exception) {
+            bg.release()
+            return Pair(false, 0.0)
         }
+        val whiteRatio = Core.countNonZero(bg) / (w * h).toDouble()
+        bg.release()
+        if (whiteRatio < 0.80 || whiteRatio > 0.99) return Pair(false, 0.0)
+        val halfW = w / 2
+        val left = gray.submat(0, h, 0, halfW)
+        val right = gray.submat(0, h, w - halfW, w)
+        val flipped = Mat()
+        val diff = Mat()
+        var sym = 0.0
+        try {
+            Core.flip(right, flipped, 1)
+            Core.absdiff(left, flipped, diff)
+            val mean: Double = Core.mean(diff).`val`[0]
+            sym = clamp01(1.0 - (if (mean.isNaN()) 255.0 else mean) / 255.0)
+        } finally {
+            left.release(); right.release(); flipped.release(); diff.release()
+        }
+        if (sym < 0.30) return Pair(false, 0.0)
+        val thirdH = h / 3
+        var validZones = 0
+        val zoneDefs = arrayOf(Triple(0, 240.0, 0.01 to 0.15), Triple(thirdH, 140.0, 0.02 to 0.20), Triple(2 * thirdH, 140.0, 0.01 to 0.15))
+        for ((zy, thr, range) in zoneDefs) {
+            val zone = gray.submat(zy, zy + thirdH, 0, w)
+            val mask = Mat()
+            try {
+                Imgproc.threshold(zone, mask, thr, 255.0, Imgproc.THRESH_BINARY_INV)
+                val ratio = Core.countNonZero(mask) / (w * thirdH).toDouble()
+                if (ratio >= range.first && ratio <= range.second) validZones++
+            } finally {
+                mask.release(); zone.release()
+            }
+        }
+        if (validZones < 3) return Pair(false, 0.0)
+        val centerW = w / 2
+        val edgeW = w / 4
+        val centerX = (w - centerW) / 2
+        val centerZone = gray.submat(0, h, centerX, centerX + centerW)
+        val leftEdge = gray.submat(0, h, 0, edgeW)
+        val rightEdge = gray.submat(0, h, w - edgeW, w)
+        val cMask = Mat(); val lMask = Mat(); val rMask = Mat()
+        var centerContent = 0.0
+        var leftContent = 1.0
+        var rightContent = 1.0
+        try {
+            Imgproc.threshold(centerZone, cMask, 240.0, 255.0, Imgproc.THRESH_BINARY_INV)
+            Imgproc.threshold(leftEdge, lMask, 240.0, 255.0, Imgproc.THRESH_BINARY_INV)
+            Imgproc.threshold(rightEdge, rMask, 240.0, 255.0, Imgproc.THRESH_BINARY_INV)
+            centerContent = Core.countNonZero(cMask) / (centerW * h).toDouble()
+            leftContent = Core.countNonZero(lMask) / (edgeW * h).toDouble()
+            rightContent = Core.countNonZero(rMask) / (edgeW * h).toDouble()
+        } finally {
+            cMask.release(); lMask.release(); rMask.release()
+            centerZone.release(); leftEdge.release(); rightEdge.release()
+        }
+        if (!(leftContent < 0.05 && rightContent < 0.05) || !(centerContent > 0.03)) {
+            return Pair(false, 0.0)
+        }
+        val score = clamp01(whiteRatio * 0.25 + sym * 0.20 + 0.50 + 0.05)
+        return Pair(score >= 0.75, score)
     }
-
     // ------------------------------------------------- varian A (template match)
 
     private class RegionScore(val isBanner: Boolean, val score: Double)
