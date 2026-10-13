@@ -128,6 +128,11 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
         }.toList()
     }
 
+    override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? {
+        // URL chapter /chapter/{contentId}-{id}.html — contentId adalah comicId.
+        return Regex("""/chapter/(\d+)-\d+""").find(chapterUrl)?.groupValues?.get(1)
+    }
+
     override suspend fun chapter(url: String): ChapterPage {
         val absolute = if (url.startsWith("http")) url else "$base$url"
         val html = try {
