@@ -8,8 +8,10 @@ import org.json.JSONObject
 /**
  * Satu posisi baca terakhir pada sebuah chapter.
  *
- * Satu entri per (source, comicId, chapterId); dibuka lagi = update posisi,
- * bukan tambah baris. Maks 100 entri terbaru, yang lama dibuang.
+ * Satu entri per SERIES (source + comicId): buka chapter lain dalam
+ * series yang sama = update posisi, bukan tambah baris. Kalau tidak,
+ * satu projek menumpuk puluhan baris chapter di tab Riwayat.
+ * Maks 100 entri terbaru, yang lama dibuang.
  */
 data class HistoryEntry(
     val source: Source,
@@ -22,7 +24,8 @@ data class HistoryEntry(
     val totalPages: Int = 0,
     val updatedAt: Long = System.currentTimeMillis()
 ) {
-    fun key(): String = "${source.id}::$comicId::$chapterId"
+    /** Kunci series — chapter terbaru menimpa chapter lama series sama. */
+    fun key(): String = "${source.id}::$comicId"
 
     /** 0..1, atau null bila total tidak diketahui. */
     val fraction: Float?
@@ -71,6 +74,9 @@ class ReadHistoryStore(context: Context) {
             List(arr.length()) { i -> HistoryEntry.fromJson(arr.getJSONObject(i)) }
                 .filterNotNull()
                 .sortedByDescending { it.updatedAt }
+                // Migrasi: entri lama berkunci per chapter, gabungkan per
+                // series — hanya posisi terbaru tiap series yang dipakai.
+                .distinctBy { it.key() }
         }.getOrDefault(emptyList())
     }
 

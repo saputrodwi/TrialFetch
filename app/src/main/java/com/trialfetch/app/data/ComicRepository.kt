@@ -8,7 +8,9 @@ import com.trialfetch.app.core.RumanhuaSource
 import com.trialfetch.app.core.BannerCropper
 import com.trialfetch.app.core.Chapter
 import com.trialfetch.app.core.ChapterPage
+import com.trialfetch.app.core.CloudflareChallengeException
 import com.trialfetch.app.core.ComicSource
+import com.trialfetch.app.core.findCloudflareChallenge
 import com.trialfetch.app.core.HttpClient
 import com.trialfetch.app.core.ReaderPage
 import com.trialfetch.app.core.ImageCrypto
@@ -364,9 +366,26 @@ class ComicRepository(
         out.toString().trim()
     }
 
-    suspend fun search(source: Source, query: String): List<SearchResult> =
-        sources[source]?.search(query)
-            ?: throw SourceException("Sumber ${source.displayName} belum didukung")
+    /**
+     * Lempar ulang challenge yang terbungkus SourceException supaya
+     * ViewModel mengenalinya dan membuka layar verifikasi. Dipakai di
+     * semua delegasi ke sumber (search/series/chapter/openUrl).
+     */
+    private fun unwrapCloudflare(e: Exception): Exception =
+        e.findCloudflareChallenge() ?: e
+
+    suspend fun search(source: Source, query: String): List<SearchResult> {
+        try {
+            return sources[source]?.search(query)
+                ?: throw SourceException("Sumber ${source.displayName} belum didukung")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: CloudflareChallengeException) {
+            throw e
+        } catch (e: Exception) {
+            throw unwrapCloudflare(e)
+        }
+    }
 
     /**
      * Cari di semua sumber secara paralel. Sumber yang gagal tidak
@@ -376,6 +395,10 @@ class ComicRepository(
         // Maks 4 per grup, dan tiap request diberi delay acak kecil:
         // menembak 9 URL serentak bisa memicu rate-limit sumber.
         val flat = mutableListOf<List<SearchResult>>()
+        // Sumber yang kena challenge dicatat: kalau SEMUA gagal karena
+        // Cloudflare, lempar challenge-nya supaya layar verifikasi muncul
+        // (sebelumnya error-nya tenggelam jadi list kosong).
+        val blocked = java.util.concurrent.atomic.AtomicReference<CloudflareChallengeException>()
         for (group in sources.values.chunked(4)) {
             val batch = group.map { src ->
                 async(Dispatchers.IO) {
@@ -385,6 +408,7 @@ class ComicRepository(
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        e.findCloudflareChallenge()?.let { blocked.compareAndSet(null, it) }
                         Log.w("ComicRepository", "pencarian ${src.source.displayName} gagal: ${e.message}")
                         emptyList()
                     }
@@ -394,13 +418,23 @@ class ComicRepository(
         }
         val results = flat.flatten().distinctBy { "${it.source.id}::${it.comicId}" }
         if (results.isEmpty()) {
+            blocked.get()?.let { throw it }
             throw SourceException("Pencarian lintas sumber tidak menghasilkan apa pun")
         }
         results
     }
-    suspend fun series(source: Source, comicId: String): SeriesInfo =
-        sources[source]?.series(comicId)
-            ?: throw SourceException("Sumber ${source.displayName} belum didukung")
+    suspend fun series(source: Source, comicId: String): SeriesInfo {
+        try {
+            return sources[source]?.series(comicId)
+                ?: throw SourceException("Sumber ${source.displayName} belum didukung")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: CloudflareChallengeException) {
+            throw e
+        } catch (e: Exception) {
+            throw unwrapCloudflare(e)
+        }
+    }
 
     /**
      * URL halaman series di situs aslinya (untuk tombol Web).
@@ -418,9 +452,18 @@ class ComicRepository(
         Source.MANHUAHAO -> "https://m.manhuahao.com/$comicId"
     }
 
-    suspend fun chapter(source: Source, url: String): ChapterPage =
-        sources[source]?.chapter(url)
-            ?: throw SourceException("Sumber ${source.displayName} belum didukung")
+    suspend fun chapter(source: Source, url: String): ChapterPage {
+        try {
+            return sources[source]?.chapter(url)
+                ?: throw SourceException("Sumber ${source.displayName} belum didukung")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: CloudflareChallengeException) {
+            throw e
+        } catch (e: Exception) {
+            throw unwrapCloudflare(e)
+        }
+    }
 
     /**
      * Unduh seluruh gambar satu chapter ke Download/TrialFetch.
@@ -701,6 +744,9 @@ class ComicRepository(
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    // Jangan telan challenge: verifikasi harus muncul
+                    // juga untuk link chapter, bukan cuma link series.
+                    e.findCloudflareChallenge()?.let { throw it }
                     null
                 } ?: throw SourceException(
                     "Link chapter ini tidak bisa ditelusuri ke serinya. " +

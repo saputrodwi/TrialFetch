@@ -13,6 +13,23 @@ class CloudflareChallengeException(val url: String) :
     Exception("Cloudflare memblokir akses — verifikasi diperlukan")
 
 /**
+ * Menemukan challenge di rantai cause.
+ *
+ * Sumber membungkus error HTTP dalam `SourceException("Gagal ...", e)`,
+ * sehingga `catch (e: CloudflareChallengeException)` di ViewModel tidak
+ * pernah kena dan layar verifikasi tidak muncul. Panggil ini di
+ * repository sebelum melempar ulang supaya tipenya pulih.
+ */
+fun Throwable.findCloudflareChallenge(): CloudflareChallengeException? {
+    var t: Throwable? = this
+    while (t != null) {
+        if (t is CloudflareChallengeException) return t
+        t = t.cause
+    }
+    return null
+}
+
+/**
  * Penyimpan cookie hasil verifikasi WebView.
  *
  * Cookie `cf_clearance` hanya berlaku untuk IP + User-Agent yang sama.

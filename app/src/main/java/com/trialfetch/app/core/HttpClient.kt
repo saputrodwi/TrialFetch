@@ -230,8 +230,15 @@ class HttpClient(
         for ((k, v) in extraHeaders) builder.header(k, v)
 
         client.newCall(builder.build()).execute().use { res ->
+            val body = res.body?.string()
+            // Endpoint JSON (mis. daftar chapter Wmanhua) juga bisa
+            // dibalas halaman challenge dengan status 200 — tanpa cek ini
+            // error-nya samaran parse JSON, verifikasi tidak muncul.
+            if (body != null && Cloudflare.isChallenge(res.code, body)) {
+                throw CloudflareChallengeException(url)
+            }
             if (!res.isSuccessful) throw HttpException(res.code, url)
-            res.body?.string() ?: throw HttpException(-1, url)
+            body ?: throw HttpException(-1, url)
         }
     }
 }
