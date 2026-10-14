@@ -66,21 +66,6 @@ jobs:
       # di repo TIDAK PERNAH sampai ke Gradle dan signing selalu jatuh ke
       # debug key. Secret yang belum diisi = string kosong, dan itu sudah
       # ditangani (dianggap tidak ada).
-      # Diagnostik: pastikan secret signing sampai ke runner. Hanya
-      # mencetak TERISI/KOSONG (+panjang base64), tidak pernah isinya.
-      - name: Cek secrets signing
-        run: |
-          for v in TF_STORE_BASE64 TF_STORE_EXT TF_STORE_PASSWORD TF_KEY_ALIAS TF_KEY_PASSWORD; do
-            if [ -z "${!v}" ]; then echo "$v: KOSONG"; else echo "$v: terisi"; fi
-          done
-          echo "panjang TF_STORE_BASE64: ${#TF_STORE_BASE64}"
-        env:
-          TF_STORE_BASE64: ${{ secrets.TF_STORE_BASE64 }}
-          TF_STORE_PASSWORD: ${{ secrets.TF_STORE_PASSWORD }}
-          TF_KEY_ALIAS: ${{ secrets.TF_KEY_ALIAS }}
-          TF_KEY_PASSWORD: ${{ secrets.TF_KEY_PASSWORD }}
-          TF_STORE_EXT: ${{ secrets.TF_STORE_EXT }}
-
       - name: Build release APK
         run: gradle :app:assembleRelease --stacktrace --no-daemon
         env:

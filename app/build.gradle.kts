@@ -107,18 +107,25 @@ android {
             // yang ditandatangani debug key tidak bisa di-upgrade ke APK
             // yang ditandatangani key lain. Karena itu fallback ini selalu
             // berteriak lewat warning annotation di CI + log error Gradle.
+            // Warning HANYA saat task release benar-benar dijalankan:
+            // langkah test/debug/lint ikut mengonfigurasi :app tanpa env
+            // secrets, dan warning dari sana cuma noise annotation.
+            val buildingRelease = gradle.startParameter.taskNames
+                .any { it.contains("Release", ignoreCase = true) }
             signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
             } else {
-                logger.warn(
-                    "Release signing belum disiapkan (secret TF_STORE_* kosong). " +
-                        "APK release memakai DEBUG key — hanya untuk uji, " +
-                        "jangan distribusikan."
-                )
-                println(
-                    "::warning::Release signing belum disiapkan; " +
-                        "APK release memakai DEBUG key (hanya untuk uji)."
-                )
+                if (buildingRelease) {
+                    logger.warn(
+                        "Release signing belum disiapkan (secret TF_STORE_* kosong). " +
+                            "APK release memakai DEBUG key — hanya untuk uji, " +
+                            "jangan distribusikan."
+                    )
+                    println(
+                        "::warning::Release signing belum disiapkan; " +
+                            "APK release memakai DEBUG key (hanya untuk uji)."
+                    )
+                }
                 signingConfigs.getByName("debug")
             }
         }
