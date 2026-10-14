@@ -61,15 +61,46 @@ object CloudflareCookieStore {
 
 /** Penanda halaman challenge Cloudflare. */
 object Cloudflare {
-    private val BODY_MARKERS = listOf(
-        "Just a moment",
+    /**
+     * Penanda halaman challenge ASLI.
+     *
+     * SENGAJA tidak memakai "/cdn-cgi/challenge-platform" polos: loader
+     * beacon jsd (scripts/jsd/main.js) itu ditempel di SEMUA halaman situs
+     * Cloudflare (mis. Wmanhua) — memakainya sebagai penanda membuat tiap
+     * request normal dikira challenge. Akibatnya layar verifikasi terbuka
+     * padahal halamannya biasa saja, dan alurnya ngeloop selamanya
+     * (verifikasi → retry gagal lagi → verifikasi lagi).
+     */
+    private val STRICT_MARKERS = listOf(
         "cf-browser-verification",
+        // window._cf_chl_opt — hanya ada di halaman challenge, tidak ada
+        // di beacon jinak window.__CF$cv$params.
         "cf_chl_opt",
-        "/cdn-cgi/challenge-platform",
-        "challenge-platform",
-        "Attention Required"
+        "cf-challenge-running",
+        // Skrip orchestrate challenge; beacon jsd (scripts/jsd/main.js)
+        // tidak mengandung path ini.
+        "challenge-platform/h/b",
+        "<title>just a moment",
+        "<title>attention required",
+        "attention required"
     )
 
+    /**
+     * Deteksi apakah respons HTTP adalah challenge Cloudflare.
+     *
+     * Status 403/503/429 dengan penanda challenge = challenge. Status 200
+     * juga bisa berisi challenge (managed challenge disajikan sebagai
+     * halaman normal). Tanpa penanda (mis. 403 karena Referer gambar
+     * salah) biarkan error HTTP aslinya keluar.
+     */
+    fun isChallenge(code: Int, body: String): Boolean {
+        if (code == 403 || code == 503 || code == 429) {
+            return STRICT_MARKERS.any { body.contains(it, ignoreCase = true) }
+        }
+        return STRICT_MARKERS.any { body.contains(it, ignoreCase = true) }
+    }
+
+    /** Judul halaman yang menandai challenge masih aktif di WebView. */
     private val TITLE_MARKERS = listOf(
         "just a moment",
         "attention required",
@@ -77,22 +108,6 @@ object Cloudflare {
         "checking your access"
     )
 
-    /**
-     * Deteksi apakah respons HTTP adalah challenge Cloudflare.
-     *
-     * Status 403/503 dengan body yang mengandung penanda CF = challenge.
-     * Status 200 juga bisa berisi challenge (CF menyajikan challenge
-     * sebagai halaman normal).
-     */
-    fun isChallenge(code: Int, body: String): Boolean {
-        if (code == 403 || code == 503) {
-            return BODY_MARKERS.any { body.contains(it, ignoreCase = true) }
-        }
-        return body.contains("cf-browser-verification", ignoreCase = true) ||
-            body.contains("/cdn-cgi/challenge-platform", ignoreCase = true)
-    }
-
-    /** Judul halaman yang menandai challenge masih aktif di WebView. */
     fun isChallengeTitle(title: String): Boolean {
         val t = title.lowercase()
         return TITLE_MARKERS.any { t.contains(it) }
