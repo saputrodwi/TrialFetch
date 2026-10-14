@@ -613,8 +613,14 @@ fun AppRoot(
     // Reader menutupi seluruh layar di atas route apa pun.
     readerReq?.let { req ->
         val streaming = readerPages?.firstOrNull()?.uri?.startsWith("http") == true
-        // Index chapter sesuai urutan daftar yang tampil di layar series.
-        val chapters = req.series.chapters
+        // Prev/next chapter SELALU dalam urutan baca (nomor menaik),
+        // bukan posisi list mentah yang urutannya beda tiap sumber
+        // (ada yang baru-dulu, ada yang lama-dulu). Dengan ini tombol
+        // kanan (SkipNext) selalu chapter berikut, tombol kiri (prev)
+        // selalu chapter sebelum — apa pun sort tampilan layar series.
+        val chapters = req.series.chapters.mapIndexed { i, c -> Triple(c, c.chapterNumber, i) }
+            .sortedWith(compareBy({ it.second ?: Int.MAX_VALUE }, { it.third }))
+            .map { it.first }
         val idx = chapters.indexOfFirst { it.chapterId == req.chapter.chapterId }
         val prev = if (idx > 0) chapters[idx - 1] else null
         val next = if (idx >= 0 && idx < chapters.lastIndex) chapters[idx + 1] else null
