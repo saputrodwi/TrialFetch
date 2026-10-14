@@ -23,7 +23,9 @@ jobs:
       # menyimpan gradle-wrapper.jar. Kalau nanti mau build lokal, buka
       # proyek ini di Android Studio — Studio akan membuatkan wrapper-nya.
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        # v5 (bukan v6): v6 menempel notice "Gradle out of date" di tiap
+        # run; v5 tetap Node 24 sehingga warning Node20 tidak kembali.
+        uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: '8.9'
 
