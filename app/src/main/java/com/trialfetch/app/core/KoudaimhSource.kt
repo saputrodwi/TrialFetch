@@ -42,6 +42,12 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
     )
     private val latestRe = Regex("""更新至:\s*<span[^>]*>([^<]+)</span>""")
 
+    // Cover selalu di img.koudaimh.com/cover/{slug}.webp; slug pada umumnya
+    // identik dengan comicId di URL (/manhua/{slug}).
+    private val coverRe = Regex("""https://img\.koudaimh\.com/cover/[^"'\s]+\.webp""")
+
+    private fun coverFor(comicId: String) = "https://img.koudaimh.com/cover/$comicId.webp"
+
     override suspend fun search(query: String): List<SearchResult> {
         val landing = try {
             http.getHtml("$base/search", referer = "$base/")
@@ -69,7 +75,9 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
                 source = source,
                 comicId = m.groupValues[2],
                 title = cleanText(m.groupValues[3]),
-                coverUrl = "",
+                // <img> cover ada tepat setelah <a> dalam blok yang sama;
+                // kalau struktur berubah, rakit URL-nya dari slug.
+                coverUrl = coverRe.find(block)?.value ?: coverFor(m.groupValues[2]),
                 seriesUrl = base + m.groupValues[1]
             )
         }.distinctBy { it.comicId }.toList()
@@ -125,7 +133,9 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
             title = title,
             synopsis = extractMetaDescription(html),
             author = author,
-            coverUrl = "",
+            // Cover utama adalah <img> pertama dalam <figure> yang dekat <main>;
+            // regex pertama page ini biasanya sudah cover seangkatan.
+            coverUrl = coverRe.find(html)?.value ?: coverFor(comicId),
             status = status,
             latestChapterTitle = latestRe.find(html)?.groupValues?.get(1).orEmpty(),
             chapters = chapters
