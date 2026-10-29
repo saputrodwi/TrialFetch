@@ -101,7 +101,7 @@ class MangaGekoSource(private val http: HttpClient) : ComicSource {
         }
         val title = Regex(
             """<h1[^>]*>[\s\S]*?<a[^>]*>([^<]+)</a>"""
-        ).find(seriesHtml)?.groupValues?.get(1)?.let(::cleanText)?.trim().takeIf { it.isNotBlank() }
+        ).find(seriesHtml)?.groupValues?.get(1)?.let(::cleanText)?.trim()?.takeIf { it.isNotBlank() }
             ?: comicId
         val coverUrl = Regex(
             """<meta[^>]+property="og:image"[^>]+content="([^"]+)[^>]*>"""
