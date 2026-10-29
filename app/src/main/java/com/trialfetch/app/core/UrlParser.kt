@@ -185,6 +185,23 @@ object UrlParser {
                 }
             }
 
+            // --- MangaGeko: /manga/{slug}/ = series, /reader/en/{...}/ = chapter.
+            host == "mgeko.cc" || host.endsWith(".mgeko.cc") -> {
+                val ch = Regex(
+                    """/reader/en/([a-zA-Z0-9\-]+)/""",
+                    RegexOption.IGNORE_CASE
+                ).find(withScheme)?.groupValues?.get(1)
+                if (ch != null) {
+                    Parsed.Chapter(Source.MANGAGO, withScheme.substringBefore("#"))
+                } else {
+                    val slug = Regex(
+                        """/manga/([a-zA-Z0-9\-]+)/"""
+                    ).find(withScheme)?.groupValues?.get(1)
+                    if (slug != null) Parsed.Series(Source.MANGAGO, slug)
+                    else Parsed.Unknown("URL MangaGeko tidak dikenali")
+                }
+            }
+
             else -> Parsed.Unknown("Situs \"$host\" belum didukung")
         }
     }

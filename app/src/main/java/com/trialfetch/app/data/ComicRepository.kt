@@ -450,6 +450,7 @@ class ComicRepository(
         Source.GOODTOON -> "https://www.goodtoon005.com/manga/$comicId/"
         Source.RUMAN -> "https://www.rumanhua.org/news/$comicId"
         Source.MANHUAHAO -> "https://m.manhuahao.com/$comicId"
+        Source.MANGAGO -> "https://www.mgeko.cc/manga/$comicId/"
     }
 
     suspend fun chapter(source: Source, url: String): ChapterPage {
@@ -788,7 +789,8 @@ class ComicRepository(
             Source.JJAPTOON to JjaptoonSource(http),
             Source.GOODTOON to GoodtoonSource(http),
             Source.RUMAN to RumanhuaSource(http),
-            Source.MANHUAHAO to ManhuahaoSource(http)
+            Source.MANHUAHAO to ManhuahaoSource(http),
+            Source.MANGAGO to MangaGekoSource(http)
         )
 
         /**

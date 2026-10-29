@@ -123,6 +123,14 @@ class UrlParserTest {
         assertTrue(r is UrlParser.Parsed.Unknown)
     }
 
+    @Test fun mangagoSeriesDanChapter() {
+        val s = series("https://www.mgeko.cc/manga/nano-machine-mg12/")
+        assertEquals(Source.MANGAGO, s.source)
+        assertEquals("nano-machine-mg12", s.comicId)
+        val c = chapter("https://www.mgeko.cc/reader/en/nano-machine-mg12-chapter-336-eng-li/")
+        assertEquals(Source.MANGAGO, c.source)
+    }
+
     @Test fun urlAsingUnknown() {
         val p = UrlParser.parse("https://example.com/comic/1")
         assertTrue(p is UrlParser.Parsed.Unknown)

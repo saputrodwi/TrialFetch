@@ -10,7 +10,8 @@ enum class Source(val id: String, val displayName: String) {
     JJAPTOON("jjaptoon", "Jjaptoon"),
     GOODTOON("goodtoon", "Goodtoon"),
     RUMAN("rumanhua", "Rumanhua"),
-    MANHUAHAO("manhuahao", "Manhuahao");
+    MANHUAHAO("manhuahao", "Manhuahao"),
+    MANGAGO("mangago", "MangaGeko");
 
     companion object {
         fun from(id: String): Source? = entries.firstOrNull { it.id == id }
