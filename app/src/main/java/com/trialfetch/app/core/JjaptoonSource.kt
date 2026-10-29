@@ -115,6 +115,8 @@ class JjaptoonSource(private val http: HttpClient) : ComicSource {
         if (chapters.isEmpty()) {
             throw SourceException("Daftar chapter Jjaptoon kosong — struktur situs mungkin berubah.")
         }
+        // Sortir eksplisit (terbaru di atas) — jangan andalkan urutan HTML.
+        val sorted = chapters.sortedByDescending { it.chapterNumber ?: 0 }
 
         val title = Regex("""<title[^>]*>([^<]+)</title>""", RegexOption.IGNORE_CASE)
             .find(html)?.groupValues?.get(1)?.let(::cleanText)
@@ -133,8 +135,8 @@ class JjaptoonSource(private val http: HttpClient) : ComicSource {
             title = title,
             coverUrl = cover,
             synopsis = extractMetaDescription(html),
-            latestChapterTitle = chapters.firstOrNull()?.title.orEmpty(),
-            chapters = chapters
+            latestChapterTitle = sorted.firstOrNull()?.title.orEmpty(),
+            chapters = sorted
         )
     }
 

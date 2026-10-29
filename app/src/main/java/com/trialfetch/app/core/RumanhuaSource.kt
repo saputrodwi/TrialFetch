@@ -107,6 +107,8 @@ class RumanhuaSource(private val http: HttpClient) : ComicSource {
         if (chapters.isEmpty()) {
             throw SourceException("Daftar chapter Rumanhua kosong — struktur situs mungkin berubah.")
         }
+        // Sortir eksplisit (terbaru di atas) — jangan andalkan urutan regex.
+        chapters.sortByDescending { it.chapterNumber ?: 0 }
 
         val title = Regex("""<title>([^<]+)</title>""", RegexOption.IGNORE_CASE)
             .find(html)?.groupValues?.get(1)?.let(::cleanText)
@@ -132,7 +134,7 @@ class RumanhuaSource(private val http: HttpClient) : ComicSource {
             synopsis = extractMetaDescription(html),
             author = author,
             coverUrl = cover,
-            latestChapterTitle = chapters.lastOrNull()?.title.orEmpty(),
+            latestChapterTitle = chapters.firstOrNull()?.title.orEmpty(),
             chapters = chapters
         )
     }

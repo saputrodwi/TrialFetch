@@ -142,6 +142,8 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
         if (chapters.isEmpty()) {
             throw SourceException("Daftar chapter GoodToon kosong — struktur situs mungkin berubah.")
         }
+        // Sortir eksplisit (terbaru di atas) — jangan andalkan urutan AJAX.
+        val sorted = chapters.sortedByDescending { it.chapterNumber ?: 0 }
 
         // Metadata dari halaman utama (opsional; gagal tidak menggagalkan).
         var title = comicId
@@ -170,8 +172,8 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
             title = title,
             coverUrl = cover,
             synopsis = synopsis,
-            latestChapterTitle = chapters.firstOrNull()?.title.orEmpty(),
-            chapters = chapters
+            latestChapterTitle = sorted.firstOrNull()?.title.orEmpty(),
+            chapters = sorted
         )
     }
 

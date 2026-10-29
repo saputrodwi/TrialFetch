@@ -197,6 +197,7 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
             ?.replace("&amp;", "&")
             ?: ""
         val author = authorRe.find(html)?.groupValues?.get(1)?.let(::cleanText).orEmpty()
+        val status = statusRe.find(html)?.groupValues?.get(1)?.let(::cleanText).orEmpty()
 
         return SeriesInfo(
             source = source,
@@ -204,6 +205,7 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
             title = title,
             author = author,
             coverUrl = cover,
+            status = status,
             synopsis = extractMetaDescription(html),
             latestChapterTitle = ordered.firstOrNull()?.title.orEmpty(),
             chapters = ordered

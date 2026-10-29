@@ -113,6 +113,8 @@ class JjabtoonSource(private val http: HttpClient) : ComicSource {
         if (chapters.isEmpty()) {
             throw SourceException("Daftar episode Jjabtoon kosong.")
         }
+        // Sortir eksplisit (terbaru di atas) — jangan andalkan urutan API.
+        val sorted = chapters.sortedByDescending { it.chapterNumber ?: 0 }
 
         return SeriesInfo(
             source = source,
@@ -121,8 +123,8 @@ class JjabtoonSource(private val http: HttpClient) : ComicSource {
             author = cleanText(meta["authorName"]?.jsonPrimitive?.content.orEmpty()),
             coverUrl = meta["thumbnailUrl"]?.jsonPrimitive?.content.orEmpty(),
             synopsis = cleanText(meta["description"]?.jsonPrimitive?.content.orEmpty()),
-            latestChapterTitle = chapters.lastOrNull()?.title.orEmpty(),
-            chapters = chapters
+            latestChapterTitle = sorted.firstOrNull()?.title.orEmpty(),
+            chapters = sorted
         )
     }
 
