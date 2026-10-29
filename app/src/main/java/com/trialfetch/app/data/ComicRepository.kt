@@ -16,6 +16,7 @@ import com.trialfetch.app.core.ReaderPage
 import com.trialfetch.app.core.ImageCrypto
 import com.trialfetch.app.core.ImageFormat
 import com.trialfetch.app.core.KoudaimhSource
+import com.trialfetch.app.core.MangaGekoSource
 import com.trialfetch.app.core.ManhuahaoSource
 import com.trialfetch.app.core.ManwangSource
 import com.trialfetch.app.core.SearchResult
