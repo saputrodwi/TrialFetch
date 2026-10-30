@@ -18,6 +18,7 @@ import com.trialfetch.app.core.ImageFormat
 import com.trialfetch.app.core.KoudaimhSource
 import com.trialfetch.app.core.MangaGekoSource
 import com.trialfetch.app.core.ManhuahaoSource
+import com.trialfetch.app.core.HipmhSource
 import com.trialfetch.app.core.ManwangSource
 import com.trialfetch.app.core.SearchResult
 import com.trialfetch.app.core.SeriesInfo
@@ -452,6 +453,7 @@ class ComicRepository(
         Source.RUMAN -> "https://www.rumanhua.org/news/$comicId"
         Source.MANHUAHAO -> "https://m.manhuahao.com/$comicId"
         Source.MANGAGO -> "https://www.mgeko.cc/manga/$comicId/"
+        Source.HIPMH -> "https://m.hipmh.com/works/$comicId/"
     }
 
     suspend fun chapter(source: Source, url: String): ChapterPage {
@@ -791,7 +793,8 @@ class ComicRepository(
             Source.GOODTOON to GoodtoonSource(http),
             Source.RUMAN to RumanhuaSource(http),
             Source.MANHUAHAO to ManhuahaoSource(http),
-            Source.MANGAGO to MangaGekoSource(http)
+            Source.MANGAGO to MangaGekoSource(http),
+            Source.HIPMH to HipmhSource(http)
         )
 
         /**

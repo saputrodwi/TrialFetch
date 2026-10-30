@@ -131,6 +131,14 @@ class UrlParserTest {
         assertEquals(Source.MANGAGO, c.source)
     }
 
+    @Test fun hipmhSeriesDanChapter() {
+        val s = series("https://m.hipmh.com/works/bTo1NTQ1-cheng-wei-bo-jue-jia-de-fei-wu-5539/")
+        assertEquals(Source.HIPMH, s.source)
+        assertEquals("bTo1NTQ1-cheng-wei-bo-jue-jia-de-fei-wu-5539", s.comicId)
+        val c = chapter("https://m.hipmh.com/chapter/go?hid=bTo1NTQ1LWM6ODg2NA-NTU0NToxLjAw&m=5545")
+        assertEquals(Source.HIPMH, c.source)
+    }
+
     @Test fun urlAsingUnknown() {
         val p = UrlParser.parse("https://example.com/comic/1")
         assertTrue(p is UrlParser.Parsed.Unknown)

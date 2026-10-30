@@ -202,6 +202,23 @@ object UrlParser {
                 }
             }
 
+            // --- HipMH: /works/{id}-{slug}/ = series, /chapter/go?hid=... = chapter.
+            host == "hipmh.com" || host.endsWith(".hipmh.com") -> {
+                val ch = Regex(
+                    """/chapter/[^"]*""",
+                    RegexOption.IGNORE_CASE
+                ).find(withScheme)?.value
+                if (ch != null) {
+                    Parsed.Chapter(Source.HIPMH, withScheme.substringBefore("#"))
+                } else {
+                    val slug = Regex(
+                        """/works/([a-zA-Z0-9\-]+)"""
+                    ).find(withScheme)?.groupValues?.get(1)
+                    if (slug != null) Parsed.Series(Source.HIPMH, slug)
+                    else Parsed.Unknown("URL HipMH tidak dikenali")
+                }
+            }
+
             else -> Parsed.Unknown("Situs \"$host\" belum didukung")
         }
     }
