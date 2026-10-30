@@ -12,7 +12,8 @@ enum class Source(val id: String, val displayName: String) {
     RUMAN("rumanhua", "Rumanhua"),
     MANHUAHAO("manhuahao", "Manhuahao"),
     MANGAGO("mangago", "MangaGeko"),
-    HIPMH("hipmh", "HipMH");
+    HIPMH("hipmh", "HipMH"),
+    MANGADEX("mangadex", "MangaDex");
 
     companion object {
         fun from(id: String): Source? = entries.firstOrNull { it.id == id }

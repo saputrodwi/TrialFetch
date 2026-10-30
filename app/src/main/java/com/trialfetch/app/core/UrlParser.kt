@@ -219,6 +219,20 @@ object UrlParser {
                 }
             }
 
+            // --- MangaDex: UUID-based IDs, /manga/{uuid}/ = series, /chapter/{uuid}/ = chapter.
+            host == "mangadex.org" || host.endsWith(".mangadex.org") -> {
+                val ch = Regex("""/chapter/([0-9a-f-]{36})""", RegexOption.IGNORE_CASE)
+                    .find(withScheme)
+                if (ch != null) {
+                    Parsed.Chapter(Source.MANGADEX, ch.groupValues[1])
+                } else {
+                    val slug = Regex("""/manga/([0-9a-f-]{36})""", RegexOption.IGNORE_CASE)
+                        .find(withScheme)?.groupValues?.get(1)
+                    if (slug != null) Parsed.Series(Source.MANGADEX, slug)
+                    else Parsed.Unknown("URL MangaDex tidak dikenali")
+                }
+            }
+
             else -> Parsed.Unknown("Situs \"$host\" belum didukung")
         }
     }

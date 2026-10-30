@@ -23,6 +23,7 @@ API app, dan pemotong banner diport dari sana supaya hasilnya identik.
 | Manhuahao | Scrape HTML (tanpa Referer) |
 | MangaGeko | Scrape HTML (`/manga/{slug}/all-chapters/`, `/reader/en/...`) |
 | HipMH | Scrape HTML (`/works/{slug}/`, `/chapter/go?hid=...` — Astro SPA + JS redirect) |
+| **MangaDex** ✨ | REST JSON API (`api.mangadex.org`, tanpa Cloudflare) |
 
 ## Fitur
 
