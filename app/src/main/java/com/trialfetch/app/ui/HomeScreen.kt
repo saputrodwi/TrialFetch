@@ -3,6 +3,7 @@ package com.trialfetch.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +48,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
+import android.widget.Toast
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -285,7 +288,13 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(results, key = { it.source.id + it.comicId }) { r ->
-                        ResultRow(r) { onPick(r) }
+                        ResultRow(r, onClick = { onPick(r) }, onLongPressCopyTitle = {
+                            val ctx = LocalContext.current
+                            val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                as android.content.ClipboardManager
+                            cm.setPrimaryClip(android.content.ClipData.newPlainText("judul komik", r.title))
+                            Toast.makeText(ctx, "Judul disalin", Toast.LENGTH_SHORT).show()
+                        })
                     }
                 }
             }
@@ -426,7 +435,7 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
+private fun ResultRow(r: SearchResult, onClick: () -> Unit, onLongPressCopyTitle: (() -> Unit)? = null) {
     val extra = LocalExtraColors.current
     BrutalCard(
         modifier = Modifier.fillMaxWidth(),
@@ -449,7 +458,8 @@ private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
                     r.title,
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.detectTapGestures(onLongPress = onLongPressCopyTitle)
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {

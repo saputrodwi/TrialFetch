@@ -878,6 +878,7 @@ private fun SeriesScreen(
     onContinue: (Chapter, Int) -> Unit = { _, _ -> }
 ) {
     val extra = LocalExtraColors.current
+    val ctx = LocalContext.current
     var selecting by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(emptySet<String>()) }
     // true = terbaru di atas. Normalisasi selalu dari urutan menaik agar
@@ -911,7 +912,12 @@ private fun SeriesScreen(
     val lastChapter = lastRead?.let { e -> info.chapters.firstOrNull { it.chapterId == e.chapterId } }
     Column(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
-            item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark, onOpenWeb) }
+            item { SeriesHeader(info, extra, isBookmarked, onToggleBookmark, onOpenWeb, onLongPressCopyTitle = {
+                val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                    as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("judul komik", info.title))
+                Toast.makeText(ctx, "Judul disalin", Toast.LENGTH_SHORT).show()
+            }) }
             if (lastRead != null && lastChapter != null) {
                 item {
                     BrutalCard(
@@ -1089,7 +1095,8 @@ private fun SeriesHeader(
     extra: com.trialfetch.app.ui.theme.ExtraColors,
     isBookmarked: Boolean,
     onToggleBookmark: () -> Unit,
-    onOpenWeb: () -> Unit = {}
+    onOpenWeb: () -> Unit = {},
+    onLongPressCopyTitle: () -> Unit = {}
 ) {
     BrutalCard(
         modifier = Modifier
@@ -1111,7 +1118,9 @@ private fun SeriesHeader(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         info.title,
-                        Modifier.weight(1f),
+                        Modifier
+                            .weight(1f)
+                            .detectTapGestures(onLongPress = onLongPressCopyTitle),
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
