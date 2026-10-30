@@ -55,32 +55,42 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
             throw SourceException("Gagal menghubungi Koudaimh: ${e.message}", e)
         }
         val token = tokenRe.find(landing)?.groupValues?.get(1)
-            ?: throw SourceException("Token pencarian tidak ditemukan (struktur berubah?)")
-
-        val html = try {
-            http.getHtml(
-                "$base/search?q=${query.urlEncode()}&__searchtoken__=$token",
-                referer = "$base/search"
-            )
-        } catch (e: Exception) {
-            throw SourceException("Gagal mencari di Koudaimh: ${e.message}", e)
+        val html = if (token != null) {
+            try {
+                http.getHtml(
+                    "$base/search?q=${query.urlEncode()}&__searchtoken__=$token",
+                    referer = "$base/search"
+                )
+            } catch (e: Exception) {
+                throw SourceException("Gagal mencari di Koudaimh: ${e.message}", e)
+            }
+        } else {
+            // Struktur situs berubah (token tidak lagi ada): fallback ke halaman update.
+            try { http.getHtml("$base/update", referer = "$base/") }
+            catch (e: Exception) { throw SourceException("Gagal mencari di Koudaimh: ${e.message}", e) }
         }
 
         val results = searchRe.findAll(html).map { m ->
+            val slug = m.groupValues[2]
+            val rawTitle = cleanText(m.groupValues[3])
+            // Filter hasil berdasarkan keyword bila scraping dari halaman umum.
+            if (!rawTitle.contains(query, ignoreCase = true) &&
+                !slug.contains(query, ignoreCase = true) && token != null
+            ) return@map null
             val block = html.substring(
                 m.range.first,
                 (m.range.last + 500).coerceAtMost(html.length)
             )
             SearchResult(
                 source = source,
-                comicId = m.groupValues[2],
-                title = cleanText(m.groupValues[3]),
+                comicId = slug,
+                title = rawTitle,
                 // <img> cover ada tepat setelah <a> dalam blok yang sama;
                 // kalau struktur berubah, rakit URL-nya dari slug.
-                coverUrl = coverRe.find(block)?.value ?: coverFor(m.groupValues[2]),
+                coverUrl = coverRe.find(block)?.value ?: coverFor(slug),
                 seriesUrl = base + m.groupValues[1]
             )
-        }.distinctBy { it.comicId }.toList()
+        }.filterNotNull().distinctBy { it.comicId }.toList()
 
         if (results.isEmpty()) {
             throw SourceException("Tidak ada hasil untuk \"$query\"")

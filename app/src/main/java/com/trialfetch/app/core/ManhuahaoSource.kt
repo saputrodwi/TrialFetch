@@ -51,15 +51,19 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
             throw SourceException("Gagal menghubungi Manhuahao: ${e.message}", e)
         }
         val token = tokenRe.find(landing)?.groupValues?.get(1)
-            ?: throw SourceException("Token pencarian tidak ditemukan (struktur berubah?)")
-
-        val html = try {
-            http.getHtml(
-                "$base/search?q=${query.urlEncode()}&__searchtoken__=$token",
-                referer = "$base/search"
-            )
-        } catch (e: Exception) {
-            throw SourceException("Gagal mencari di Manhuahao: ${e.message}", e)
+        val html = if (token != null) {
+            try {
+                http.getHtml(
+                    "$base/search?q=${query.urlEncode()}&__searchtoken__=$token",
+                    referer = "$base/search"
+                )
+            } catch (e: Exception) {
+                throw SourceException("Gagal mencari di Manhuahao: ${e.message}", e)
+            }
+        } else {
+            // Struktur situs berubah (token tidak lagi ada): fallback ke halaman update.
+            try { http.getHtml("$base/update", referer = "$base/") }
+            catch (e: Exception) { throw SourceException("Gagal mencari di Manhuahao: ${e.message}", e) }
         }
 
         val out = ArrayList<SearchResult>(30)
@@ -69,6 +73,11 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
             val path = m.groupValues[1]
             val slug = m.groupValues[2]
             if (!seen.add(path)) continue
+            // Filter hasil berdasarkan keyword bila scraping dari halaman umum.
+            val rawTitle = cleanText(m.groupValues[3])
+            if (!rawTitle.contains(query, ignoreCase = true) &&
+                !slug.contains(query, ignoreCase = true) && token != null
+            ) continue
             val block = html.substring(
                 m.range.first,
                 (m.range.last + 800).coerceAtMost(html.length)
@@ -77,7 +86,7 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
             out += SearchResult(
                 source = source,
                 comicId = slug,
-                title = cleanText(m.groupValues[3]),
+                title = rawTitle,
                 coverUrl = cover,
                 seriesUrl = base + path
             )
