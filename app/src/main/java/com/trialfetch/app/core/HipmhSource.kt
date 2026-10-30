@@ -84,7 +84,7 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
         } catch (e: Exception) {
             throw SourceException("Gagal mengambil metadata series: ${e.message}", e)
         }
-        val title = h1Re.find(seriesHtml)?.groupValues?.get(1)?.let(::cleanText)?.trim().takeIf { it.isNotBlank() }
+        val title = h1Re.find(seriesHtml)?.groupValues?.get(1)?.let(::cleanText)?.trim()?.takeIf { it.isNotBlank() }
             ?: comicId
         val coverUrl = ogImageRe.find(seriesHtml)?.groupValues?.get(1)?.trim().orEmpty()
         val synopsis = ogDescRe.find(seriesHtml)?.groupValues?.get(1)?.let { cleanText(it) }.orEmpty()
