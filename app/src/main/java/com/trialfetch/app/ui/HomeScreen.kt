@@ -437,6 +437,15 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
 @Composable
 private fun ResultRow(r: SearchResult, onClick: () -> Unit, onLongPressCopyTitle: (() -> Unit)? = null) {
     val extra = LocalExtraColors.current
+    val ctx = LocalContext.current
+    val copyTitle = remember(r.title) {
+        {
+            val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("judul komik", r.title))
+            Toast.makeText(ctx, "Judul disalin", Toast.LENGTH_SHORT).show()
+        }
+    }
     BrutalCard(
         modifier = Modifier.fillMaxWidth(),
         background = extra.card,
@@ -459,7 +468,7 @@ private fun ResultRow(r: SearchResult, onClick: () -> Unit, onLongPressCopyTitle
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.detectTapGestures(onLongPress = onLongPressCopyTitle)
+                    modifier = Modifier.detectTapGestures(onLongPress = if (onLongPressCopyTitle != null) copyTitle else null)
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
