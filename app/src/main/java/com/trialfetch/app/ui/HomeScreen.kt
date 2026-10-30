@@ -288,13 +288,7 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(results, key = { it.source.id + it.comicId }) { r ->
-                        ResultRow(r, onClick = { onPick(r) }, onLongPressCopyTitle = {
-                            val ctx = LocalContext.current
-                            val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                                as android.content.ClipboardManager
-                            cm.setPrimaryClip(android.content.ClipData.newPlainText("judul komik", r.title))
-                            Toast.makeText(ctx, "Judul disalin", Toast.LENGTH_SHORT).show()
-                        })
+                        ResultRow(r, onClick = { onPick(r) }, onLongPressCopyTitle = {})
                     }
                 }
             }
@@ -468,7 +462,7 @@ private fun ResultRow(r: SearchResult, onClick: () -> Unit, onLongPressCopyTitle
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.detectTapGestures(onLongPress = if (onLongPressCopyTitle != null) copyTitle else null)
+                    modifier = if (onLongPressCopyTitle != null) Modifier.detectTapGestures(onLongPress = { onLongPressCopyTitle() }) else Modifier
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {

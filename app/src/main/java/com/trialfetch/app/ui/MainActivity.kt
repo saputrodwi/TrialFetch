@@ -1120,7 +1120,7 @@ private fun SeriesHeader(
                         info.title,
                         Modifier
                             .weight(1f)
-                            .detectTapGestures(onLongPress = onLongPressCopyTitle),
+                            .detectTapGestures(onLongPress = { onLongPressCopyTitle() }),
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
