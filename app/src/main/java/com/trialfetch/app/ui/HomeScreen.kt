@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -462,7 +463,9 @@ private fun ResultRow(r: SearchResult, onClick: () -> Unit, onLongPressCopyTitle
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = if (onLongPressCopyTitle != null) Modifier.detectTapGestures(onLongPress = { onLongPressCopyTitle() }) else Modifier
+                    modifier = if (onLongPressCopyTitle != null) Modifier.pointerInput(Unit) {
+                        detectTapGestures(onLongPress = { onLongPressCopyTitle() })
+                    } else Modifier
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {

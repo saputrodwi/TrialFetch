@@ -22,6 +22,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.pointerInput
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.transformable
@@ -1120,7 +1121,9 @@ private fun SeriesHeader(
                         info.title,
                         Modifier
                             .weight(1f)
-                            .detectTapGestures(onLongPress = { onLongPressCopyTitle() }),
+                            .pointerInput(Unit) {
+                                detectTapGestures(onLongPress = { onLongPressCopyTitle() })
+                            },
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
