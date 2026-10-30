@@ -78,8 +78,8 @@ class MangaDexSource(private val http: HttpClient) : ComicSource {
             ?: titleObj?.values?.firstOrNull()?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
             ?: comicId
         val desc = attrs["description"]?.jsonObject?.get("en")?.jsonPrimitive?.content
-            ?.takeIf { it.isNotBlank() } ?: attrs["description"]?.jsonPrimitive?.content.orEmpty()
-        val status = attrs["status"]?.jsonPrimitive?.content.takeIf { it.isNotBlank() }.orEmpty()
+            ?.takeIf { it.isNotBlank() } ?: attrs["description"]?.jsonPrimitive?.content?.let { it } ?: ""
+        val status = attrs["status"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() } ?: ""
 
         val authors = obj["relationships"]?.jsonArray
             ?.filter { r -> r.jsonObject["type"]?.jsonPrimitive?.content == "author" }
