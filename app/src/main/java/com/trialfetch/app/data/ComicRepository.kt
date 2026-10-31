@@ -502,12 +502,25 @@ class ComicRepository(
         } catch (e: Exception) {
             return@withContext fail(e.message ?: "Gagal membaca chapter")
         }
+        CrashLog.mark(
+            "dl-page source=${series.source.displayName} comicTitle=${page.comicTitle} " +
+                "chapter=${chapter.title} chapterId=${chapter.chapterId} images=${page.images.size}"
+        )
 
         // Lokasi = <Sumber>/<Judul series> (lihat seriesDirOf): dua tingkat
         // nama yang terbaca, dan sumber berbeda tidak lagi berbagi folder.
         val seriesDir = seriesDirOf(series)
         val chapterDir = sanitize(chapter.title)
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
+        // Penanda diagnostik: membungkus source + judul series + judul chapter
+        // dikirim ke download, supaya bisa divalidasi dari laporan CrashLog
+        // di folder Download/TrialFetch tanpa PC.
+        CrashLog.mark(
+            "dl-begin source=${series.source.displayName} seriesId=${series.comicId} " +
+                "seriesTitle=${series.title} chapter=${chapter.title} " +
+                "chapterId=${chapter.chapterId} mode=${settings.outputMode} " +
+                "target=${seriesDir}/${chapterDir}"
+        )
 
         val total = page.images.size
         // Log ini yang menentukan apakah "dobel" berasal dari parser gambar
@@ -718,6 +731,8 @@ class ComicRepository(
                 storage.displayPath("$seriesDir/$zipName")
             }
         }
+
+        CrashLog.mark("dl-done mode=${settings.outputMode} saved=$savedPath chapter=${chapter.title}")
 
         val bannerLine = if (settings.cropBanner && series.source == Source.BAOZIMH &&
             bannerCropper.checked > 0
