@@ -73,7 +73,7 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
                         img.isNotEmpty() -> coverCdn + img
                         else -> ""
                     },
-                    seriesUrl = "$base/works/$slug"
+                    seriesUrl = "$base/series/$slug"
                 )
             }
             if (rows.isNotEmpty()) {
@@ -109,7 +109,7 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
     }
 
     override suspend fun series(comicId: String): SeriesInfo {
-        val html = try { http.getHtml("$base/works/$comicId/", referer = base, mobile = false) }
+        val html = try { http.getHtml("$base/series/$comicId/", referer = base, mobile = false) }
         catch (e: Exception) { throw SourceException("Gagal mengambil series: ${e.message}", e) }
         val title = h1Re.find(html)?.groupValues?.get(1)?.let(::cleanText)?.trim()?.takeIf { it.isNotBlank() } ?: comicId
         val coverUrl = coverImgRe.find(html)?.groupValues?.get(1)?.trim().orEmpty()
@@ -158,7 +158,7 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
 
     override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? {
         val absolute = if (chapterUrl.startsWith("http")) chapterUrl else "$base${chapterUrl.takeIf { it.startsWith("/") } ?: "/$chapterUrl"}"
-        return Regex("""/works/([a-zA-Z0-9-]+)""", RegexOption.IGNORE_CASE).find(absolute)?.groupValues?.get(1)
+        return Regex("""/series/([a-zA-Z0-9-]+)""", RegexOption.IGNORE_CASE).find(absolute)?.groupValues?.get(1)
             ?: Regex("""[?&]m=([a-zA-Z0-9]+)""", RegexOption.IGNORE_CASE).find(absolute)?.groupValues?.get(1)
     }
 }

@@ -502,22 +502,6 @@ class ComicRepository(
         } catch (e: Exception) {
             return@withContext fail(e.message ?: "Gagal membaca chapter")
         }
-        CrashLog.mark(
-            "dl-page source=${series.source.displayName} comicTitle=${page.comicTitle} " +
-                "chapter=${chapter.title} chapterId=${chapter.chapterId} images=${page.images.size}"
-        )
-
-        // Lokasi = <Sumber>/<Judul series> (lihat seriesDirOf): dua tingkat
-        // nama yang terbaca, dan sumber berbeda tidak lagi berbagi folder.
-        val seriesDir = seriesDirOf(series)
-        val chapterDir = sanitize(chapter.title)
-        val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
-        // Penanda diagnostik: membungkus source + judul series + judul chapter
-        // dikirim ke download, supaya bisa divalidasi dari laporan CrashLog
-        // di folder Download/TrialFetch tanpa PC.
-        CrashLog.mark(
-            "dl-begin source=${series.source.displayName} seriesId=${series.comicId} " +
-                "seriesTitle=${series.title} chapter=${chapter.title} " +
                 "chapterId=${chapter.chapterId} mode=${settings.outputMode} " +
                 "target=${seriesDir}/${chapterDir}"
         )
@@ -728,12 +712,6 @@ class ComicRepository(
                     return@withContext fail("Gagal menyelesaikan arsip ZIP.")
                 }
                 storage.writeText(seriesDir, "$chapterDir.info.txt", info)
-                storage.displayPath("$seriesDir/$zipName")
-            }
-        }
-
-        CrashLog.mark("dl-done mode=${settings.outputMode} saved=$savedPath chapter=${chapter.title}")
-
         val bannerLine = if (settings.cropBanner && series.source == Source.BAOZIMH &&
             bannerCropper.checked > 0
         ) {
@@ -743,13 +721,6 @@ class ComicRepository(
         }
         notifier.showDone(chapter.title + bannerLine, done, savedPath, series.coverUrl)
         DownloadProgress(
-            total = total, done = done, state = DownloadProgress.State.DONE,
-            savedPath = savedPath, chapterTitle = chapter.title,
-            chapterId = chapter.chapterId
-        ).also { _progress.value = it }
-    }
-
-    /** Membuka series dari URL yang ditempel pengguna. */
     suspend fun openUrl(rawUrl: String): SeriesInfo {
         return when (val parsed = UrlParser.parse(rawUrl)) {
             is UrlParser.Parsed.Series -> series(parsed.source, parsed.comicId)
