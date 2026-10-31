@@ -24,6 +24,12 @@
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
 
+# --- Splashscreen -------------------------------------------------------
+# Library punya consumer rules sendiri; keep blanket ini cuma jaring
+# pengaman agar view transisi splash tidak pernah terpangkas di release.
+-keep class androidx.core.splashscreen.** { *; }
+-dontwarn androidx.core.splashscreen.**
+
 # --- Stacktrace yang masih terbaca -------------------------------------
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile

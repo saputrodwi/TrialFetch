@@ -185,6 +185,7 @@ class MainActivity : ComponentActivity() {
         // jeda buatan di atasnya. Nilainya tidak dipakai — cukup dipanggil.
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        com.trialfetch.app.data.CrashLog.mark("MainActivity.onCreate — mulai pasang UI")
         enableEdgeToEdge()
         setContent {
             val vm: MainViewModel = viewModel()

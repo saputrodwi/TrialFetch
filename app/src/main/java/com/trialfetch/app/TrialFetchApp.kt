@@ -1,27 +1,25 @@
 package com.trialfetch.app
 
 import android.app.Application
-import android.util.Log
-import org.opencv.android.OpenCVLoader
+import android.os.Build
+import com.trialfetch.app.data.CrashLog
 
 class TrialFetchApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        // OpenCV dipakai mesin pemotong banner Baozimh. Inisialisasi gagal
-        // tidak boleh menjatuhkan aplikasi: pemotong banner nanti akan
-        // mengembalikan gambar apa adanya kalau library belum siap.
-        //
-        // initLocal() membaca dan memuat puluhan MB .so native, jadi tidak
-        // boleh jalan di thread UI saat startup. BannerCropper juga memuatnya
-        // sendiri secara lazy (di thread unduhan) — dua pemanggilan ini aman
-        // karena System.loadLibrary disinkronkan VM.
-        Thread {
-            val ok = runCatching { OpenCVLoader.initLocal() }.getOrDefault(false)
-            if (!ok) Log.w(TAG, "OpenCV gagal dimuat; pemotong banner dilewati")
-        }.start()
-    }
 
-    private companion object {
-        const val TAG = "TrialFetch"
+        // Perekam marker + crash ke folder Download dipasang PALING AWAL —
+        // satu-satunya cara mendiagnosis HP tanpa PC (di Android 11+
+        // logcat pihak ketiga terkunci). Lihat data/CrashLog.kt.
+        CrashLog.install(this)
+        CrashLog.mark("Application.onCreate @ ${Build.MODEL} API ${Build.VERSION.SDK_INT}")
+
+        // OpenCV TIDAK lagi di-init di sini (dulu ada Thread initLocal()).
+        // Alasan: pemotong banner sudah memuat OpenCV sendiri secara lazy
+        // saat unduhan pertama, dan runCatching di Java TIDAK bisa
+        // menangkap crash native (SIGSEGV saat System.load / JNI_OnLoad).
+        // Kalau pemuatan .so gagal mematikan proses, crash terjadi tepat
+        // pada splash screen dan mustahil dianalisis. Memuat nanti pun tetap
+        // terlindungi BannerCropper (method-nya tidak pernah melempar).
     }
 }

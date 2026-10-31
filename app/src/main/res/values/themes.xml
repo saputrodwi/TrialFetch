@@ -19,7 +19,7 @@
     -->
     <style name="Theme.TrialFetch.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo_layer</item>
         <item name="postSplashScreenTheme">@style/Theme.TrialFetch</item>
     </style>
 </resources>

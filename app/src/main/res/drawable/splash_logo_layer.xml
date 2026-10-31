@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Wrapper layer-list untuk ikon splash.
+
+  Ikone sendiri tetap splash_logo.png biasa. Tujuan wrapper: dokumen
+  resmi androidx splashscreen menyarankan ikon diberi ukuran eksplisit
+  (± 160dp) lewat layer-list supaya di Android 12+ ikon tidak dipotong
+  keras oleh mask lingkaran sistem. PNG polos tetap valid di semua API —
+  Ini hanya rapikan tampilan, bukan perbaikan crash.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="160dp"
+        android:height="160dp"
+        android:gravity="center"
+        android:drawable="@drawable/splash_logo" />
+</layer-list>
