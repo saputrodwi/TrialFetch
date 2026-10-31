@@ -81,7 +81,7 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
     }
 
     private val searchRe = Regex(
-        """<a href="(/comic/([a-z0-9\-]+))" title="([^"]+)"[^>]*class="comics-card__poster""",
+        """<a href="(/comic/([a-z0-9-]+))" title="([^"]+)"[^>]*class="comics-card__poster""",
         RegexOption.IGNORE_CASE
     )
     private val coverRe = Regex(
@@ -108,7 +108,7 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
      * cadangan tetap jalan meski tidak ada host app yang hidup.
      */
     private val imageRe = Regex(
-        """https://[a-z0-9.\-]*(?:baozicdn\.com|bzcdn\.net)/scomic/[^"'\s]+?\.(?:jpg|jpeg|png|webp)""",
+        """https://[a-z0-9.-]*(?:baozicdn\.com|bzcdn\.net)/scomic/[^"'\s]+?\.(?:jpg|jpeg|png|webp)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -274,7 +274,7 @@ class BaozimhSource(private val http: HttpClient) : ComicSource {
      */
     private fun appChapterPath(url: String): String? {
         // Sudah dalam bentuk API app: /comic/chapter/{slug}/{x}_{y}.html
-        Regex("""/(?:comic|baozimhapp/comic)/chapter/([a-z0-9\-]+)/([0-9]+_[0-9]+)\.html""",
+        Regex("""/(?:comic|baozimhapp/comic)/chapter/([a-z0-9-]+)/([0-9]+_[0-9]+)\.html""",
             RegexOption.IGNORE_CASE)
             .find(url)?.let {
                 return "/${it.groupValues[1]}/${it.groupValues[2]}.html"

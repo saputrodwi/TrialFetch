@@ -212,10 +212,10 @@ class MangaGekoSource(private val http: HttpClient) : ComicSource {
         val absolute = if (chapterUrl.startsWith("http")) chapterUrl
         else "$base${if (chapterUrl.startsWith("/")) "" else "/"}${chapterUrl}"
         val slug = Regex(
-            """(?:/manga/|/reader/en/)([a-zA-Z0-9\-]+)"""
+            """(?:/manga/|/reader/en/)([a-zA-Z0-9-]+)"""
         ).find(absolute)?.groupValues?.get(1) ?: return null
         // "/reader/en/nano-machine-mg12-chapter-336-eng-li/" → "nano-machine-mg12"
-        val mangaId = slug.replace(Regex("""-chapter-[\d\-_a-z]*$"""), "")
+        val mangaId = slug.replace(Regex("""-chapter-[\d_a-z-]*$"""), "")
         return mangaId.takeIf { it.isNotBlank() }
     }
 }

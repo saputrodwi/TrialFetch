@@ -35,7 +35,7 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
 
     private val tokenRe = Regex("""name="__searchtoken__"\s+value="([^"]+)"""")
     private val searchRe = Regex(
-        """<article class="manga-card">[\s\S]*?<a class="manga-cover" href="(/([a-z0-9\-]+))"[^>]*title="([^"]+)"""",
+        """<article class="manga-card">[\s\S]*?<a class="manga-cover" href="(/([a-z0-9-]+))"[^>]*title="([^"]+)"""",
         RegexOption.IGNORE_CASE
     )
     private val searchCoverRe = Regex(
@@ -176,7 +176,7 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
 
     /** Slug series terbaca langsung dari URL chapter /{slug}/{n}.html. */
     override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? {
-        return Regex("""/([a-z0-9\-]+)/\d+\.html""", RegexOption.IGNORE_CASE)
+        return Regex("""/([a-z0-9-]+)/\d+\.html""", RegexOption.IGNORE_CASE)
             .find(chapterUrl)?.groupValues?.get(1)
     }
 

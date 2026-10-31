@@ -14,8 +14,8 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
     private val base = "https://m.hipmh.com"
     override val noImageReferer: Boolean get() = false
 
-    private val worksLinkRe = Regex("""href="(/works/[a-zA-Z0-9\-]+)"\""", RegexOption.IGNORE_CASE)
-    private val coverImgRe = Regex("""data-cover-url="([^"]+)"\""", RegexOption.IGNORE_CASE)
+    private val worksLinkRe = Regex("""href="(/works/[a-zA-Z0-9-]+)""", RegexOption.IGNORE_CASE)
+    private val coverImgRe = Regex("""data-cover-url="([^"]+)"""", RegexOption.IGNORE_CASE)
     private val h1Re = Regex("""<h1[^>]*>([\s\S]*?)</h1>""", RegexOption.IGNORE_CASE)
     private val ogImageRe = Regex("""<meta[^>]+property="og:image"[^>]+content="([^"]+)[^>]*>""", RegexOption.IGNORE_CASE)
     private val ogDescRe = Regex("""<meta[^>]+property="og:description"[^>]+content="([^"]+)[^>]*>""", RegexOption.IGNORE_CASE)
@@ -100,7 +100,7 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
 
     override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? {
         val absolute = if (chapterUrl.startsWith("http")) chapterUrl else "$base${chapterUrl.takeIf { it.startsWith("/") } ?: "/$chapterUrl"}"
-        return Regex("""/works/([a-zA-Z0-9\-]+)""", RegexOption.IGNORE_CASE).find(absolute)?.groupValues?.get(1)
+        return Regex("""/works/([a-zA-Z0-9-]+)""", RegexOption.IGNORE_CASE).find(absolute)?.groupValues?.get(1)
             ?: Regex("""[?&]m=([a-zA-Z0-9]+)""", RegexOption.IGNORE_CASE).find(absolute)?.groupValues?.get(1)
     }
 }

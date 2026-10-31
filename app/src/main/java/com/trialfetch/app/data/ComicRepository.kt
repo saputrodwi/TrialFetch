@@ -785,20 +785,43 @@ class ComicRepository(
     }
 
     companion object {
-        fun buildSources(http: HttpClient): Map<Source, ComicSource> = mapOf(
-            Source.BAOZIMH to BaozimhSource(http),
-            Source.MANWANG to ManwangSource(http),
-            Source.WMANHUA to WmanhuaSource(http),
-            Source.KOUDAIMH to KoudaimhSource(http),
-            Source.JJABTOON to JjabtoonSource(http),
-            Source.JJAPTOON to JjaptoonSource(http),
-            Source.GOODTOON to GoodtoonSource(http),
-            Source.RUMAN to RumanhuaSource(http),
-            Source.MANHUAHAO to ManhuahaoSource(http),
-            Source.MANGAGO to MangaGekoSource(http),
-            Source.HIPMH to HipmhSource(http),
-            Source.MANGADEX to MangaDexSource(http)
-        )
+        /**
+         * Bangun semua source. Versi awalnya `mapOf(...)` polos: satu
+         * saja constructor yang melempar (mis. Regex mangkato yang salah
+         * ditulis membuatpanwork SauceException di ICU/Android) mematikan
+         * SELURUH aplikasi sebelum UI terpasang. Kini tiap source
+         * dibangun terlindungi: yang gagal dicatat dan dilewati, sisanya
+         * tetap hidup — aplikasi tetap terbuka dan hanya sumber yang
+         * bermasalah yang hilang sementara dari daftar.
+         */
+        fun buildSources(http: HttpClient): Map<Source, ComicSource> {
+            val specs: List<Pair<Source, () -> ComicSource>> = listOf(
+                Source.BAOZIMH to { BaozimhSource(http) },
+                Source.MANWANG to { ManwangSource(http) },
+                Source.WMANHUA to { WmanhuaSource(http) },
+                Source.KOUDAIMH to { KoudaimhSource(http) },
+                Source.JJABTOON to { JjabtoonSource(http) },
+                Source.JJAPTOON to { JjaptoonSource(http) },
+                Source.GOODTOON to { GoodtoonSource(http) },
+                Source.RUMAN to { RumanhuaSource(http) },
+                Source.MANHUAHAO to { ManhuahaoSource(http) },
+                Source.MANGAGO to { MangaGekoSource(http) },
+                Source.HIPMH to { HipmhSource(http) },
+                Source.MANGADEX to { MangaDexSource(http) }
+            )
+            val built = LinkedHashMap<Source, ComicSource>()
+            for ((src, make) in specs) {
+                try {
+                    built[src] = make()
+                } catch (t: Throwable) {
+                    android.util.Log.e(
+                        "ComicRepository",
+                        "Source ${src.name} gagal dibangun, dilewati", t
+                    )
+                }
+            }
+            return built
+        }
 
         /**
          * Kunci gambar Manwang/Rumanhua (source_id 12). Sama untuk keduanya

@@ -58,7 +58,7 @@ object UrlParser {
                 // Path API app juga mengandung "/comic/…", jadi dicek dulu
                 // supaya slug-nya tidak tertangkap sebagai "chapter".
                 val apiSlug = Regex(
-                    """/comic/chapter/([a-z0-9\-]+)/[0-9]+_[0-9]+\.html""",
+                    """/comic/chapter/([a-z0-9-]+)/[0-9]+_[0-9]+\.html""",
                     RegexOption.IGNORE_CASE
                 ).find(withScheme)?.groupValues?.get(1)
                 when {
@@ -68,7 +68,7 @@ object UrlParser {
                         // lewat jalur HTML bila jalur API app sedang mati.
                         Parsed.Chapter(Source.BAOZIMH, withScheme.substringBefore("#"))
                     else -> {
-                        val slug = Regex("""/comic/([a-z0-9\-]+)""", RegexOption.IGNORE_CASE)
+                        val slug = Regex("""/comic/([a-z0-9-]+)""", RegexOption.IGNORE_CASE)
                             .find(withScheme)?.groupValues?.get(1)
                         if (slug != null) Parsed.Series(Source.BAOZIMH, slug)
                         else Parsed.Unknown("URL Baozimh tidak dikenali")
@@ -89,7 +89,7 @@ object UrlParser {
 
             // --- Koudaimh: /manhua/{slug}, chapter /manhua/{slug}/{id}.html
             host == "koudaimh.com" || host.endsWith(".koudaimh.com") -> {
-                val m = Regex("""/manhua/([a-z0-9\-]+)(?:/(\d+)\.html)?""", RegexOption.IGNORE_CASE)
+                val m = Regex("""/manhua/([a-z0-9-]+)(?:/(\d+)\.html)?""", RegexOption.IGNORE_CASE)
                     .find(withScheme)
                 if (m == null) {
                     Parsed.Unknown("URL Koudaimh tidak dikenali")
@@ -140,12 +140,12 @@ object UrlParser {
             // --- Goodtoon: /manga/{slug}/ = series,
             // /manga/{slug}/{n}/ atau /chapter-{n}/ = chapter.
             host.contains("goodtoon") && !host.startsWith("img.") -> {
-                val ch = Regex("""/manga/([a-z0-9\-]+)/(?:chapter-)?(\d+)/""",
+                val ch = Regex("""/manga/([a-z0-9-]+)/(?:chapter-)?(\d+)/""",
                     RegexOption.IGNORE_CASE).find(withScheme)
                 if (ch != null) {
                     Parsed.Chapter(Source.GOODTOON, withScheme.substringBefore("?"))
                 } else {
-                    val slug = Regex("""/manga/([a-z0-9\-]+)""",
+                    val slug = Regex("""/manga/([a-z0-9-]+)""",
                         RegexOption.IGNORE_CASE).find(withScheme)?.groupValues?.get(1)
                     if (slug != null) Parsed.Series(Source.GOODTOON, slug.trimEnd('/'))
                     else Parsed.Unknown("URL Goodtoon tidak dikenali")
@@ -167,7 +167,7 @@ object UrlParser {
             // --- Manhuahao: /{slug} = series, /{slug}/{n}.html = chapter.
             // Abaikan path khusus situs (search/category/ranking/dmca/dll).
             host == "manhuahao.com" || host.endsWith(".manhuahao.com") -> {
-                val ch = Regex("""/([a-z0-9\-]+)/(\d+)\.html""", RegexOption.IGNORE_CASE)
+                val ch = Regex("""/([a-z0-9-]+)/(\d+)\.html""", RegexOption.IGNORE_CASE)
                     .find(withScheme)
                 if (ch != null) {
                     Parsed.Chapter(
@@ -175,7 +175,7 @@ object UrlParser {
                         "https://m.manhuahao.com/${ch.groupValues[1]}/${ch.groupValues[2]}.html"
                     )
                 } else {
-                    val slug = Regex("""/([a-z0-9\-]+)/?$""", RegexOption.IGNORE_CASE)
+                    val slug = Regex("""/([a-z0-9-]+)/?$""", RegexOption.IGNORE_CASE)
                         .find(withScheme)?.groupValues?.get(1)
                     if (slug != null && slug !in reservedPaths) {
                         Parsed.Series(Source.MANHUAHAO, slug)
@@ -188,14 +188,14 @@ object UrlParser {
             // --- MangaGeko: /manga/{slug}/ = series, /reader/en/{...}/ = chapter.
             host == "mgeko.cc" || host.endsWith(".mgeko.cc") -> {
                 val ch = Regex(
-                    """/reader/en/([a-zA-Z0-9\-]+)/""",
+                    """/reader/en/([a-zA-Z0-9-]+)/""",
                     RegexOption.IGNORE_CASE
                 ).find(withScheme)?.groupValues?.get(1)
                 if (ch != null) {
                     Parsed.Chapter(Source.MANGAGO, withScheme.substringBefore("#"))
                 } else {
                     val slug = Regex(
-                        """/manga/([a-zA-Z0-9\-]+)/"""
+                        """/manga/([a-zA-Z0-9-]+)/"""
                     ).find(withScheme)?.groupValues?.get(1)
                     if (slug != null) Parsed.Series(Source.MANGAGO, slug)
                     else Parsed.Unknown("URL MangaGeko tidak dikenali")
@@ -212,7 +212,7 @@ object UrlParser {
                     Parsed.Chapter(Source.HIPMH, withScheme.substringBefore("#"))
                 } else {
                     val slug = Regex(
-                        """/works/([a-zA-Z0-9\-]+)"""
+                        """/works/([a-zA-Z0-9-]+)"""
                     ).find(withScheme)?.groupValues?.get(1)
                     if (slug != null) Parsed.Series(Source.HIPMH, slug)
                     else Parsed.Unknown("URL HipMH tidak dikenali")
