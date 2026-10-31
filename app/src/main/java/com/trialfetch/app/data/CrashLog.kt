@@ -11,7 +11,6 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -49,9 +48,6 @@ object CrashLog {
     private val lock = Any()
 
     private lateinit var appCtx: Context
-    private val io = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "CrashLog-io").apply { isDaemon = true }
-    }
 
     /** Pasang perekam crash. Dipanggil sekali, dari Application.onCreate. */
     fun install(context: Context) {
@@ -64,14 +60,15 @@ object CrashLog {
     }
 
     /**
-     * Catat satu peranda startup. Juga dilarasikan ke disk supaya mati
-     * native (OS men-kill proses tanpa lewat handler Java) tetap
-     * meninggalkan jejak sejauh mana aplikasi sempat jalan.
+     * Catat satu peranda startup. Ditulis langsung (sinkron) — pereksipan
+     * baru 2-3 file kecil per jalanan, murah, dan kebal race: proses yang
+     * mati mendadak (mis. sinyal native) tetap meninggalkan jejak sejauh
+     * mana aplikasi sempat jalan.
      */
     fun mark(event: String) {
         val line = "${fmt.format(Date())}  $event"
         synchronized(lock) { buf.add(line) }
-        io.execute { runCatching { writeText("session", snapshot()) } }
+        runCatching { writeText("session", snapshot()) }
     }
 
     private fun snapshot(): String = synchronized(lock) {
