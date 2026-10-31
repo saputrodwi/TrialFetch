@@ -17,11 +17,10 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
     override val imageReferer: String get() = "$base/"
 
     // Template kartu berubah (per akta 2026): <span class="booktitle"> dan
-    // <p class="commandDes"> kini berada DI DALAM <a>, bukan setelah </a> —
-    // pola antara: ambil kartu dari <a href="/book/…"> hingga booktitle,
-    // lalu cover/penulis diekstrak dari potongan (slice) kartu itu sendiri.
+    // <p class="commandDes"> kini berada SETELAH </a>, bukan di dalam <a> —
+    // pola: ambil <a href="/book/..."> sampai </a>, lalu booktitle di luar.
     private val searchRe = Regex(
-        """<a href="(/book/(\d+))">[\s\S]{0,500}?<span class="booktitle">([^<]+)</span>""",
+        """<a href="(/book/(\d+))">[\s\S]*?</a>\s*<span class="booktitle">([^<]+)</span>""",
         RegexOption.IGNORE_CASE
     )
     private val coverInCard = Regex("""<img[^>]+src="([^"]+)"""", RegexOption.IGNORE_CASE)
