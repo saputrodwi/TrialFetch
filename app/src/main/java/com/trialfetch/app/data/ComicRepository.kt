@@ -831,7 +831,10 @@ class ComicRepository(
          * berbagi folder — chapternya tidak bisa saling menimpa.
          */
         fun seriesDirOf(series: SeriesInfo): String =
-            "${sanitize(series.source.displayName)}/${sanitize(series.title)}"
+            // Tambahkan comicId ke nama folder agar dua series berbeda dari
+            // sumber yang sama tidak pernah menabrak folder — bahkan kalau
+            // judulnya sama atau sanitize() membuat nama menjadi identik.
+            "${sanitize(series.source.displayName)}/${sanitize(series.title)} (${series.comicId})"
 
         /**
          * Bentuk lama yang pernah dipakai build sebelumnya, hanya untuk
