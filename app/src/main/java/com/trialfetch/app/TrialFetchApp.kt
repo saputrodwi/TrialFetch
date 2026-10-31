@@ -1,18 +1,29 @@
 package com.trialfetch.app
 
 import android.app.Application
+import android.content.Context
 import android.os.Build
 import com.trialfetch.app.data.CrashLog
 
 class TrialFetchApp : Application() {
+
+    // attachBaseContext adalah titik kode aplikasi yang PALING AWAL jalan —
+    // lebih awal dari onCreate. Marker di sini membuktikan bahwa proses
+    // sempat menjalankan kode kita sedikit-demi-sedikitnya di titik ini.
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        CrashLog.mark(
+            "Application.attachBaseContext @ ${Build.MODEL} API ${Build.VERSION.SDK_INT}"
+        )
+    }
+
     override fun onCreate() {
         super.onCreate()
 
-        // Perekam marker + crash ke folder Download dipasang PALING AWAL —
-        // satu-satunya cara mendiagnosis HP tanpa PC (di Android 11+
-        // logcat pihak ketiga terkunci). Lihat data/CrashLog.kt.
+        // Perekam marker + crash (file Download, clipboard, beacon webhook)
+        // dipasang PALING AWAL. Lihat data/CrashLog.kt.
         CrashLog.install(this)
-        CrashLog.mark("Application.onCreate @ ${Build.MODEL} API ${Build.VERSION.SDK_INT}")
+        CrashLog.mark("Application.onCreate")
 
         // OpenCV TIDAK lagi di-init di sini (dulu ada Thread initLocal()).
         // Alasan: pemotong banner sudah memuat OpenCV sendiri secara lazy
