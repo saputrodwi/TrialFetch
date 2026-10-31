@@ -17,12 +17,14 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
     override val source = Source.WMANHUA
     private val base = "https://www.wmanhua.com"
 
+    // Situs diredesain (aset CSS v20261027): kartu hasil kini
+    // <a class="book" href="/comic/{id}.html"> dengan cover sebagai
+    // background-image pada <div class="thumb">, judul di <h3>.
     private val cardRe = Regex(
-        """<a href="/comic/(\d+)\.html">\s*<article class="card">\s*""" +
-            """<img[^>]*data-src="([^"]+)"[^>]*>\s*""" +
-            """<footer>\s*<h3 class="cardtitle">([^<]+)</h3>""",
+        """<a class="book" href="/comic/(\d+)\.html">[\s\S]{0,450}?<h3>([^<]+)</h3>""",
         RegexOption.IGNORE_CASE
     )
+    private val cardCoverRe = Regex("""background-image:\s*url\(['"]([^'"]+)['"]\)""")
     private val numRe = Regex("""var\s+num\s*=\s*eval\(\s*["'](\d+)["']\s*\)""")
     private val pasdRe = Regex("""var\s+pasd\s*=\s*["']([^"']+)["']""")
 
@@ -33,14 +35,26 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
             throw SourceException("Gagal mencari di Wmanhua: ${e.message}", e)
         }
         val results = cardRe.findAll(html).map { m ->
+            val block = m.value
             SearchResult(
                 source = source,
                 comicId = m.groupValues[1],
-                title = cleanText(m.groupValues[3]),
-                coverUrl = m.groupValues[2],
+                title = cleanText(m.groupValues[2]),
+                coverUrl = cardCoverRe.find(block)?.groupValues?.get(1).orEmpty(),
                 seriesUrl = "$base/comic/${m.groupValues[1]}.html"
             )
         }.distinctBy { it.comicId }.toList()
+
+        // Cocok samar masih diterima; yang mengandung kata kunci utuh
+        // paling atas (simpul 24 item silang sumber "beganikata-kata" saja).
+        if (results.isNotEmpty()) {
+            val exact = results.filter {
+                it.title.contains(query, ignoreCase = true) ||
+                    it.comicId.contains(query, ignoreCase = true)
+            }
+            val fin = exact + results.filter { u -> exact.none { it.comicId == u.comicId } }
+            return fin.take(30)
+        }
 
         if (results.isEmpty()) {
             throw SourceException(

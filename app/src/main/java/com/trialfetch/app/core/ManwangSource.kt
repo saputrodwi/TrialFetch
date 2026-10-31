@@ -16,12 +16,16 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
     /** Host gambar (dmw.*) menolak Referer selain manwang.net (403). */
     override val imageReferer: String get() = "$base/"
 
+    // Template kartu berubah (per akta 2026): <span class="booktitle"> dan
+    // <p class="commandDes"> kini berada DI DALAM <a>, bukan setelah </a> —
+    // pola antara: ambil kartu dari <a href="/book/…"> hingga booktitle,
+    // lalu cover/penulis diekstrak dari potongan (slice) kartu itu sendiri.
     private val searchRe = Regex(
-        """<a href="(/book/(\d+))">\s*<img src="([^"]+)"[^>]*>[\s\S]{0,160}?</a>\s*""" +
-            """<span class="booktitle">([^<]+)</span>\s*""" +
-            """<p class="commandDes">([^<]*)</p>""",
+        """<a href="(/book/(\d+))">[\s\S]{0,500}?<span class="booktitle">([^<]+)</span>""",
         RegexOption.IGNORE_CASE
     )
+    private val coverInCard = Regex("""<img[^>]+src="([^"]+)"""", RegexOption.IGNORE_CASE)
+    private val authorInCard = Regex("""commandDes">([^<]*)<""", RegexOption.IGNORE_CASE)
     // several template presentations; both are live depending on which
     // front-end the site serves, so both are parsed and merged.
     private val searchAltRe = Regex(
@@ -76,7 +80,14 @@ class ManwangSource(private val http: HttpClient) : ComicSource {
         }
 
         searchRe.findAll(html).forEach { m ->
-            put(m.groupValues[1], m.groupValues[2], m.groupValues[4], m.groupValues[3], m.groupValues[5])
+            val block = m.value
+            put(
+                m.groupValues[1],
+                m.groupValues[2],
+                m.groupValues[3],
+                coverInCard.find(block)?.groupValues?.get(1).orEmpty(),
+                authorInCard.find(block)?.groupValues?.get(1).orEmpty()
+            )
         }
         searchAltRe.findAll(html).forEach { m ->
             put(m.groupValues[1], m.groupValues[2], m.groupValues[4], m.groupValues[3], "")

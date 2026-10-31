@@ -1,10 +1,18 @@
 package com.trialfetch.app.core
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
 /**
  * HipMH (m.hipmh.com) — 嬉皮漫畫, platform komik Cina multilingual (zh/en/ja/ko).
  *
- *  - Search:    Halaman search bersifat SPA; fallback ke katalog (/new-releases,
- *               /popularity, /explore) lalu filter berdasarkan keyword.
+ *  - Search:    API JSON internal SPA (`hipapi1.s3file.top/v1/search`)
+ *               — dipakai langsung oleh JS halaman search situs; hasil
+ *               slug/cover dipetakan 1:1. Bila API sedang tidak
+ *               tersedia, jatuh ke katalog (/new-releases, /popularity,
+ *               /explore) + filter keyword (perilaku lama).
  *  - Series:    GET {base}/works/{slug}/ (h1, data-cover-url, og:description).
  *  - Chapter:   /chapter/go?hid={hid}&m={mangaId} → redirect ke reader.hipmh.top.
  */
@@ -13,6 +21,13 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
     override val source = Source.HIPMH
     private val base = "https://m.hipmh.com"
     override val noImageReferer: Boolean get() = false
+
+    /** API JSON internal yang dipakai SPA halaman search. */
+    private val searchApi = "https://hipapi1.s3file.top"
+    /** CDN cover untuk path vertical_image_url milik API. */
+    private val coverCdn = "https://cover.s3imgs.top"
+
+    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     private val worksLinkRe = Regex("""href="(/works/[a-zA-Z0-9-]+)""", RegexOption.IGNORE_CASE)
     private val coverImgRe = Regex("""data-cover-url="([^"]+)"""", RegexOption.IGNORE_CASE)
@@ -23,12 +38,55 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
     private val hidRe = Regex("""[?&]hid=([^&]+)""", RegexOption.IGNORE_CASE)
     private val mangaIdRe = Regex("""[?&]m=([^&]+)""", RegexOption.IGNORE_CASE)
 
-    private fun abs(url: String) = if (url.startsWith("http")) url else base + url.takeIf { it.startsWith("/") } ?: "/$url"
+    private fun abs(url: String) =
+        if (url.startsWith("http")) url
+        else base + (url.takeIf { it.startsWith("/") } ?: "/$url")
 
     private suspend fun catalogPages(): List<String> = listOf("/new-releases", "/popularity", "/explore")
         .mapNotNull { path -> runCatching { http.getHtml("$base$path", referer = base, mobile = false) }.getOrNull() }
 
     override suspend fun search(query: String): List<SearchResult> {
+        // Utama: API JSON yang persis dipakai JS halaman search situs
+        // (terverifikasi server-side; respons data.data[]{id,slug,title,
+        // vertical_image_url}). Fallback: daftar katalog + filter (lama).
+        val viaApi = runCatching {
+            val body = http.getHtml(
+                "$searchApi/v1/search?q=${query.urlEncode()}&page=1&page_size=20",
+                referer = base, mobile = false
+            )
+            json.parseToJsonElement(body).jsonObject["data"]?.jsonObject
+                ?.get("data")?.jsonArray
+        }.getOrNull()
+        if (viaApi != null) {
+            val rows = viaApi.mapNotNull { el ->
+                val o = runCatching { el.jsonObject }.getOrNull() ?: return@mapNotNull null
+                val slug = o["slug"]?.jsonPrimitive?.content?.trim().orEmpty()
+                val title = o["title"]?.jsonPrimitive?.content?.trim().orEmpty()
+                if (slug.isEmpty()) return@mapNotNull null
+                val img = o["vertical_image_url"]?.jsonPrimitive?.content?.trim().orEmpty()
+                SearchResult(
+                    source = source,
+                    comicId = slug,
+                    title = title.ifBlank { slug.replace('-', ' ') },
+                    coverUrl = when {
+                        img.startsWith("http") -> img
+                        img.isNotEmpty() -> coverCdn + img
+                        else -> ""
+                    },
+                    seriesUrl = "$base/works/$slug"
+                )
+            }
+            if (rows.isNotEmpty()) {
+                val exact = rows.filter {
+                    it.title.contains(query, ignoreCase = true) ||
+                        it.comicId.contains(query, ignoreCase = true)
+                }
+                val fin = (exact + rows.filter { u -> exact.none { it.comicId == u.comicId } })
+                if (fin.isNotEmpty()) return fin.take(30)
+            }
+        }
+
+        // Fallback katalog ( perilaku lama ) — hanya kalau API gagal total.
         val pages = catalogPages()
         val out = ArrayList<SearchResult>(30)
         val seen = HashSet<String>()

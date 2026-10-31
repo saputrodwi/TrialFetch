@@ -49,34 +49,28 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
     private fun coverFor(comicId: String) = "https://img.koudaimh.com/cover/$comicId.webp"
 
     override suspend fun search(query: String): List<SearchResult> {
-        val landing = try {
-            http.getHtml("$base/search", referer = "$base/")
+        // SSR penuh: GET /search?q= langsung mengembalikan halaman hasil
+        // (verifikasi server-side, tak butuh token). Token
+        // __searchtoken__ tidak lagi ada di landing; kalau suatu saat
+        // muncul kembali, tetap disisipkan tanpa mengubah jalur utama.
+        // Fallback baterai /update dihapus: pencarian nyata sudah bekerja.
+        val token = runCatching {
+            tokenRe.find(http.getHtml("$base/search", referer = "$base/"))
+                ?.groupValues?.get(1)
+        }.getOrNull()
+        val html = try {
+            http.getHtml(
+                "$base/search?q=${query.urlEncode()}" +
+                    (token?.let { "&__searchtoken__=$it" } ?: ""),
+                referer = "$base/search"
+            )
         } catch (e: Exception) {
-            throw SourceException("Gagal menghubungi Koudaimh: ${e.message}", e)
-        }
-        val token = tokenRe.find(landing)?.groupValues?.get(1)
-        val html = if (token != null) {
-            try {
-                http.getHtml(
-                    "$base/search?q=${query.urlEncode()}&__searchtoken__=$token",
-                    referer = "$base/search"
-                )
-            } catch (e: Exception) {
-                throw SourceException("Gagal mencari di Koudaimh: ${e.message}", e)
-            }
-        } else {
-            // Struktur situs berubah (token tidak lagi ada): fallback ke halaman update.
-            try { http.getHtml("$base/update", referer = "$base/") }
-            catch (e: Exception) { throw SourceException("Gagal mencari di Koudaimh: ${e.message}", e) }
+            throw SourceException("Gagal mencari di Koudaimh: ${e.message}", e)
         }
 
         val results = searchRe.findAll(html).map { m ->
             val slug = m.groupValues[2]
             val rawTitle = cleanText(m.groupValues[3])
-            // Filter hasil berdasarkan keyword bila scraping dari halaman umum.
-            if (!rawTitle.contains(query, ignoreCase = true) &&
-                !slug.contains(query, ignoreCase = true) && token != null
-            ) return@map null
             val block = html.substring(
                 m.range.first,
                 (m.range.last + 500).coerceAtMost(html.length)
@@ -90,12 +84,19 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
                 coverUrl = coverRe.find(block)?.value ?: coverFor(slug),
                 seriesUrl = base + m.groupValues[1]
             )
-        }.filterNotNull().distinctBy { it.comicId }.toList()
+        }.distinctBy { it.comicId }.toList()
 
-        if (results.isEmpty()) {
+        // Cari-tapi-halus: server boleh mengembalikan cocok samar;
+        // letakkan yang mengandung kata kunci utuh paling atas.
+        val exact = results.filter {
+            it.title.contains(query, ignoreCase = true) ||
+                it.comicId.contains(query, ignoreCase = true)
+        }
+        val fin = exact + results.filter { u -> exact.none { it.comicId == u.comicId } }
+        if (fin.isEmpty()) {
             throw SourceException("Tidak ada hasil untuk \"$query\"")
         }
-        return results.take(30)
+        return fin.take(30)
     }
 
     override suspend fun series(comicId: String): SeriesInfo {

@@ -35,7 +35,7 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
 
     private val tokenRe = Regex("""name="__searchtoken__"\s+value="([^"]+)"""")
     private val searchRe = Regex(
-        """<article class="manga-card">[\s\S]*?<a class="manga-cover" href="(/([a-z0-9-]+))"[^>]*title="([^"]+)"""",
+        """<article class="comic-card">[\s\S]*?<a class="comic-cover" href="(/([a-z0-9-]+))"[^>]*title="([^"]+)"""",
         RegexOption.IGNORE_CASE
     )
     private val searchCoverRe = Regex(
@@ -45,45 +45,40 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
     private val chapterTitleRe = Regex("""第\d+\s*[话話章]""")
 
     override suspend fun search(query: String): List<SearchResult> {
-        val landing = try {
-            http.getHtml("$base/search", referer = "$base/")
+        // Situs SSR penuh: GET /search?q= langsung memuat hasilnya
+        // (verifikasi server-side). Token __searchtoken__ tidak lagi ada
+        // di landing; kalau suatu saat muncul kembali, tetap disisipkan.
+        // Fallback /update dihapus — pencarian nyata sudah bekerja, jd
+        // hasil tidak lagi "kebetulan cocok" karena judul ada di halaman
+        // update terbaru.
+        val token = runCatching {
+            tokenRe.find(http.getHtml("$base/search", referer = "$base/"))
+                ?.groupValues?.get(1)
+        }.getOrNull()
+        val html = try {
+            http.getHtml(
+                "$base/search?q=${query.urlEncode()}" +
+                    (token?.let { "&__searchtoken__=$it" } ?: ""),
+                referer = "$base/search"
+            )
         } catch (e: Exception) {
-            throw SourceException("Gagal menghubungi Manhuahao: ${e.message}", e)
-        }
-        val token = tokenRe.find(landing)?.groupValues?.get(1)
-        val html = if (token != null) {
-            try {
-                http.getHtml(
-                    "$base/search?q=${query.urlEncode()}&__searchtoken__=$token",
-                    referer = "$base/search"
-                )
-            } catch (e: Exception) {
-                throw SourceException("Gagal mencari di Manhuahao: ${e.message}", e)
-            }
-        } else {
-            // Struktur situs berubah (token tidak lagi ada): fallback ke halaman update.
-            try { http.getHtml("$base/update", referer = "$base/") }
-            catch (e: Exception) { throw SourceException("Gagal mencari di Manhuahao: ${e.message}", e) }
+            throw SourceException("Gagal mencari di Manhuahao: ${e.message}", e)
         }
 
-        val out = ArrayList<SearchResult>(30)
+        val all = ArrayList<SearchResult>(30)
         val seen = HashSet<String>()
         for (m in searchRe.findAll(html)) {
-            if (out.size >= 30) break
+            if (all.size >= 30) break
             val path = m.groupValues[1]
             val slug = m.groupValues[2]
             if (!seen.add(path)) continue
-            // Filter hasil berdasarkan keyword bila scraping dari halaman umum.
             val rawTitle = cleanText(m.groupValues[3])
-            if (!rawTitle.contains(query, ignoreCase = true) &&
-                !slug.contains(query, ignoreCase = true) && token != null
-            ) continue
             val block = html.substring(
                 m.range.first,
                 (m.range.last + 800).coerceAtMost(html.length)
             )
             val cover = searchCoverRe.find(block)?.groupValues?.get(1).orEmpty()
-            out += SearchResult(
+            all += SearchResult(
                 source = source,
                 comicId = slug,
                 title = rawTitle,
@@ -92,10 +87,17 @@ class ManhuahaoSource(private val http: HttpClient) : ComicSource {
             )
         }
 
-        if (out.isEmpty()) {
+        // Cocok samar masih diterima; yang mengandung kata kunci utuh
+        // di-urutkan paling atas.
+        val exact = all.filter {
+            it.title.contains(query, ignoreCase = true) ||
+                it.comicId.contains(query, ignoreCase = true)
+        }
+        val fin = exact + all.filter { u -> exact.none { it.comicId == u.comicId } }
+        if (fin.isEmpty()) {
             throw SourceException("Tidak ada hasil untuk \"$query\"")
         }
-        return out
+        return fin.take(30)
     }
 
     override suspend fun series(comicId: String): SeriesInfo {
