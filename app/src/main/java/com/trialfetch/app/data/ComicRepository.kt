@@ -502,9 +502,14 @@ class ComicRepository(
         } catch (e: Exception) {
             return@withContext fail(e.message ?: "Gagal membaca chapter")
         }
-                "chapterId=${chapter.chapterId} mode=${settings.outputMode} " +
-                "target=${seriesDir}/${chapterDir}"
-        )
+
+        // Lokasi = <Sumber>/<Judul series> (lihat seriesDirOf): dua tingkat
+        // nama yang terbaca, dan sumber berbeda tidak lagi berbagi folder.
+        // seriesDirOf sekarang menyertakan comicId, jadi dua series berbeda
+        // dengan judul sama dari sumber yang sama TIDAK PERNAH berbagi folder.
+        val seriesDir = seriesDirOf(series)
+        val chapterDir = sanitize(chapter.title)
+        val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
 
         val total = page.images.size
         // Log ini yang menentukan apakah "dobel" berasal dari parser gambar
@@ -712,6 +717,10 @@ class ComicRepository(
                     return@withContext fail("Gagal menyelesaikan arsip ZIP.")
                 }
                 storage.writeText(seriesDir, "$chapterDir.info.txt", info)
+                storage.displayPath("$seriesDir/$zipName")
+            }
+        }
+
         val bannerLine = if (settings.cropBanner && series.source == Source.BAOZIMH &&
             bannerCropper.checked > 0
         ) {
@@ -721,6 +730,13 @@ class ComicRepository(
         }
         notifier.showDone(chapter.title + bannerLine, done, savedPath, series.coverUrl)
         DownloadProgress(
+            total = total, done = done, state = DownloadProgress.State.DONE,
+            savedPath = savedPath, chapterTitle = chapter.title,
+            chapterId = chapter.chapterId
+        ).also { _progress.value = it }
+    }
+
+    /** Membuka series dari URL yang ditempel pengguna. */
     suspend fun openUrl(rawUrl: String): SeriesInfo {
         return when (val parsed = UrlParser.parse(rawUrl)) {
             is UrlParser.Parsed.Series -> series(parsed.source, parsed.comicId)
@@ -831,10 +847,7 @@ class ComicRepository(
          * berbagi folder — chapternya tidak bisa saling menimpa.
          */
         fun seriesDirOf(series: SeriesInfo): String =
-            // Tambahkan comicId ke nama folder agar dua series berbeda dari
-            // sumber yang sama tidak pernah menabrak folder — bahkan kalau
-            // judulnya sama atau sanitize() membuat nama menjadi identik.
-            "${sanitize(series.source.displayName)}/${sanitize(series.title)} (${series.comicId})"
+            "${sanitize(series.source.displayName)}/${sanitize(series.title)}"
 
         /**
          * Bentuk lama yang pernah dipakai build sebelumnya, hanya untuk
