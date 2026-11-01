@@ -1,0 +1,43 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.trialfetch.app-mergeDebugResources-54:/values-night-v8/values-night-v8.xml",
+            "map": [
+                {
+                    "source": "/root/.gradle/caches/8.11.1/transforms/dd7ac7604c61eaecd50cd07be6a2b8b8/transformed/core-splashscreen-1.0.1/res/values-night-v8/values-night-v8.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "85",
+                        "endOffsets": "136"
+                    },
+                    "to": {
+                        "startLines": "4",
+                        "startColumns": "4",
+                        "startOffsets": "164",
+                        "endColumns": "85",
+                        "endOffsets": "245"
+                    }
+                },
+                {
+                    "source": "/workspace/app/src/main/res/values-night/colors.xml",
+                    "from": {
+                        "startLines": "2,4",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,197",
+                        "endColumns": "56,51",
+                        "endOffsets": "107,244"
+                    },
+                    "to": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,112",
+                        "endColumns": "56,51",
+                        "endOffsets": "107,159"
+                    }
+                }
+            ]
+        }
+    ]
+}

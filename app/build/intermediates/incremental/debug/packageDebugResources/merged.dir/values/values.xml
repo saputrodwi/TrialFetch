@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#F3EFE9</color>
+    <color name="splash_background">#F3EFE9</color>
+    <string name="app_name">Trial Fetch</string>
+    <style name="Theme.TrialFetch" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <style name="Theme.TrialFetch.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo_layer</item>
+        <item name="postSplashScreenTheme">@style/Theme.TrialFetch</item>
+    </style>
+</resources>

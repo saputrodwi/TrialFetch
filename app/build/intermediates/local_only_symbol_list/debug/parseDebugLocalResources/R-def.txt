@@ -1,0 +1,33 @@
+R_DEF: Internal format may change without notice
+local
+color ic_launcher_background
+color splash_background
+drawable ic_notif_done
+drawable ic_notif_download
+drawable ic_notif_error
+drawable ic_notif_update
+drawable splash_logo
+drawable splash_logo_layer
+font baloo2_bold
+font baloo2_extrabold
+font jetbrains_mono_bold
+font jetbrains_mono_regular
+font quicksand_bold
+font quicksand_medium
+font quicksand_regular
+font quicksand_semibold
+mipmap ic_launcher
+mipmap ic_launcher_fg
+mipmap ic_launcher_round
+raw banner_1280
+raw banner_2000
+raw banner_690
+raw banner_800
+raw sectigo_root_r46
+raw zerossl_rsa_dv_ssl_ca2
+string app_name
+style Theme.TrialFetch
+style Theme.TrialFetch.Starting
+xml backup_rules
+xml data_extraction_rules
+xml network_security_config

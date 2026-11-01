@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.trialfetch.app.debug"
+    android:versionCode="1"
+    android:versionName="1.0-debug" >
+
+    <uses-sdk
+        android:minSdkVersion="24"
+        android:targetSdkVersion="35" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      Android 10+ (API 29) menulis ke folder publik lewat MediaStore dan
+      tidak butuh izin ini. Android 9 ke bawah (API 24-28) masih memakai
+      jalur file biasa, jadi izinnya wajib ada. maxSdkVersion membatasi
+      permintaan ini supaya Android 10+ tidak pernah menanyakannya.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Notifikasi progres unduhan -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      Akses semua file (Android 11+): agar unduhan yang ditulis varian /
+      instalasi lain tetap terbaca — file milik paket lain disembunyikan
+      dari File API maupun MediaStore tanpa izin ini. Aplikasi sideload
+      (bukan Play Store) sehingga kebijakan Play tak berlaku. Izin ini
+      opsional: hanya diminta dari layar Pengaturan bila dibutuhkan.
+    -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+    <permission
+        android:name="com.trialfetch.app.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:protectionLevel="signature" />
+
+    <uses-permission android:name="com.trialfetch.app.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+
+    <application
+        android:name="com.trialfetch.app.TrialFetchApp"
+        android:allowBackup="false"
+        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+        android:debuggable="true"
+        android:extractNativeLibs="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.TrialFetch"
+        android:usesCleartextTraffic="false" >
+        <activity
+            android:name="com.trialfetch.app.ui.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TrialFetch.Starting"
+            android:windowSoftInputMode="adjustResize" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!--
+                 Buka link situs langsung di aplikasi ala Mihon: ketuk link
+                di browser → dialog "buka dengan" → TrialFetch membuka
+                series-nya. Tanpa autoVerify (domain bukan milik kita)
+                sehingga selalu lewat chooser, bukan klaim sepihak.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="baozimh.com" />
+                <data android:host="www.baozimh.com" />
+                <data android:host="twmanga.com" />
+                <data android:host="www.twmanga.com" />
+                <data android:host="manwang.net" />
+                <data android:host="www.manwang.net" />
+                <data android:host="wmanhua.com" />
+                <data android:host="www.wmanhua.com" />
+                <data android:host="koudaimh.com" />
+                <data android:host="m.koudaimh.com" />
+                <data android:host="jjabtoon001.com" />
+                <data android:host="www.jjaptoon008.com" />
+                <data android:host="jjaptoon008.com" />
+                <data android:host="goodtoon.top" />
+                <data android:host="www.goodtoon005.com" />
+                <data android:host="rumanhua.org" />
+                <data android:host="www.rumanhua.org" />
+                <data android:host="manhuahao.com" />
+                <data android:host="m.manhuahao.com" />
+                <data android:pathPattern="/.*" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="com.trialfetch.app.debug.androidx-startup"
+            android:exported="false" >
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
+        <activity
+            android:name="androidx.compose.ui.tooling.PreviewActivity"
+            android:exported="true" />
+
+        <receiver
+            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+            android:directBootAware="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.DUMP" >
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>
