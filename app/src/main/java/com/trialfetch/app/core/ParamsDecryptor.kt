@@ -50,7 +50,14 @@ object ParamsDecryptor {
     }
 
     fun decode(blob: String): Decoded {
+        // Halaman live membungkus nilai params dengan escape JSON
+        // ("\/" untuk / dan "\u002b" untuk +) — tanpa pembersihan ini
+        // base64-nya tidak valid sehingga semua chapter Manwang/Rumanhua
+        // gagal dibaca.
         val normalized = blob.trim()
+            .replace("\\/", "/")
+            .replace("\\u002b", "+")
+            .replace("\\u002f", "/")
             .replace("-", "+")
             .replace("_", "/")
         val padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4)

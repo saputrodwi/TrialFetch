@@ -169,7 +169,15 @@ class KoudaimhSource(private val http: HttpClient) : ComicSource {
 
         val key: Key = SecretKeySpec(KEY.toByteArray(Charsets.UTF_8), "AES")
         val raw = try {
-            val b64 = blob.trim().replace("-", "+").replace("_", "/")
+            // Escape JSON di halaman live ("\/" untuk / dan "\u002b" untuk +)
+            // membuat base64 gagal didekode bila tidak dibersihkan dulu —
+            // inilah penyebab semua chapter Koudaimh gagal dibaca.
+            val b64 = blob.trim()
+                .replace("\\/", "/")
+                .replace("\\u002b", "+")
+                .replace("\\u002f", "/")
+                .replace("-", "+")
+                .replace("_", "/")
             Base64.decode(b64 + "=".repeat((4 - (b64.length % 4)) % 4), Base64.DEFAULT)
         } catch (e: Exception) {
             throw SourceException("Blob params bukan base64 valid", e)

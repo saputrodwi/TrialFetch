@@ -28,6 +28,21 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
     private val numRe = Regex("""var\s+num\s*=\s*eval\(\s*["'](\d+)["']\s*\)""")
     private val pasdRe = Regex("""var\s+pasd\s*=\s*["']([^"']+)["']""")
 
+    // Struktur chapter BARU (Nov 2026): jumlah halaman dan folder gambar
+    // tidak lagi lewat num/pasd, melainkan:
+    //   var totalPages = parseInt('14');
+    //   var imgBaseUrl = 'https://image4.wmanhua.com/mh/{folder}/' + ('{uuid}' || 'judul') + '/';
+    // URL gambar = {imgBaseUrl}{halaman}.webp untuk halaman 1..totalPages.
+    private val totalPagesRe = Regex("""var\s+totalPages\s*=\s*parseInt\(\s*["'](\d+)["']\s*\)""")
+    private val imgBaseRe = Regex(
+        """var\s+imgBaseUrl\s*=\s*'([^']*)'\s*\+\s*\('([^']*)'[^)]*\)\s*\+\s*'([^']*)'"""
+    )
+
+    // Judul komik & chapter eksplisit di halaman baru
+    // (fallback lama: parsing <title> "第N页 {komik} - ...").
+    private val contentTitleRe = Regex("""var\s+contentTitle\s*=\s*'([^']+)'""")
+    private val chapterNameRe = Regex("""var\s+chapterName\s*=\s*'([^']+)'""")
+
     override suspend fun search(query: String): List<SearchResult> {
         val html = try {
             http.getHtml("$base/search?query=${query.urlEncode()}", referer = "$base/")
@@ -155,25 +170,36 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
             throw SourceException("Gagal mengambil chapter: ${e.message}", e)
         }
 
-        val num = numRe.find(html)?.groupValues?.get(1)?.toIntOrNull()
-        val pasd = pasdRe.find(html)?.groupValues?.get(1)
+        // Struktur BARU (Nov 2026): totalPages + imgBaseUrl.
+        val numNew = totalPagesRe.find(html)?.groupValues?.get(1)?.toIntOrNull()
+        val baseNew = imgBaseRe.find(html)?.let { m ->
+            val b = m.groupValues[1] + m.groupValues[2] + m.groupValues[3]
+            if (b.endsWith("/")) b else "$b/"
+        }
+        // Struktur LAMA: num = eval(...) + pasd = folder dasar.
+        val num = numNew ?: numRe.find(html)?.groupValues?.get(1)?.toIntOrNull()
+        val pasd = baseNew ?: pasdRe.find(html)?.groupValues?.get(1)
         if (num == null || pasd == null) {
             throw SourceException(
-                "Variabel num/pasd tidak ditemukan — struktur situs berubah?"
+                "Variabel jumlah halaman/folder gambar tidak ditemukan — " +
+                    "struktur situs berubah?"
             )
         }
         if (num <= 0) throw SourceException("Jumlah halaman tidak valid: $num")
 
         val folder = if (pasd.endsWith("/")) pasd else "$pasd/"
+        // Judul eksplisit di halaman baru; fallback lama: <title> berformat
+        // "{chapter} {komik} - ...".
         val pageTitle = Regex("""<title>\s*([\s\S]*?)\s*</title>""", RegexOption.IGNORE_CASE)
             .find(html)?.groupValues?.get(1)
             ?.replace(Regex("""\s*\|\s*W漫画\s*$"""), "")
             ?.let(::cleanText).orEmpty()
-        // "{chapter} {komik} - ..."
         val first = pageTitle.substringBefore(" - ").trim()
         val spaceIdx = first.indexOf(' ')
-        val chapterTitle = if (spaceIdx > -1) first.take(spaceIdx) else first
-        val comicTitle = if (spaceIdx > -1) first.drop(spaceIdx + 1).trim() else ""
+        val comicTitle = contentTitleRe.find(html)?.groupValues?.get(1)?.let(::cleanText)
+            ?: if (spaceIdx > -1) first.drop(spaceIdx + 1).trim() else ""
+        val chapterTitle = chapterNameRe.find(html)?.groupValues?.get(1)?.let(::cleanText)
+            ?: if (spaceIdx > -1) first.take(spaceIdx) else first
 
         val images = (1..num).map { i -> ImageRef("$folder$i.webp", i) }
 
