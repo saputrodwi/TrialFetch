@@ -202,7 +202,7 @@ object UrlParser {
                 }
             }
 
-            // --- HipMH: /works/{id}-{slug}/ = series, /chapter/go?hid=... = chapter.
+            // --- HipMH: /series/{id}-{slug}/ = series, /chapter/go?hid=... = chapter.
             host == "hipmh.com" || host.endsWith(".hipmh.com") -> {
                 val ch = Regex(
                     """/chapter/[^"]*""",
@@ -212,7 +212,7 @@ object UrlParser {
                     Parsed.Chapter(Source.HIPMH, withScheme.substringBefore("#"))
                 } else {
                     val slug = Regex(
-                        """/works/([a-zA-Z0-9-]+)"""
+                        """/series/([a-zA-Z0-9-]+)"""
                     ).find(withScheme)?.groupValues?.get(1)
                     if (slug != null) Parsed.Series(Source.HIPMH, slug)
                     else Parsed.Unknown("URL HipMH tidak dikenali")

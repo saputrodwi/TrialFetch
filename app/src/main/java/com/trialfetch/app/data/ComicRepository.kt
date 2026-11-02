@@ -454,7 +454,7 @@ class ComicRepository(
         Source.RUMAN -> "https://www.rumanhua.org/news/$comicId"
         Source.MANHUAHAO -> "https://m.manhuahao.com/$comicId"
         Source.MANGAGO -> "https://www.mgeko.cc/manga/$comicId/"
-        Source.HIPMH -> "https://m.hipmh.com/works/$comicId/"
+        Source.HIPMH -> "https://m.hipmh.com/series/$comicId/"
         Source.MANGADEX -> "https://mangadex.org/manga/$comicId/"
     }
 
@@ -838,16 +838,17 @@ class ComicRepository(
                 .replace("..", "_").trim().take(80)
 
         /**
-         * Lokasi unduhan satu series: `<Sumber>/<Judul series>`, di dalam
-         * Download/TrialFetch.
+         * Lokasi unduhan satu series: `<Sumber>/<Judul series> (comicId)`,
+         * di dalam Download/TrialFetch.
          *
-         * Dua tingkat nama yang terbaca di file manager (Baozimh/Judul),
-         * bukan campuran kode sumber di dalam nama folder. Dengan pemisah
-         * per sumber, dua series judul sama dari sumber berbeda tidak lagi
-         * berbagi folder — chapternya tidak bisa saling menimpa.
+         * comicId wajib ada di nama folder: dua series berbeda dari source
+         * yang sama dengan judul sama (atau hasil sanitize() yang identik)
+         * TIDAK PERNAH boleh berbagi folder — kalau berbagi, unduhan series
+         * B bisa menimpa folder series A yang sudah ada dan chapter B tidak
+         * membuat folder series barunya sendiri.
          */
         fun seriesDirOf(series: SeriesInfo): String =
-            "${sanitize(series.source.displayName)}/${sanitize(series.title)}"
+            "${sanitize(series.source.displayName)}/${sanitize(series.title)} (${series.comicId})"
 
         /**
          * Bentuk lama yang pernah dipakai build sebelumnya, hanya untuk

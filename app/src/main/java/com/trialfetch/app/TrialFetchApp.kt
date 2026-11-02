@@ -3,6 +3,7 @@ package com.trialfetch.app
 import android.app.Application
 import android.content.Context
 import android.os.Build
+import com.trialfetch.app.data.CrashLog
 
 class TrialFetchApp : Application() {
 

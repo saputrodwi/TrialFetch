@@ -13,7 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
  *               slug/cover dipetakan 1:1. Bila API sedang tidak
  *               tersedia, jatuh ke katalog (/new-releases, /popularity,
  *               /explore) + filter keyword (perilaku lama).
- *  - Series:    GET {base}/works/{slug}/ (h1, data-cover-url, og:description).
+ *  - Series:    GET {base}/series/{slug}/ (h1, data-cover-url, og:description).
  *  - Chapter:   /chapter/go?hid={hid}&m={mangaId} → redirect ke reader.hipmh.top.
  */
 class HipmhSource(private val http: HttpClient) : ComicSource {
@@ -29,7 +29,7 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    private val worksLinkRe = Regex("""href="(/works/[a-zA-Z0-9-]+)""", RegexOption.IGNORE_CASE)
+    private val seriesLinkRe = Regex("""href="(/series/[a-zA-Z0-9-]+)""", RegexOption.IGNORE_CASE)
     private val coverImgRe = Regex("""data-cover-url="([^"]+)"""", RegexOption.IGNORE_CASE)
     private val h1Re = Regex("""<h1[^>]*>([\s\S]*?)</h1>""", RegexOption.IGNORE_CASE)
     private val ogImageRe = Regex("""<meta[^>]+property="og:image"[^>]+content="([^"]+)[^>]*>""", RegexOption.IGNORE_CASE)
@@ -91,9 +91,9 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
         val out = ArrayList<SearchResult>(30)
         val seen = HashSet<String>()
         for (html in pages) {
-            for (m in worksLinkRe.findAll(html)) {
+            for (m in seriesLinkRe.findAll(html)) {
                 val path = m.groupValues?.get(1)?.trim().orEmpty()
-                val slug = Regex("""/works/([^/?#]+)""").find(path)?.groupValues?.get(1)?.trim() ?: continue
+                val slug = Regex("""/series/([^/?#]+)""").find(path)?.groupValues?.get(1)?.trim() ?: continue
                 if (slug.isEmpty() || !seen.add(slug)) continue
                 if (!slug.contains(query, ignoreCase = true) && !slug.replace("-", " ").contains(query, ignoreCase = true)) continue
                 val title = h1Re.find(html)?.groupValues?.get(1)?.let(::cleanText)?.trim().orEmpty()
