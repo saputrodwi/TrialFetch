@@ -505,8 +505,9 @@ class ComicRepository(
 
         // Lokasi = <Sumber>/<Judul series> (lihat seriesDirOf): dua tingkat
         // nama yang terbaca, dan sumber berbeda tidak lagi berbagi folder.
-        // seriesDirOf sekarang menyertakan comicId, jadi dua series berbeda
-        // dengan judul sama dari sumber yang sama TIDAK PERNAH berbagi folder.
+        // Format saat ini memakai gaya Mihon (judul saja, tanpa comicId di
+        // nama folder); comicId tetap jadi identitas lewat info.txt. Format
+        // lama (<Judul> (<comicId>)) masih dibaca via candidateSeriesDirs.
         val seriesDir = seriesDirOf(series)
         val chapterDir = sanitize(chapter.title)
         val parentPath = listOf(seriesDir, chapterDir).joinToString("/")
@@ -838,23 +839,26 @@ class ComicRepository(
                 .replace("..", "_").trim().take(80)
 
         /**
-         * Lokasi unduhan satu series: `<Sumber>/<Judul series> (comicId)`,
+         * Lokasi unduhan satu series: `<Sumber>/<Judul series>`,
          * di dalam Download/TrialFetch.
          *
-         * comicId wajib ada di nama folder: dua series berbeda dari source
-         * yang sama dengan judul sama (atau hasil sanitize() yang identik)
-         * TIDAK PERNAH boleh berbagi folder — kalau berbagi, unduhan series
-         * B bisa menimpa folder series A yang sudah ada dan chapter B tidak
-         * membuat folder series barunya sendiri.
+         * Gaya Mihon (judul saja, tanpa comicId di nama folder) — comicId
+         * tetap menjadi identitas lewat info.txt / bookmark / queue, jadi
+         * tidak perlu comicId di nama folder.
+         *
+         * Catatan: bentuk `<Judul> (<comicId>)` (dari build a03ce15) ikut
+         * dilindungi lewat [oldSeriesDirsOf], jadi unduhan lama tetap
+         * terbaca.
          */
         fun seriesDirOf(series: SeriesInfo): String =
-            "${sanitize(series.source.displayName)}/${sanitize(series.title)} (${series.comicId})"
+            "${sanitize(series.source.displayName)}/${sanitize(series.title)}"
 
         /**
          * Bentuk lama yang pernah dipakai build sebelumnya, hanya untuk
          * MEMBACA; unduhan baru selalu ditulis ke [seriesDirOf]:
          *  - `<Judul>` saja (nama polos, tanpa sumber)
          *  - `<id sumber>_<Judul>` (prefix satu tingkat)
+         *  - `<Judul> (<comicId>)` (format sementara build a03ce15)
          *
          * Tanpa fallback ini koleksi yang diunduh saat bentuk lama berlaku
          * mendadak tidak terbaca (badge hilang dan "buka dari hasil
@@ -862,7 +866,8 @@ class ComicRepository(
          */
         fun oldSeriesDirsOf(series: SeriesInfo): List<String> = listOf(
             sanitize(series.title),
-            "${series.source.id}_${sanitize(series.title)}"
+            "${series.source.id}_${sanitize(series.title)}",
+            "${sanitize(series.source.displayName)}/${sanitize(series.title)} (${series.comicId})"
         )
 
         /**
