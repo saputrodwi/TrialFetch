@@ -29,7 +29,7 @@ class MangaGekoSource(private val http: HttpClient) : ComicSource {
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
     )
     private val searchLinkRe = Regex(
-        """<a[^>]*href="([^"]+)[^"]*>""",
+        """<a[^>]*href="([^"]+)"[^>]*>""",
         RegexOption.IGNORE_CASE
     )
     private val searchCoverRe = Regex(
@@ -51,7 +51,7 @@ class MangaGekoSource(private val http: HttpClient) : ComicSource {
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
     )
     private val chapterLinkRe = Regex(
-        """<a[^>]*href="([^"]+)[^"]*>""",
+        """<a[^>]*href="([^"]+)"[^>]*>""",
         RegexOption.IGNORE_CASE
     )
     private val chapterStrongTitleRe = Regex(

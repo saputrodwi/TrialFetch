@@ -29,8 +29,9 @@ class GoodtoonSource(private val http: HttpClient) : ComicSource {
                 "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
     }
 
+    // Kartu punya variasi class: "card" dan "card recommended".
     private val cardRe = Regex(
-        """<a href="(https?://[^/]*goodtoon[^/]*/manga/[^"?#]+/?)"[^>]*class="card">([\s\S]*?)</a>""",
+        """<a href="(https?://[^/]*goodtoon[^/]*/manga/[^"?#]+/?)"[^>]*class="card(?: [^"]*)?">([\s\S]*?)</a>""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
     )
     private val cardCoverRe = Regex(
