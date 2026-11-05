@@ -164,14 +164,15 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
     }
 
     override suspend fun chapter(url: String): ChapterPage {
-        // `url` bisa hid mentah dari daftar chapter API, atau URL lengkap
-        // /chapter/go?hid=...&m=... hasil tempel pengguna.
+        // `url` bisa hid mentah dari daftar chapter API (frontend-hid), atau
+        // URL lengkap /chapter/go?hid=... hasil tempel pengguna.
         val hid = if (url.contains("hid=")) {
             Regex("""[?&]hid=([^&]+)""").find(url)?.groupValues?.get(1) ?: url
         } else {
             url
         }
-        val data = apiGet("/v2/chapter?hid=${toApiHid(hid)}")
+        val apiHid = resolveApiHid(hid)
+        val data = apiGet("/v2/chapter?hid=$apiHid")
 
         val encoded = data.stringOrNull("images")
             ?: throw SourceException("Chapter HipMH tidak berisi gambar.")
@@ -200,16 +201,18 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
 
     /**
      * Telusuri URL chapter/series kembali ke comicId (mid) series-nya.
-     * menerima: /series/{slug}, /works/{slug}, atau /chapter/go?hid=...
+     * menerima: /series/{slug}, /works/{slug}, /chapter/{hid} (reader),
+     *           /chapter/go?hid=...  (m.hipmh)
      */
     override suspend fun seriesIdFromChapterUrl(chapterUrl: String): String? {
         val absolute = if (chapterUrl.startsWith("http")) chapterUrl else "$base$chapterUrl"
         val hid = Regex("""[?&]hid=([^&]+)""").find(absolute)?.groupValues?.get(1)
-            ?: Regex("""/series/([a-zA-Z0-9-]+)""").find(absolute)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
-            ?: Regex("""/works/([a-zA-Z0-9-]+)""").find(absolute)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+            ?: Regex("""/chapter/([a-zA-Z0-9_-]+)""").find(absolute)?.groupValues?.get(1)
+            ?: Regex("""/series/([a-zA-Z0-9-]+)""").find(absolute)?.groupValues?.get(1)
+            ?: Regex("""/works/([a-zA-Z0-9-]+)""").find(absolute)?.groupValues?.get(1)
             ?: return null
-        // Segmen pertama: b64url("m:<mid>-c:<cid>") untuk hid chapter, atau
-        // langsung mid untuk slug series.
+        // Segmen pertama: b64url("m:<mid>-c:<cid>") untuk hid chapter frontend
+        // atau b64url("<mid>") untuk slug/mid mentah.
         val first = hid.substringBefore('-')
         val decoded = runCatching { b64Decode(first) }.getOrNull()
         return if (decoded != null && decoded.startsWith("m:")) {
@@ -220,16 +223,39 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
     }
 
     /**
-     * hid chapter situs = b64url("m:<mid>-c:<cid>")-<suffix>; API meminta
-     * b64url("c:<cid>")-<suffix>. Bila sudah berbentuk API, kembalikan apa adanya.
+     * hid chapter FRONTEND = b64url("m:<mid>-c:<cid>")-<suffix>.
+     * Bentuk API `/v2/chapter?hid=...` memakai bentuk lain (c:<cid>-<suffix>
+     * atau m:<mid>-c:<cid>-<suffix> tergantung versi server), tidak selalu
+     * konversi langsung yang benar. API-hid yang benar ada di HTML reader
+     * (`data-api-hid`).
+     *
+     * Kalau URL-nya masih frontend, saya akan fetch HTML-nya dulu dan ambil
+     * `data-api-hid`. Kalau sudah API-hid, kembalikan apa adanya.
      */
-    private fun toApiHid(hid: String): String {
+    private suspend fun resolveApiHid(hid: String): String {
+        // sudah API-hid (prefixnya decode-nya tidak dimulai "m:") → pakai apa adanya
         val decoded = runCatching { b64Decode(hid.substringBefore('-')) }.getOrNull()
-        return if (decoded != null && decoded.startsWith("m:")) {
-            b64Encode(decoded.substringAfter('-')) + "-" + hid.substringAfter('-')
-        } else {
-            hid
+        if (decoded != null && !decoded.startsWith("m:")) return hid
+
+        // frontend-hid → fetch HTML reader, ambil data-api-hid
+        val page = runCatching {
+            http.getHtmlWithHeaders(
+                "https://reader.hipmh.top/chapter/$hid",
+                mapOf(
+                    "User-Agent" to http.mobileUa,
+                    "Referer" to "https://m.hipmh.com/",
+                    "Accept" to "text/html,application/xhtml+xml,*/*;q=0.8"
+                )
+            )
+        }.getOrNull()
+        if (page != null) {
+            Regex("""data-api-hid="([^"]+)"""").find(page)?.groupValues?.get(1)?.let { return it }
         }
+        // fallback: konversi manual (c:<cid>-suffix)
+        if (decoded != null && decoded.startsWith("m:")) {
+            return b64Encode(decoded.substringAfter("-c:", "")) + "-" + hid.substringAfter('-', "")
+        }
+        return hid
     }
 
     /**

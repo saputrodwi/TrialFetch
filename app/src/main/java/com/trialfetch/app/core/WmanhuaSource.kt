@@ -38,6 +38,17 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
         """var\s+imgBaseUrl\s*=\s*'([^']*)'\s*\+\s*\('([^']*)'[^)]*\)\s*\+\s*'([^']*)'"""
     )
 
+    /**
+     * Cari `data-source-base="https://image4.wmanhua.com"` di halaman —
+     * ini host default yang dipakai `source-lines.js` (dapat di-override
+     * user via localStorage, tapi default host-nya selalu ada di HTML).
+     * Kalau tidak ketemu, fallback ke image4.wmanhua.com.
+     */
+    private fun sourceLinesHost(html: String): String =
+        Regex("""data-source-base="(https?://[^"]+)"""")
+            .find(html)?.groupValues?.get(1)?.trimEnd('/')
+            ?: "https://image4.wmanhua.com"
+
     // Judul komik & chapter eksplisit di halaman baru
     // (fallback lama: parsing <title> "第N页 {komik} - ...").
     private val contentTitleRe = Regex("""var\s+contentTitle\s*=\s*'([^']+)'""")
@@ -170,11 +181,16 @@ class WmanhuaSource(private val http: HttpClient) : ComicSource {
             throw SourceException("Gagal mengambil chapter: ${e.message}", e)
         }
 
-        // Struktur BARU (Nov 2026): totalPages + imgBaseUrl.
+        // Gambar Wmanhua: struktur (Nov 2026) = totalPages + imgBaseUrl.
+        // url = lineHost (default https://image4.wmanhua.com, bisa diganti
+        // oleh /api/source-lines/{id}) + path relatif.
+        val imgHost = sourceLinesHost(html)
         val numNew = totalPagesRe.find(html)?.groupValues?.get(1)?.toIntOrNull()
         val baseNew = imgBaseRe.find(html)?.let { m ->
-            val b = m.groupValues[1] + m.groupValues[2] + m.groupValues[3]
-            if (b.endsWith("/")) b else "$b/"
+            val p = m.groupValues[1] + m.groupValues[2] + m.groupValues[3]
+            // p = "https://image4.wmanhua.com/mh/{id}/{sub}/" — ambil mulai /mh/
+            val relPath = "/mh/" + p.substringAfter("/mh/", "")
+            "$imgHost$relPath"
         }
         // Struktur LAMA: num = eval(...) + pasd = folder dasar.
         val num = numNew ?: numRe.find(html)?.groupValues?.get(1)?.toIntOrNull()
