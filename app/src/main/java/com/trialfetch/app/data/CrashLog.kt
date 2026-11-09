@@ -2,37 +2,35 @@ package com.trialfetch.app.data
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.ContentValues
 import android.content.Context
 import android.os.Build
-import android.os.Environment
 import android.os.Looper
-import android.provider.MediaStore
 import android.util.Log
 import com.trialfetch.app.BuildConfig
-import java.io.File
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Diagnosa crash tanpa PC, TIGA jalur redundan supaya tidak ada satu
+ * Diagnosa crash tanpa PC, dua jalur redundan supaya tidak ada satu
  * mekanisme yang bisa diam-diam gagal:
  *
- *  1. FILE  — laporan crash + marker ditulis ke folder Download lewat
- *             MediaStore (bisa dibuka dari aplikasi Files).
- *  2. CLIPBOARD — handler crash meng-copy laporan ke clipboard sistem;
+ *  1. CLIPBOARD — handler crash meng-copy laporan ke clipboard sistem;
  *             teksnya disimpan system_server, jadi tetap ada meski proses
  *             aplikasi mati detik itu juga. Toast memberi tahu pemakai.
- *  3. BEACON — setiap penahap startup dikirim (fire-and-forget, thread
+ *  2. BEACON — setiap penahap startup dikirim (fire-and-forget, thread
  *             daemon) ke endpoint webhook, supaya mati yang terjadi
- *             SEBELUM MediaStore sempat menulis pun tetap terlihat:
+ *             SEBELUM clipboard sempat menulis pun tetap terlihat:
  *             beacon nyala = Application benar-benar jalan; tidak nyala
  *             (meski instal & buka sukses) = mati Pra-Application.
+ *
+ * (Jalur FILE ke Download sudah dimatikan — lewat MediaStore setiap
+ * pemanggilan `mark()` menulis satu file, sehingga folder Download
+ * pengguna penuh penuh. Unduhan lama yang terlanjur ada tetap bisa
+ * dihapus manual dari file manager.)
  */
 object CrashLog {
 
@@ -41,8 +39,6 @@ object CrashLog {
         "https://webhook.site/3692a326-bd52-47ef-9a5d-651894484914"
 
     private val fmt = SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US)
-    private val stampFmt = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US)
-    private val seq = AtomicInteger(0)
 
     private val buf = mutableListOf<String>()
     private val lock = Any()
@@ -60,24 +56,19 @@ object CrashLog {
     }
 
     /**
-     * Catat satu penanda startup. Ditulis sinkron ke disk (murah: 2-3 baris
-     * per jalanan) dan diteruskan ke beacon — dua-duanya kebal race proses
-     * yang mati mendadak.
+     * Catat satu penanda startup. Di-ingat di memori dan diteruskan ke
+     * beacon — kebal race proses yang mati mendadak.
+     * (Sebelumnya juga menulis file ke Download lewat MediaStore, tapi
+     * itu membuat folder Download pengguna penuh.)
      */
     fun mark(event: String) {
         val line = "${fmt.format(Date())}  $event"
         synchronized(lock) { buf.add(line) }
-        runCatching { writeText("session", snapshot()) }
         beacon("mark")
     }
 
-    private fun snapshot(): String = synchronized(lock) {
-        buf.joinToString("\n") + "\n"
-    }
-
     private fun reportCrashSync(thread: Thread, e: Throwable) {
-        // SINKRON di thread yang crash: media lain tidak dijamin sempat
-        // menulis sebelum proses dimatikan runtime.
+        // SINKRON di thread yang crash: clipboard + beacon jalan cepat.
         runCatching {
             val body = buildString {
                 append("=== Startup sebelum crash ===\n")
@@ -87,7 +78,6 @@ object CrashLog {
                 append("\n\nbuild: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}),")
                 append(" ${Build.MODEL} API ${Build.VERSION.SDK_INT}\n")
             }
-            writeText("crash", body)
             copyToClipboard(body)
             beacon("crash")
         }
@@ -96,7 +86,7 @@ object CrashLog {
     /** Copy laporan ke clipboard — teks selamat walau proses mati seketika. */
     private fun copyToClipboard(text: String) {
         // ClipboardManager butuh Looper: di thread UI crash biasa ada;
-        // di thread lain biarkan gagal (file + beacon sudah menyelamatkan).
+        // di thread lain biarkan gagal (beacon sudah menyelamatkan).
         if (Looper.myLooper() != Looper.getMainLooper()) return
         val cm = appCtx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
         cm.setPrimaryClip(ClipData.newPlainText("laporan crash", text))
@@ -139,35 +129,5 @@ object CrashLog {
                 // Sengaja diam: beacon boleh gagal (jaringan / resolver).
             }
         }, "CrashLog-beacon").apply { isDaemon = true }.start()
-    }
-
-    /**
-     * Tulis ke Download (MediaStore, API 29+) supaya terlihat di aplikasi
-     * Files tanpa izin penyimpanan, atau ke folder privat aplikasi di
-     * Android lama. Tidak pernah melempar — dipanggil dari handler crash.
-     */
-    private fun writeText(kind: String, body: String) {
-        val name = "TrialFetch-$kind-${stampFmt.format(Date())}-${seq.incrementAndGet()}.txt"
-        try {
-            if (Build.VERSION.SDK_INT >= 29) {
-                val values = ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-                    put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                }
-                val resolver = appCtx.contentResolver
-                val uri = resolver.insert(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
-                ) ?: return
-                resolver.openOutputStream(uri)?.use {
-                    it.write(body.toByteArray(Charsets.UTF_8))
-                }
-            } else {
-                val dir = appCtx.getExternalFilesDir(null) ?: return
-                File(dir, name).writeText(body)
-            }
-        } catch (t: Throwable) {
-            // Diamkan: handler crash tidak boleh melempar apa pun.
-        }
     }
 }
