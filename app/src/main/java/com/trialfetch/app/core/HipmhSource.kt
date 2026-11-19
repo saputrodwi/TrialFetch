@@ -19,7 +19,7 @@ import java.math.BigInteger
  *
  *  - Search:   GET /v1/search?q=&page=&page_size=
  *  - Series:   GET /v1/manga?mid={mid}
- *  - Chapters: GET /v1/manga/chapters?mid={mid}&page=&per_page=50&order=desc
+ *  - Chapters: GET /v1/manga/chapters?mid={mid}&page=&per_page=50&order=asc
  *  - Pages:    GET /v2/chapter?hid={b64url("c:<cid>")-<suffix>}
  *              Balasan `images` adalah string yang di-encode situs dengan
  *              algoritma reader-nya (marker qM9/Vx/pL0/Z7 + pemetaan
@@ -124,13 +124,17 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
             else -> ""
         }
 
-        // Daftar chapter terpaginasi (50/halaman, terbaru dulu).
+        // Daftar chapter terpaginasi (50/halaman). Catatan: endpoint pakai
+        // `order=asc` — `order=desc` sempat menyisakan chapter terbaru
+        // (mis. chapter #133 yang baru rilis hari ini tidak pernah muncul
+        // di hasil desc, padahal total_pages sudah menunjuk). Kita ambil
+        // ascending lalu sortir descending di client (sudah ada).
         val chapters = ArrayList<Chapter>(200)
         val seen = HashSet<String>()
         var page = 1
         var totalPages = 1
         do {
-            val d = apiGet("/v1/manga/chapters?mid=$mid&page=$page&per_page=50&order=desc")
+            val d = apiGet("/v1/manga/chapters?mid=$mid&page=$page&per_page=50&order=asc")
             totalPages = d.stringOrNull("total_pages")?.toIntOrNull() ?: 1
             for (el in (d["items"] as? JsonArray) ?: JsonArray(emptyList())) {
                 val o = el as? JsonObject ?: continue
