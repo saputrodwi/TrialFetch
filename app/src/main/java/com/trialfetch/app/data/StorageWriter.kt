@@ -506,8 +506,25 @@ class StorageWriter(private val context: Context) {
 
         findExisting(collection, fileName, relative)?.let { existing ->
             val ok = runCatching {
-                resolver.openOutputStream(existing, "wt")?.use { it.write(bytes) }
-                true
+                val out = resolver.openOutputStream(existing, "wt")
+                if (out == null) {
+                    false
+                } else {
+                    out.use { it.write(bytes); it.flush() }
+                    // MediaStore kadang meninggalkan entri 0 byte walau
+                    // openOutputStream() sukses. Hapus supaya tidak tampil
+                    // sebagai file corrupt di File Manager.
+                    val size = resolver.query(
+                        existing, arrayOf(MediaStore.Downloads.SIZE), null, null, null
+                    )?.use { c ->
+                        if (c.moveToNext()) c.getLong(c.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)) else -1L
+                    } ?: -1L
+                    if (size == 0L && bytes.isNotEmpty()) {
+                        resolver.delete(existing, null, null)
+                        Log.w(TAG, "timpa $fileName gagal: entri 0 byte dihapus")
+                        false
+                    } else true
+                }
             }.getOrDefault(false)
             Log.i(TAG, "timpa $fileName di $relative -> $ok")
             return ok
@@ -528,11 +545,17 @@ class StorageWriter(private val context: Context) {
         )
         if (uri == null) return false
         return try {
-            resolver.openOutputStream(uri)?.use { it.write(bytes) }
-            values.clear()
-            values.put(MediaStore.Downloads.IS_PENDING, 0)
-            resolver.update(uri, values, null, null)
-            true
+            val out = resolver.openOutputStream(uri)
+            if (out == null) {
+                resolver.delete(uri, null, null)
+                false
+            } else {
+                out.use { it.write(bytes); it.flush() }
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                true
+            }
         } catch (e: Exception) {
             runCatching { resolver.delete(uri, null, null) }
             false
@@ -564,6 +587,10 @@ class StorageWriter(private val context: Context) {
             dir.mkdirs()
             val f = File(dir, fileName)
             f.writeBytes(bytes)
+            if (bytes.isNotEmpty() && f.length() == 0L) {
+                f.delete()
+                return@runCatching null
+            }
             Uri.fromFile(f)
         }.getOrNull()
 

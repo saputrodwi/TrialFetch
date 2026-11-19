@@ -564,11 +564,13 @@ class ComicRepository(
                 chunk.map { img ->
                     async(kotlinx.coroutines.Dispatchers.IO) {
                         try {
-                            // Sekali retry dengan jeda pendek: CDN kadang membalas
-                            // 429/timeout sesaat padahal request berikutnya lolos.
+                            // Beberapa retry dengan jeda memanjang: CDN kadang
+                            // throttle setelah ~100 request beruntun (chapter
+                            // besar seperti HipMH 219 halaman) atau timeout
+                            // sesaat, padahal request berikutnya lolos.
                             var raw: ByteArray? = null
                             var fetchError: Exception? = null
-                            for (attempt in 0..1) {
+                            for (attempt in 0..3) {
                                 try {
                                     raw = http.getBytes(
                                         url = img.url,
@@ -585,7 +587,7 @@ class ComicRepository(
                                     break
                                 } catch (e: Exception) {
                                     fetchError = e
-                                    if (attempt == 0) kotlinx.coroutines.delay(1500)
+                                    if (attempt < 3) kotlinx.coroutines.delay(800L * (attempt + 1))
                                 }
                             }
                             val bytes = raw ?: throw fetchError ?: SourceException("Gagal mengunduh halaman ${img.page}")
@@ -622,6 +624,12 @@ class ComicRepository(
                 when {
                     decryptFailed -> failed += img.page
                     payload == null -> failed += img.page
+                    payload?.isEmpty() == true -> {
+                        // Respons 200 dengan body kosong: jangan tulis file
+                        // 0 byte yang tampak seperti gambar corrupt.
+                        Log.w("ComicRepository", "halaman ${img.page} kosong (0 byte)")
+                        failed += img.page
+                    }
                     else -> {
                         val finalFormat = ImageFormat.guessWithBitmap(payload)
                         if (finalFormat == ImageFormat.UNKNOWN) {
