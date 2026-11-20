@@ -36,8 +36,8 @@ data class SearchUiState(
     val loading: Boolean = false,
     val results: List<SearchResult> = emptyList(),
     val error: String? = null,
-    /** true saat memakai mode "cari di semua sumber". */
-    val allSources: Boolean = false
+    /** true saat memakai mode "cari di semua sumber" (default). */
+    val allSources: Boolean = true
 )
 
 data class SeriesUiState(
@@ -393,7 +393,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Reset beranda: hapus query, hasil cari, error, dan URL. Sumber tetap. */
     fun clearSearch() {
         val src = _search.value.source
-        _search.value = SearchUiState(source = src)
+        _search.value = SearchUiState(source = src, allSources = true)
         _urlInput.value = ""
         _urlLoading.value = false
     }

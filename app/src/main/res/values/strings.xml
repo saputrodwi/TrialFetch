@@ -1,4 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Trial Fetch</string>
+
+    <!-- Beranda -->
+    <string name="search_label">Cari judul komik</string>
+    <string name="all_sources">Semua sumber</string>
+    <string name="open_url">Buka dari URL</string>
+    <string name="reset">Reset</string>
+    <string name="storage_warning">Izin penyimpanan belum diberikan. Unduhan tidak bisa ditulis ke folder Download.</string>
+    <string name="search_limited">Pencarian %1$s sering dibatasi server. Buka dari URL langsung bila gagal.</string>
+    <string name="section_continue">Lanjut baca</string>
+    <string name="section_sources">Sumber</string>
+    <string name="section_downloads">Unduhan terbaru</string>
+    <string name="empty_home">Belum ada aktivitas. Cari judul untuk mulai.</string>
+    <string name="empty_downloads">Belum ada unduhan yang selesai.</string>
+    <string name="see_downloads">Lihat unduhan</string>
+    <string name="result_count">%1$d judul ditemukan</string>
+    <string name="url_dialog_title">Buka dari URL</string>
+    <string name="url_dialog_text">Tempel link series atau chapter dari situs yang didukung.</string>
+    <string name="url_hint">manwang.net/book/…</string>
+    <string name="action_open">Buka</string>
+    <string name="action_cancel">Batal</string>
+    <string name="title_copied">Judul disalin</string>
+    <string name="pages_progress">Hal %1$d dari %2$d · %3$d%%</string>
+    <string name="pages_progress_short">Hal %1$d dari %2$d</string>
 </resources>

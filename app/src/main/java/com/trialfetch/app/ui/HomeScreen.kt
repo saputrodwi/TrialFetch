@@ -1,22 +1,23 @@
 package com.trialfetch.app.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,19 +27,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,28 +48,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import android.widget.Toast
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.trialfetch.app.R
 import com.trialfetch.app.core.SearchResult
 import com.trialfetch.app.core.Source
 import com.trialfetch.app.data.HistoryEntry
-import com.trialfetch.app.ui.theme.BrutalButton
-import com.trialfetch.app.ui.theme.BrutalCard
+import com.trialfetch.app.data.QueueItem
+import com.trialfetch.app.data.QueueItemState
 import com.trialfetch.app.ui.theme.BrutalDashedBox
-import com.trialfetch.app.ui.theme.BrutalTitle
-import com.trialfetch.app.ui.theme.hardShadow
-import com.trialfetch.app.ui.theme.LocalExtraColors
+import com.trialfetch.app.ui.theme.Space
 
 /**
- * Beranda: cari + hasil + jalan pintas. Disengaja ringkas — tanpa
- * paragraf penjelasan. Input URL tinggal di dialog, bukan kartu
- * permanen yang memakan tempat.
+ * Beranda: satu kolom cari, pilihan sumber, dan ringkasan aktivitas.
+ * Pencarian lintas sumber adalah perilaku awal; sumber tertentu bisa
+ * dipilih lewat pill bila pengguna ingin membatasi hasil.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +81,7 @@ fun HomeScreen(
     sources: List<Source>,
     source: Source,
     onSourceChange: (Source) -> Unit,
-    allSelected: Boolean = false,
+    allSelected: Boolean = true,
     onAllSources: () -> Unit = {},
     results: List<SearchResult>,
     error: String?,
@@ -92,27 +93,29 @@ fun HomeScreen(
     onOpenHistory: (HistoryEntry) -> Unit,
     onPick: (SearchResult) -> Unit,
     storageGranted: Boolean,
-    onReset: () -> Unit
+    onReset: () -> Unit,
+    recentDownloads: List<QueueItem> = emptyList(),
+    onOpenDownloads: () -> Unit = {}
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
 
     if (showUrlDialog) {
         AlertDialog(
             onDismissRequest = { showUrlDialog = false },
-            title = { Text("Buka dari URL", style = MaterialTheme.typography.titleMedium) },
+            title = { Text(stringResource(R.string.url_dialog_title), style = MaterialTheme.typography.titleLarge) },
             text = {
                 Column {
                     Text(
-                        "Tempel link series atau chapter dari situs yang didukung.",
-                        style = MaterialTheme.typography.bodySmall,
+                        stringResource(R.string.url_dialog_text),
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Space.md))
                     OutlinedTextField(
                         value = urlInput,
                         onValueChange = onUrlChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("manwang.net/book/…") },
+                        placeholder = { Text(stringResource(R.string.url_hint)) },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
@@ -124,28 +127,26 @@ fun HomeScreen(
                         })
                     )
                     if (urlLoading) {
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
+                        Spacer(Modifier.height(Space.md))
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                         }
                     }
                 }
             },
             confirmButton = {
-                BrutalButton(
-                    text = "Buka",
+                TextButton(
                     onClick = {
                         onOpenUrl()
                         showUrlDialog = false
                     },
                     enabled = !urlLoading && urlInput.isNotBlank()
-                )
+                ) { Text(stringResource(R.string.action_open)) }
             },
             dismissButton = {
-                TextButton(onClick = { showUrlDialog = false }) { Text("Batal") }
+                TextButton(onClick = { showUrlDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             }
         )
     }
@@ -153,77 +154,53 @@ fun HomeScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = Space.lg)
     ) {
+        Spacer(Modifier.height(Space.md))
+
         if (!storageGranted) {
-            BrutalCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                background = LocalExtraColors.current.yellow
-            ) {
-                Text(
-                    "Izin penyimpanan belum diberikan — unduhan tidak bisa " +
-                        "menulis ke folder Download.",
-                    color = LocalExtraColors.current.onAccent,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+            StatusNote(stringResource(R.string.storage_warning))
+            Spacer(Modifier.height(Space.md))
         }
 
-        Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .hardShadow(
-                    LocalExtraColors.current.shadow,
-                    3.dp,
-                    RoundedCornerShape(14.dp)
-                )
-                .background(
-                    MaterialTheme.colorScheme.surface,
-                    RoundedCornerShape(14.dp)
-                )
-                .border(
-                    3.dp,
-                    MaterialTheme.colorScheme.onBackground,
-                    RoundedCornerShape(14.dp)
-                ),
-            label = { Text("Cari judul komik") },
+            onQueryChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.search_label)) },
             singleLine = true,
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = Color.Transparent,
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch() }),
             trailingIcon = {
-                IconButton(onClick = onSearch, enabled = !searching) {
+                IconButton(onClick = onSearch, enabled = !searching && query.isNotBlank()) {
                     if (searching) {
                         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
-                        Icon(Icons.Default.Search, contentDescription = "Cari")
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = stringResource(R.string.search_label)
+                        )
                     }
                 }
             }
         )
 
-        Spacer(Modifier.height(10.dp))
-        // Pil sumber satu baris geser (bukan wrap berantakan),
-        // seperti mockup yang disetujui.
+        Spacer(Modifier.height(Space.md))
+        SectionHeader(stringResource(R.string.section_sources))
+        Spacer(Modifier.height(Space.sm))
         Row(
-            modifier = Modifier
+            Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Space.sm)
         ) {
             SourcePill(
-                text = "Semua sumber",
+                text = stringResource(R.string.all_sources),
                 selected = allSelected,
                 onClick = onAllSources
             )
@@ -236,268 +213,264 @@ fun HomeScreen(
             }
         }
 
-        // Kedua sumber ini sering membatasi pencarian judul dari
-        // jaringan tertentu (seperti versi web yang menonaktifkannya).
-        // Beri tahu di awal supaya ekspektasinya benar, bukan diam saja.
-        if (source == Source.MANWANG || source == Source.RUMAN) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Pencarian ${source.displayName} sering dibatasi server. " +
-                    "Kalau gagal, buka dari URL langsung.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        if (!allSelected && (source == Source.MANWANG || source == Source.RUMAN)) {
+            Spacer(Modifier.height(Space.sm))
+            StatusNote(stringResource(R.string.search_limited, source.displayName))
         }
 
-        Spacer(Modifier.height(10.dp))
-        // Tombol URL kuning primer (bukan hijau yang tabrakan
-        // dengan status sukses): selalu terlihat di bawah pil sumber.
-        BrutalButton(
-            text = "Buka dari URL",
-            onClick = { showUrlDialog = true },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(Space.md))
         Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { showUrlDialog = true }) {
+                Text(stringResource(R.string.open_url))
+            }
             Spacer(Modifier.weight(1f))
-            // Reset: hapus query + hasil cari + error + URL sekaligus.
             if (query.isNotBlank() || results.isNotEmpty() || error != null || urlInput.isNotBlank()) {
                 TextButton(onClick = onReset) {
                     Icon(Icons.Default.Refresh, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Reset")
+                    Spacer(Modifier.width(Space.xs))
+                    Text(stringResource(R.string.reset))
                 }
             }
         }
 
         error?.let {
-            Text(
-                it,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Spacer(Modifier.height(Space.sm))
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         }
 
         when {
             searching -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 CircularProgressIndicator()
             }
+
             results.isNotEmpty() -> {
+                Spacer(Modifier.height(Space.sm))
+                Text(
+                    stringResource(R.string.result_count, results.size),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { heading() }
+                )
                 LazyColumn(
                     Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = Space.md),
+                    verticalArrangement = Arrangement.spacedBy(Space.sm)
                 ) {
                     items(results, key = { it.source.id + it.comicId }) { r ->
-                        ResultRow(r, onClick = { onPick(r) }, onLongPressCopyTitle = {})
+                        ResultRow(r, onClick = { onPick(r) })
                     }
                 }
             }
+
             else -> {
-                // Keadaan awal yang bersih: riwayat terakhir, tanpa ceramah.
                 val recent = history.take(5)
-                if (recent.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        BrutalDashedBox(
-                            modifier = Modifier.padding(horizontal = 32.dp),
-                            text = "Cari judul di atas."
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        Modifier.weight(1f),
-                        contentPadding = PaddingValues(vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                val done = recentDownloads
+                    .filter { it.state == QueueItemState.DONE }
+                    .takeLast(3)
+                    .asReversed()
+                LazyColumn(
+                    Modifier.weight(1f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = Space.md),
+                    verticalArrangement = Arrangement.spacedBy(Space.sm)
+                ) {
+                    if (recent.isEmpty() && done.isEmpty()) {
                         item {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    BrutalTitle(
-                                        text = "Terakhir dibaca",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                    Spacer(Modifier.height(2.dp))
-                                    Box(
-                                        Modifier
-                                            .width(72.dp)
-                                            .height(3.dp)
-                                            .background(MaterialTheme.colorScheme.onBackground)
-                                    )
-                                }
-                                Text(
-                                    "${recent.size} komik",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1
-                                )
-                            }
-                            Spacer(Modifier.height(8.dp))
+                            BrutalDashedBox(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = Space.xl),
+                                text = stringResource(R.string.empty_home)
+                            )
                         }
+                    }
+                    if (recent.isNotEmpty()) {
+                        item { SectionHeader(stringResource(R.string.section_continue)) }
                         items(recent, key = { it.key() }) { h ->
                             HistoryRow(entry = h, onClick = { onOpenHistory(h) })
                         }
                     }
+                    item {
+                        Spacer(Modifier.height(Space.sm))
+                        SectionHeader(stringResource(R.string.section_downloads))
+                    }
+                    if (done.isEmpty()) {
+                        item {
+                            Text(
+                                stringResource(R.string.empty_downloads),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(onClick = onOpenDownloads) {
+                                Text(stringResource(R.string.see_downloads))
+                            }
+                        }
+                    } else {
+                        items(done, key = { it.id }) { item ->
+                            DownloadRow(item = item, onClick = onOpenDownloads)
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-/** Pil sumber brutal satu baris geser (tidak wrap berantakan). */
 @Composable
-private fun SourcePill(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val extra = LocalExtraColors.current
-    val shape = RoundedCornerShape(999.dp)
+private fun StatusNote(text: String) {
     Box(
-        modifier = Modifier
-            .border(2.dp, MaterialTheme.colorScheme.onBackground, shape)
-            .background(
-                if (selected) extra.yellow else MaterialTheme.colorScheme.surface,
-                shape
-            )
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-        contentAlignment = Alignment.Center
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .padding(Space.md)
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (selected) extra.onAccent
-            else MaterialTheme.colorScheme.onBackground,
-            maxLines = 1
-        )
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
-/** Baris riwayat ringkas: sampul + judul + progres halaman. */
+@Composable
+private fun SectionHeader(text: String) {
+    Column {
+        Text(
+            text,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.height(Space.xs))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+private fun SourcePill(text: String, selected: Boolean, onClick: () -> Unit) {
+    val modifier = Modifier.heightIn(min = Space.touch)
+    if (selected) {
+        Button(onClick = onClick, modifier = modifier) {
+            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = modifier) {
+            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+    }
+}
+
 @Composable
 private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
-    val extra = LocalExtraColors.current
-    BrutalCard(
-        modifier = Modifier.fillMaxWidth(),
-        background = extra.card,
-        onClick = onClick
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = Space.touch)
+            .padding(vertical = Space.sm),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = entry.coverUrl.ifBlank { null },
-                contentDescription = null,
-                modifier = Modifier
-                    .size(width = 48.dp, height = 64.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(2.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
+        AsyncImage(
+            model = entry.coverUrl.ifBlank { null },
+            contentDescription = null,
+            modifier = Modifier
+                .size(width = 48.dp, height = 64.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(Modifier.width(Space.xs))
+        Column(Modifier.weight(1f)) {
+            Text(entry.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(Space.xs))
+            Text(
+                entry.chapterTitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            if (entry.totalPages > 0) {
+                Spacer(Modifier.height(Space.sm))
+                val pct = entry.fraction?.let { (it * 100).toInt().coerceIn(0, 100) }
                 Text(
-                    entry.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    if (pct != null) stringResource(R.string.pages_progress, entry.page, entry.totalPages, pct)
+                    else stringResource(R.string.pages_progress_short, entry.page, entry.totalPages),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    entry.chapterTitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                Spacer(Modifier.height(Space.xs))
+                LinearProgressIndicator(
+                    progress = { entry.fraction ?: 0f },
+                    modifier = Modifier.fillMaxWidth()
                 )
-                if (entry.totalPages > 0) {
-                    Spacer(Modifier.height(6.dp))
-                    val pct = entry.fraction?.let { (it * 100).toInt().coerceIn(0, 100) }
-                    Text(
-                        if (pct != null) "Hal ${entry.page} dari ${entry.totalPages} · $pct%"
-                        else "Hal ${entry.page} dari ${entry.totalPages}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { entry.fraction ?: 0f },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
             }
         }
     }
 }
 
 @Composable
-private fun ResultRow(r: SearchResult, onClick: () -> Unit, onLongPressCopyTitle: (() -> Unit)? = null) {
-    val extra = LocalExtraColors.current
+private fun DownloadRow(item: QueueItem, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = Space.touch)
+            .padding(vertical = Space.sm),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(item.series.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(Space.xs))
+            Text(
+                item.chapter.title,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
     val ctx = LocalContext.current
     val copyTitle = remember(r.title) {
         {
             val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
                 as android.content.ClipboardManager
             cm.setPrimaryClip(android.content.ClipData.newPlainText("judul komik", r.title))
-            Toast.makeText(ctx, "Judul disalin", Toast.LENGTH_SHORT).show()
+            Toast.makeText(ctx, R.string.title_copied, Toast.LENGTH_SHORT).show()
         }
     }
-    BrutalCard(
-        modifier = Modifier.fillMaxWidth(),
-        background = extra.card,
-        onClick = onClick
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = Space.touch)
+            .padding(vertical = Space.sm),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = r.coverUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(width = 56.dp, height = 76.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(2.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    r.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = if (onLongPressCopyTitle != null) Modifier.pointerInput(Unit) {
-                        detectTapGestures(onLongPress = { onLongPressCopyTitle() })
-                    } else Modifier
-                )
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        r.source.displayName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = LocalExtraColors.current.onAccent,
-                        maxLines = 1,
-                        modifier = Modifier
-                            .border(
-                                2.dp,
-                                MaterialTheme.colorScheme.onBackground,
-                                RoundedCornerShape(999.dp)
-                            )
-                            .background(
-                                LocalExtraColors.current.blue,
-                                RoundedCornerShape(999.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
-                    if (r.author.isNotBlank()) {
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            r.author,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+        AsyncImage(
+            model = r.coverUrl.ifBlank { null },
+            contentDescription = null,
+            modifier = Modifier
+                .size(width = 48.dp, height = 64.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(Modifier.width(Space.xs))
+        Column(Modifier.weight(1f)) {
+            Text(
+                r.title,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.pointerInput(Unit) {
+                    detectTapGestures(onLongPress = { copyTitle() })
                 }
-            }
+            )
+            Spacer(Modifier.height(Space.xs))
+            Text(
+                listOf(r.source.displayName, r.author).filter { it.isNotBlank() }.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

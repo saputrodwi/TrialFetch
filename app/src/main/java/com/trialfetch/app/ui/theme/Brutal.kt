@@ -4,115 +4,56 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-
-/** Ketebalan garis tinta: 2dp ala mockup minimalis yang disetujui. */
-val InkWidth = 2.dp
-
-/** Radius sudut membulat, mengikuti nilai px di web. */
-private val CardShape = RoundedCornerShape(14.dp)
-private val ButtonShape = RoundedCornerShape(12.dp)
-private val PillShape = RoundedCornerShape(999.dp)
 
 /**
- * Modifier yang menggambar bayangan keras tanpa blur, seperti
- * `box-shadow: 3px 3px 0 var(--shadow)` di web.
- *
- * Bayangan digambar sendiri memakai drawBehind, bukan Modifier.shadow(),
- * karena Modifier.shadow() selalu memakai gaussian blur sehingga hasilnya
- * terlihat seperti Material, bukan seperti web.
+ * Komponen bersama aplikasi. Nama lama dipertahankan supaya seluruh layar
+ * tetap kompil, tetapi tampilannya sekarang minimalis: satu aksen, surface
+ * tonal, garis 1dp, tanpa bayangan dekoratif.
  */
+private val CardShape = RoundedCornerShape(12.dp)
+private val PillShape = RoundedCornerShape(8.dp)
+
+/** Kompatibilitas dengan pemanggil lama; dekorasi bayangan tidak dipakai. */
 fun Modifier.hardShadow(
     color: Color,
     offset: Dp = 4.dp,
     shape: Shape = CardShape
-): Modifier = this.drawBehind {
-    val dx = offset.toPx()
-    val dy = offset.toPx()
-    translate(dx, dy) {
-        // Gambar mengikuti outline shape (pill/rounded), BUKAN drawRect:
-        // rect di belakang sudut membulat mencongol keluar dan terlihat
-        // seperti kotak rusak, terutama di elemen kecil. Lewat Path agar
-        // kompatibel semua versi Compose (tanpa drawOutline).
-        val w = (size.width - dx).coerceAtLeast(0f)
-        val h = (size.height - dy).coerceAtLeast(0f)
-        val path = when (val o = shape.createOutline(Size(w, h), layoutDirection, this)) {
-            is Outline.Generic -> o.path
-            is Outline.Rounded -> Path().apply { addRoundRect(o.roundRect) }
-            is Outline.Rectangle -> Path().apply { addRect(o.rect) }
-        }
-        drawPath(path, color)
-    }
-}
+): Modifier = this
 
-/**
- * Latar aplikasi dengan titik polkadot, meniru
- * `radial-gradient(circle, var(--bg-dot) 1.5px, transparent 1.5px)`.
- */
+/** Latar polos. Polkadot lama dihapus karena bukan informasi. */
 @Composable
 fun PolkaDotBackground(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    val extra = LocalExtraColors.current
-    val bg = MaterialTheme.colorScheme.background
-    val dot = extra.bgDot
-
-    Box(
-        modifier = modifier
-            .background(bg)
-            .drawBehind {
-                val step = 22.dp.toPx()
-                val radius = 1.5.dp.toPx()
-                var y = step / 2f
-                var row = 0
-                while (y < size.height) {
-                    var x = if (row % 2 == 0) step / 2f else step
-                    while (x < size.width) {
-                        drawCircle(color = dot, radius = radius, center = Offset(x, y))
-                        x += step
-                    }
-                    y += step
-                    row++
-                }
-            }
-    ) {
-        content()
-    }
+    Box(modifier.background(MaterialTheme.colorScheme.background)) { content() }
 }
 
-/**
- * Judul dengan text-shadow offset, mengikuti
- * `text-shadow: 3px 3px 0 var(--title-shadow)`.
- */
 @Composable
 fun BrutalTitle(
     text: String,
@@ -122,53 +63,44 @@ fun BrutalTitle(
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip
 ) {
-    val shadow = LocalExtraColors.current.titleShadow
     Text(
         text = text,
         modifier = modifier,
-        style = style.copy(
-            shadow = Shadow(
-                color = shadow,
-                offset = Offset(3f, 3f),
-                blurRadius = 0f
-            )
-        ),
+        style = style,
         color = color,
         maxLines = maxLines,
         overflow = overflow
     )
 }
 
-/**
- * Kartu ala web: garis tinta, bayangan keras, sudut membulat.
- * Dipakai menggantikan Card Material yang tampil datar.
- */
 @Composable
 fun BrutalCard(
     modifier: Modifier = Modifier,
     background: Color = LocalExtraColors.current.cardLight,
     shape: Shape = CardShape,
-    borderColor: Color = MaterialTheme.colorScheme.onBackground,
-    borderWidth: Dp = InkWidth,
-    shadowOffset: Dp = 2.dp,
-    contentPadding: PaddingValues = PaddingValues(14.dp),
+    borderColor: Color = MaterialTheme.colorScheme.outlineVariant,
+    borderWidth: Dp = 1.dp,
+    shadowOffset: Dp = 0.dp,
+    contentPadding: PaddingValues = PaddingValues(Space.lg),
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shadowColor = LocalExtraColors.current.shadow
     val base = modifier
-        .hardShadow(shadowColor, shadowOffset, shape)
-        .background(background, shape)
+        .background(MaterialTheme.colorScheme.surfaceVariant, shape)
         .border(borderWidth, borderColor, shape)
-
-    Column(
-        modifier = (if (onClick != null) base.clickable { onClick() } else base)
-            .padding(contentPadding),
-        content = content
-    )
+    Surface(
+        modifier = if (onClick != null) base.clickable(onClick = onClick) else base,
+        color = Color.Transparent,
+        shape = shape
+    ) {
+        Column(modifier = Modifier.padding(contentPadding), content = content)
+    }
 }
 
-/** Tombol utama ala web: warna aksen, garis tinta, bayangan keras. */
+/**
+ * Satu tombol utama (aksen) per layar. Pemanggil lama yang memberi
+ * `background` selain aksen otomatis menjadi tombol sekunder.
+ */
 @Composable
 fun BrutalButton(
     text: String,
@@ -178,27 +110,20 @@ fun BrutalButton(
     contentColor: Color = LocalExtraColors.current.onAccent,
     enabled: Boolean = true
 ) {
-    val shadowColor = LocalExtraColors.current.shadow
-    val borderColor = MaterialTheme.colorScheme.onBackground
-
-    Box(
-        modifier = modifier
-            .hardShadow(shadowColor, 2.dp, ButtonShape)
-            .background(if (enabled) background else background.copy(alpha = 0.5f), ButtonShape)
-            .border(InkWidth, borderColor, ButtonShape)
-            .clickable(enabled = enabled) { onClick() }
-            .padding(horizontal = 18.dp, vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp),
-            color = if (enabled) contentColor else contentColor.copy(alpha = 0.5f)
-        )
+    val primary = background == LocalExtraColors.current.yellow
+    val buttonModifier = modifier.heightIn(min = Space.touch)
+    if (primary) {
+        Button(onClick = onClick, modifier = buttonModifier, enabled = enabled) {
+            Text(text, style = MaterialTheme.typography.labelLarge)
+        }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = buttonModifier, enabled = enabled) {
+            Text(text, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 
-/** Deretan tombol pilihan aktif/nonaktif, gaya pil di web. */
+/** Pilihan ganda: state terpilih memakai aksen, sisanya netral. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BrutalChoiceRow(
@@ -206,50 +131,41 @@ fun BrutalChoiceRow(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    accent: Color = LocalExtraColors.current.blue
+    accent: Color = LocalExtraColors.current.yellow
 ) {
-    val shadowColor = LocalExtraColors.current.shadow
-    val borderColor = MaterialTheme.colorScheme.onBackground
-    val onAccent = LocalExtraColors.current.onAccent
-
-    // FlowRow agar opsi banyak/tulisan panjang tidak terpotong di layar sempit.
     FlowRow(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Space.sm),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Space.sm)
     ) {
         options.forEachIndexed { index, option ->
             val selected = index == selectedIndex
-            Box(
-                modifier = Modifier
-                    .hardShadow(shadowColor, 2.dp, PillShape)
-                    .background(if (selected) accent else Color.Transparent, PillShape)
-                    .border(InkWidth, borderColor, PillShape)
-                    .clickable { onSelect(index) }
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = option,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (selected) onAccent else MaterialTheme.colorScheme.onBackground
-                )
+            val choiceModifier = Modifier.heightIn(min = Space.touch)
+            if (selected) {
+                Button(onClick = { onSelect(index) }, modifier = choiceModifier) {
+                    Text(option, style = MaterialTheme.typography.labelMedium)
+                }
+            } else {
+                OutlinedButton(onClick = { onSelect(index) }, modifier = choiceModifier) {
+                    Text(option, style = MaterialTheme.typography.labelMedium)
+                }
             }
         }
     }
 }
 
-/** Kotak kosong bergaris putus-putus, untuk placeholder dan status kosong. */
+/** Empty state: satu kalimat, tanpa ilustrasi atau garis putus-putus. */
 @Composable
 fun BrutalDashedBox(
     modifier: Modifier = Modifier,
     text: String = "",
-    borderColor: Color = LocalExtraColors.current.outline
+    borderColor: Color = MaterialTheme.colorScheme.outlineVariant
 ) {
     Box(
         modifier = modifier
-            .border(InkWidth, borderColor, RoundedCornerShape(20.dp))
-            .padding(16.dp),
+            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+            .border(1.dp, borderColor, CardShape)
+            .padding(Space.lg),
         contentAlignment = Alignment.Center
     ) {
         if (text.isNotEmpty()) {
@@ -262,28 +178,25 @@ fun BrutalDashedBox(
     }
 }
 
-/** Lingkaran Avatar ala web untuk inisial. */
+/** Inisial series: identitas, bukan dekorasi. */
 @Composable
 fun BrutalAvatar(
     text: String,
     modifier: Modifier = Modifier,
     size: Dp = 44.dp,
-    background: Color = LocalExtraColors.current.purple
+    background: Color = MaterialTheme.colorScheme.surfaceVariant
 ) {
-    val shadowColor = LocalExtraColors.current.shadow
-    val borderColor = MaterialTheme.colorScheme.onBackground
     Box(
         modifier = modifier
             .size(size)
-            .hardShadow(shadowColor, 3.dp, RoundedCornerShape(50))
-            .background(background, RoundedCornerShape(50))
-            .border(InkWidth, borderColor, RoundedCornerShape(50)),
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text.take(1).uppercase(),
             style = MaterialTheme.typography.titleMedium,
-            color = LocalExtraColors.current.onAccent
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }

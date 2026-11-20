@@ -121,7 +121,7 @@ fun SettingsScreen(
                 },
                 accent = LocalExtraColors.current.green
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             PreviewRow(settings.naming)
             Spacer(Modifier.height(8.dp))
             Text(
@@ -150,7 +150,7 @@ fun SettingsScreen(
                 checked = settings.dohEnabled
             ) { v -> onChange(settings.copy(dohEnabled = v)) }
             if (settings.dohEnabled) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 BrutalChoiceRow(
                     options = DohProvider.entries.map { it.label },
                     selectedIndex = DohProvider.entries.indexOf(settings.dohProvider),

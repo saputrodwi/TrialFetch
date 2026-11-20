@@ -526,7 +526,9 @@ fun AppRoot(
                             nav.navigate(Routes.series(r.source.id, r.comicId))
                         },
                         storageGranted = storageGranted,
-                        onReset = vm::clearSearch
+                        onReset = vm::clearSearch,
+                        recentDownloads = queueItems,
+                        onOpenDownloads = { nav.navigate(Routes.DOWNLOADS) }
                     )
                 }
                 composable(
@@ -1935,12 +1937,10 @@ private fun ReaderScreen(
                                 valueRange = 0f..(list.size - 1).coerceAtLeast(1).toFloat(),
                                 steps = (list.size - 2).coerceAtLeast(0),
                                 modifier = Modifier.weight(1f),
-                                // Thumb bulat kecil biru berbingkai (mockup),
-                                // bukan kapsul bawaan yang terlihat seperti bar.
                                 colors = SliderDefaults.colors(
-                                    thumbColor = Color(0xFF2563EB),
+                                    thumbColor = MaterialTheme.colorScheme.primary,
                                     activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.outline
+                                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
                                 )
                                 )
                                     Text(

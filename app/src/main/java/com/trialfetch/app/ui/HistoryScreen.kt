@@ -108,7 +108,7 @@ fun HistoryScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                         if (h.totalPages > 0) {
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(8.dp))
                             val pct = h.fraction?.let { (it * 100).toInt().coerceIn(0, 100) }
                             Text(
                                 if (pct != null) "Terakhir dibaca: hal ${h.page} dari ${h.totalPages} · $pct%"
@@ -122,26 +122,21 @@ fun HistoryScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 h.source.displayName,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = LocalExtraColors.current.onAccent,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 modifier = Modifier
-                                    .border(
-                                        2.dp,
-                                        MaterialTheme.colorScheme.onBackground,
-                                        RoundedCornerShape(999.dp)
-                                    )
                                     .background(
-                                        LocalExtraColors.current.blue,
-                                        RoundedCornerShape(999.dp)
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                        RoundedCornerShape(8.dp)
                                     )
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
                             )
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 SimpleDateFormat("d MMM HH:mm", Locale.getDefault()).format(Date(h.updatedAt)),
                                 style = MaterialTheme.typography.labelSmall,

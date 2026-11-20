@@ -156,8 +156,8 @@ internal fun QueueCard(
             if (index > 0) {
                 androidx.compose.material3.HorizontalDivider(
                     modifier = Modifier.padding(vertical = 8.dp),
-                    thickness = 2.dp,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f)
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
                 )
             }
             QueueRow(
@@ -184,16 +184,11 @@ internal fun QueueRow(
                 model = item.series.coverUrl.ifBlank { null },
                 contentDescription = null,
                 modifier = Modifier
-                    .size(width = 40.dp, height = 54.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .border(
-                        2.dp,
-                        MaterialTheme.colorScheme.onBackground,
-                        RoundedCornerShape(6.dp)
-                    ),
+                    .size(width = 40.dp, height = 56.dp)
+                    .clip(RoundedCornerShape(8.dp)),
                 contentScale = ContentScale.Crop
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     item.chapter.title,

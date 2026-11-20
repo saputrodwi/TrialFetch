@@ -1,95 +1,64 @@
 package com.trialfetch.app.ui.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import android.app.Activity
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import com.trialfetch.app.R
 
 /**
- * Palet diambil apa adanya dari versi web (Trial Fetch), supaya kedua
- * aplikasi terlihat sebagai produk yang sama. Nilai diambil dari blok
- * `:root` dan `[data-theme="dark"]` di index.html versi web.
+ * Sistem warna Trial Fetch: satu aksen (#3B5BA9) dan tiga tingkat netral.
+ * Semua nilai hex hanya boleh ada di berkas ini; layar memakai
+ * `MaterialTheme.colorScheme.*` atau token di [ExtraColors].
  */
-object WebPalette {
-    // accent
-    val Pink = Color(0xFFF6C9DB)
-    val PinkDeep = Color(0xFFE8A9C6)
-    val Blue = Color(0xFFC3E4F5)
-    val BlueStrong = Color(0xFF8ECDEA)
-    val Yellow = Color(0xFFFFEEA8)
-    val YellowDeep = Color(0xFFF0D97E)
-    val Green = Color(0xFFBDE5C8)
-    val GreenDeep = Color(0xFF7DBE90)
-    val GreenInk = Color(0xFF2F6B40)
-    val Purple = Color(0xFFDBCBF0)
-    val PurpleDeep = Color(0xFFC0A8E0)
-    val Red = Color(0xFFF2A0A0)
-    val RedDeep = Color(0xFFE85D5D)
-    val RedInk = Color(0xFFB03636)
+private object Palette {
+    val Accent = Color(0xFF3B5BA9)
+    val OnAccent = Color(0xFFFFFFFF)
+    val AccentContainer = Color(0xFFE8EDF7)
+    val OnAccentContainer = Color(0xFF22356B)
+    val Neutral = Color(0xFF5B5D58)
 
-    // terang
-    val LightBg = Color(0xFFF3EFE9)
-    val LightCard = Color(0xFFE4DFD6)
-    val LightCardLight = Color(0xFFFBF9F5)
-    val LightInk = Color(0xFF3A3733)
-    val LightInkSoft = Color(0xFF8A857E)
-    val LightOutline = Color(0xFFB3AEA6)
-    val LightShadow = Color(0xFFB3AEA6)
-    val LightTitleShadow = Color(0xFFF6C9DB)
-    val LightBgDot = Color(0x80FFFFFF)
-    val LightOnAccent = Color(0xFF3A3733)
+    val LightBackground = Color(0xFFF7F7F5)
+    val LightSurface = Color(0xFFFFFFFF)
+    val LightSurfaceVariant = Color(0xFFEFEFEC)
+    val LightOutline = Color(0xFFDADAD5)
+    val LightInk = Color(0xFF1B1C1A)
+    val LightInkSoft = Color(0xFF5B5D58)
+    val LightError = Color(0xFFB3261E)
 
-    // gelap
-    val DarkBg = Color(0xFF262322)
-    val DarkCard = Color(0xFF3C3835)
-    val DarkCardLight = Color(0xFF38322C)
-    val DarkInk = Color(0xFFD8D2C8)
-    val DarkInkSoft = Color(0xFF9A938A)
-    val DarkOutline = Color(0xFF57524C)
-    val DarkShadow = Color(0xFF000000)
-    val DarkTitleShadow = Color(0xFF6E2F49)
-    val DarkBgDot = Color(0x24FFFFFF)
-    val DarkOnAccent = Color(0xFF1A1817)
+    val DarkAccent = Color(0xFF9DB4F0)
+    val DarkOnAccent = Color(0xFF14224A)
+    val DarkAccentContainer = Color(0xFF26335C)
+    val DarkOnAccentContainer = Color(0xFFD7E2FF)
+    val DarkNeutral = Color(0xFFA9AAA4)
+    val DarkBackground = Color(0xFF121312)
+    val DarkSurface = Color(0xFF1A1B1A)
+    val DarkSurfaceVariant = Color(0xFF252624)
+    val DarkOutline = Color(0xFF3A3B38)
+    val DarkInk = Color(0xFFE6E6E2)
+    val DarkInkSoft = Color(0xFFA9AAA4)
+    val DarkError = Color(0xFFF2B8B5)
 }
 
 /**
- * Font asli yang dipakai web, di-subset ke rentang Latin lalu ditaruh di
- * res/font. Tanpa ini aplikasi masih memakai Roboto dan langsung terlihat
- * beda dari web meski warnanya sama.
+ * Nama field lama dipertahankan supaya layar yang belum disentuh tetap
+ * kompil, tetapi semuanya sekarang mengarah ke satu aksen / netral.
+ * `shadow`, `titleShadow`, dan `bgDot` sengaja transparan: dekorasi lama
+ * (hard shadow, text-shadow, polkadot) tidak dipakai lagi.
  */
-private val Baloo2 = FontFamily(
-    Font(R.font.baloo2_bold, FontWeight.Bold),
-    Font(R.font.baloo2_extrabold, FontWeight.ExtraBold)
-)
-
-private val Quicksand = FontFamily(
-    Font(R.font.quicksand_regular, FontWeight.Normal),
-    Font(R.font.quicksand_medium, FontWeight.Medium),
-    Font(R.font.quicksand_semibold, FontWeight.SemiBold),
-    Font(R.font.quicksand_bold, FontWeight.Bold)
-)
-
-val JetBrainsMono = FontFamily(
-    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
-    Font(R.font.jetbrains_mono_bold, FontWeight.Bold)
-)
-
-/** Warna non-Material3 yang dipakai khusus di beberapa komponen. */
 data class ExtraColors(
     val card: Color,
     val cardLight: Color,
@@ -103,159 +72,107 @@ data class ExtraColors(
     val green: Color,
     val purple: Color,
     val red: Color,
-    /** Warna bayangan keras tanpa blur, mengikuti --shadow di web. */
     val shadow: Color,
-    /** Warna text-shadow judul, mengikuti --title-shadow di web. */
     val titleShadow: Color,
-    /** Warna titik polkadot di latar, mengikuti --bg-dot di web. */
     val bgDot: Color,
     val onAccent: Color
 )
 
 val LocalExtraColors = staticCompositionLocalOf {
     ExtraColors(
-        card = WebPalette.LightCard,
-        cardLight = WebPalette.LightCardLight,
-        inkSoft = WebPalette.LightInkSoft,
-        outline = WebPalette.LightOutline,
-        yellow = WebPalette.Yellow,
-        yellowDeep = WebPalette.YellowDeep,
-        pink = WebPalette.Pink,
-        pinkDeep = WebPalette.PinkDeep,
-        blue = WebPalette.Blue,
-        green = WebPalette.Green,
-        purple = WebPalette.Purple,
-        red = WebPalette.Red,
-        shadow = WebPalette.LightShadow,
-        titleShadow = WebPalette.LightTitleShadow,
-        bgDot = WebPalette.LightBgDot,
-        onAccent = WebPalette.LightOnAccent
+        card = Palette.LightSurfaceVariant,
+        cardLight = Palette.LightSurface,
+        inkSoft = Palette.LightInkSoft,
+        outline = Palette.LightOutline,
+        yellow = Palette.Accent,
+        yellowDeep = Palette.Accent,
+        pink = Palette.AccentContainer,
+        pinkDeep = Palette.AccentContainer,
+        blue = Palette.AccentContainer,
+        green = Palette.AccentContainer,
+        purple = Palette.AccentContainer,
+        red = Palette.LightError,
+        shadow = Color.Transparent,
+        titleShadow = Color.Transparent,
+        bgDot = Color.Transparent,
+        onAccent = Palette.OnAccent
     )
 }
 
 private val LightColors = lightColorScheme(
-    primary = WebPalette.BlueStrong,
-    onPrimary = Color(0xFF07354A),
-    primaryContainer = WebPalette.Blue,
-    onPrimaryContainer = Color(0xFF07354A),
-    secondary = WebPalette.PinkDeep,
-    onSecondary = Color(0xFF3F2130),
-    secondaryContainer = WebPalette.Pink,
-    onSecondaryContainer = Color(0xFF3F2130),
-    tertiary = WebPalette.PurpleDeep,
-    onTertiary = Color(0xFF2B1A3D),
-    tertiaryContainer = WebPalette.Purple,
-    onTertiaryContainer = Color(0xFF2B1A3D),
-    background = WebPalette.LightBg,
-    onBackground = WebPalette.LightInk,
-    surface = WebPalette.LightCardLight,
-    onSurface = WebPalette.LightInk,
-    surfaceVariant = WebPalette.LightCard,
-    onSurfaceVariant = WebPalette.LightInkSoft,
-    outline = WebPalette.LightOutline,
-    error = WebPalette.RedDeep,
-    onError = Color.White,
-    errorContainer = WebPalette.Red,
-    onErrorContainer = WebPalette.RedInk
+    primary = Palette.Accent,
+    onPrimary = Palette.OnAccent,
+    primaryContainer = Palette.AccentContainer,
+    onPrimaryContainer = Palette.OnAccentContainer,
+    secondary = Palette.Neutral,
+    onSecondary = Palette.OnAccent,
+    secondaryContainer = Palette.LightSurfaceVariant,
+    onSecondaryContainer = Palette.LightInk,
+    tertiary = Palette.Neutral,
+    onTertiary = Palette.OnAccent,
+    tertiaryContainer = Palette.LightSurfaceVariant,
+    onTertiaryContainer = Palette.LightInk,
+    background = Palette.LightBackground,
+    onBackground = Palette.LightInk,
+    surface = Palette.LightSurface,
+    onSurface = Palette.LightInk,
+    surfaceVariant = Palette.LightSurfaceVariant,
+    onSurfaceVariant = Palette.LightInkSoft,
+    outline = Palette.LightOutline,
+    outlineVariant = Palette.LightOutline,
+    error = Palette.LightError,
+    onError = Palette.OnAccent
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF6FBEE3),
-    onPrimary = Color(0xFF06323F),
-    primaryContainer = Color(0xFF1B4A5C),
-    onPrimaryContainer = WebPalette.Blue,
-    secondary = WebPalette.PinkDeep,
-    onSecondary = Color(0xFF3A1B2A),
-    secondaryContainer = Color(0xFF5A3350),
-    onSecondaryContainer = WebPalette.Pink,
-    tertiary = Color(0xFFB49BDD),
-    onTertiary = Color(0xFF27163A),
-    tertiaryContainer = Color(0xFF453260),
-    onTertiaryContainer = WebPalette.Purple,
-    background = WebPalette.DarkBg,
-    onBackground = WebPalette.DarkInk,
-    surface = WebPalette.DarkCardLight,
-    onSurface = WebPalette.DarkInk,
-    surfaceVariant = WebPalette.DarkCard,
-    onSurfaceVariant = WebPalette.DarkInkSoft,
-    outline = WebPalette.DarkOutline,
-    error = Color(0xFFE86A6A),
-    onError = Color(0xFF3B0E0E),
-    errorContainer = Color(0xFF5C2222),
-    onErrorContainer = Color(0xFFFFB0B0)
+    primary = Palette.DarkAccent,
+    onPrimary = Palette.DarkOnAccent,
+    primaryContainer = Palette.DarkAccentContainer,
+    onPrimaryContainer = Palette.DarkOnAccentContainer,
+    secondary = Palette.DarkNeutral,
+    onSecondary = Palette.DarkBackground,
+    secondaryContainer = Palette.DarkSurfaceVariant,
+    onSecondaryContainer = Palette.DarkInk,
+    tertiary = Palette.DarkNeutral,
+    onTertiary = Palette.DarkBackground,
+    tertiaryContainer = Palette.DarkSurfaceVariant,
+    onTertiaryContainer = Palette.DarkInk,
+    background = Palette.DarkBackground,
+    onBackground = Palette.DarkInk,
+    surface = Palette.DarkSurface,
+    onSurface = Palette.DarkInk,
+    surfaceVariant = Palette.DarkSurfaceVariant,
+    onSurfaceVariant = Palette.DarkInkSoft,
+    outline = Palette.DarkOutline,
+    outlineVariant = Palette.DarkOutline,
+    error = Palette.DarkError,
+    onError = Color(0xFF3B0E0E)
 )
 
-/**
- * Tipografi mengikuti web: Baloo 2 weight 800 untuk judul, Quicksand untuk
- * isi. Di web keduanya dipakai persis seperti ini, termasuk ukuran yang
- * membulat (20, 16, 14) agar terasa ramah.
- */
+/** Satu keluarga font, dua weight: Regular untuk isi, SemiBold untuk judul. */
+private val Quicksand = FontFamily(
+    Font(R.font.quicksand_regular, FontWeight.Normal),
+    Font(R.font.quicksand_semibold, FontWeight.SemiBold)
+)
+
+private val TypeScale = Typography()
+
 private val AppTypography = Typography(
-    headlineMedium = TextStyle(
-        fontFamily = Baloo2,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = Baloo2,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
-        letterSpacing = 0.sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = Baloo2,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
-        letterSpacing = 0.sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = Baloo2,
-        fontWeight = FontWeight.Bold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-        letterSpacing = 0.1.sp
-    ),
-    titleSmall = TextStyle(
-        fontFamily = Baloo2,
-        fontWeight = FontWeight.Bold,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = Quicksand,
-        fontSize = 16.sp,
-        lineHeight = 24.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = Quicksand,
-        fontSize = 14.sp,
-        lineHeight = 20.sp
-    ),
-    bodySmall = TextStyle(
-        fontFamily = Quicksand,
-        fontSize = 12.sp,
-        lineHeight = 16.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = Quicksand,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp
-    ),
-    labelMedium = TextStyle(
-        fontFamily = Quicksand,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = Quicksand,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp
-    )
+    displayLarge = TypeScale.displayLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    displayMedium = TypeScale.displayMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    displaySmall = TypeScale.displaySmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    headlineLarge = TypeScale.headlineLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    headlineMedium = TypeScale.headlineMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    headlineSmall = TypeScale.headlineSmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    titleLarge = TypeScale.titleLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    titleMedium = TypeScale.titleMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    titleSmall = TypeScale.titleSmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    bodyLarge = TypeScale.bodyLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.Normal),
+    bodyMedium = TypeScale.bodyMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.Normal),
+    bodySmall = TypeScale.bodySmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.Normal),
+    labelLarge = TypeScale.labelLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    labelMedium = TypeScale.labelMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
+    labelSmall = TypeScale.labelSmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.Normal)
 )
 
 @Composable
@@ -266,48 +183,44 @@ fun TrialFetchTheme(
     val colors = if (darkTheme) DarkColors else LightColors
     val extra = if (darkTheme) {
         ExtraColors(
-            card = WebPalette.DarkCard,
-            cardLight = WebPalette.DarkCardLight,
-            inkSoft = WebPalette.DarkInkSoft,
-            outline = WebPalette.DarkOutline,
-            yellow = Color(0xFFE8D38A),
-            yellowDeep = Color(0xFFC9AF5C),
-            pink = Color(0xFFE9A8C4),
-            pinkDeep = Color(0xFFC77FA2),
-            blue = Color(0xFF8FC8E4),
-            green = Color(0xFF6FA87F),
-            purple = Color(0xFFA88FC9),
-            red = Color(0xFFC96A6A),
-            shadow = WebPalette.DarkShadow,
-            titleShadow = WebPalette.DarkTitleShadow,
-            bgDot = WebPalette.DarkBgDot,
-            onAccent = WebPalette.DarkOnAccent
+            card = Palette.DarkSurfaceVariant,
+            cardLight = Palette.DarkSurface,
+            inkSoft = Palette.DarkInkSoft,
+            outline = Palette.DarkOutline,
+            yellow = Palette.DarkAccent,
+            yellowDeep = Palette.DarkAccent,
+            pink = Palette.DarkAccentContainer,
+            pinkDeep = Palette.DarkAccentContainer,
+            blue = Palette.DarkAccentContainer,
+            green = Palette.DarkAccentContainer,
+            purple = Palette.DarkAccentContainer,
+            red = Palette.DarkError,
+            shadow = Color.Transparent,
+            titleShadow = Color.Transparent,
+            bgDot = Color.Transparent,
+            onAccent = Palette.DarkOnAccent
         )
     } else {
         ExtraColors(
-            card = WebPalette.LightCard,
-            cardLight = WebPalette.LightCardLight,
-            inkSoft = WebPalette.LightInkSoft,
-            outline = WebPalette.LightOutline,
-            yellow = WebPalette.Yellow,
-            yellowDeep = WebPalette.YellowDeep,
-            pink = WebPalette.Pink,
-            pinkDeep = WebPalette.PinkDeep,
-            blue = WebPalette.Blue,
-            green = WebPalette.Green,
-            purple = WebPalette.Purple,
-            red = WebPalette.Red,
-            shadow = WebPalette.LightShadow,
-            titleShadow = WebPalette.LightTitleShadow,
-            bgDot = WebPalette.LightBgDot,
-            onAccent = WebPalette.LightOnAccent
+            card = Palette.LightSurfaceVariant,
+            cardLight = Palette.LightSurface,
+            inkSoft = Palette.LightInkSoft,
+            outline = Palette.LightOutline,
+            yellow = Palette.Accent,
+            yellowDeep = Palette.Accent,
+            pink = Palette.AccentContainer,
+            pinkDeep = Palette.AccentContainer,
+            blue = Palette.AccentContainer,
+            green = Palette.AccentContainer,
+            purple = Palette.AccentContainer,
+            red = Palette.LightError,
+            shadow = Color.Transparent,
+            titleShadow = Color.Transparent,
+            bgDot = Color.Transparent,
+            onAccent = Palette.OnAccent
         )
     }
 
-    // Ikon status bar & navigation bar mengikuti tema AKTUAL (termasuk
-    // override manual Terang/Gelap), bukan cuma mode sistem. Tanpa ini,
-    // windowLightStatusBar=true permanen di themes.xml membuat ikon tak
-    // terlihat saat dark mode aktif.
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
