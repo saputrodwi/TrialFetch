@@ -85,6 +85,9 @@ object CrashLog {
 
     /** Copy laporan ke clipboard — teks selamat walau proses mati seketika. */
     private fun copyToClipboard(text: String) {
+        // Diagnosa lokal hanya dipakai build debug. Di release jangan
+        // menulis stack trace ke clipboard sistem (dibaca aplikasi lain).
+        if (!BuildConfig.DEBUG) return
         // ClipboardManager butuh Looper: di thread UI crash biasa ada;
         // di thread lain biarkan gagal (beacon sudah menyelamatkan).
         if (Looper.myLooper() != Looper.getMainLooper()) return
@@ -94,6 +97,9 @@ object CrashLog {
 
     /** Kirim snapshot marker ke webhook — fire-and-forget, cepat mati. */
     private fun beacon(stage: String) {
+        // Telemetri pihak ketiga hanya untuk diagnosa build debug.
+        // Release tidak mengirim data perangkat/marker ke mana pun.
+        if (!BuildConfig.DEBUG) return
         // Tidak butuh appCtx sama sekali (送的 ke URL langsung), jadi jalannya
         // bahkan dari attachBaseContext — sebelum install() siap.
         val payload = buildString {
