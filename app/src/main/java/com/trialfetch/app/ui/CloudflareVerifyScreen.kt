@@ -1,6 +1,7 @@
 package com.trialfetch.app.ui
 
 import android.annotation.SuppressLint
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -60,6 +61,7 @@ fun CloudflareVerifyScreen(
     var pageTitle by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(true) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    val initialHost = WebViewGuard.hostOf(url)
 
     BackHandler { onClose() }
 
@@ -131,6 +133,7 @@ fun CloudflareVerifyScreen(
                         if (userAgent.isNotBlank()) {
                             settings.userAgentString = userAgent
                         }
+                        WebViewGuard.harden(settings)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.databaseEnabled = true
@@ -139,6 +142,13 @@ fun CloudflareVerifyScreen(
                         settings.displayZoomControls = false
 
                         webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView,
+                                request: WebResourceRequest
+                            ): Boolean {
+                                val target = request.url.toString()
+                                return !WebViewGuard.isAllowed(target, initialHost)
+                            }
                             override fun onPageFinished(view: WebView?, u: String?) {
                                 super.onPageFinished(view, u)
                                 loading = false

@@ -1222,6 +1222,7 @@ private fun SeriesWebScreen(
 ) {
     var loading by remember { mutableStateOf(true) }
     var webViewRef by remember { mutableStateOf<android.webkit.WebView?>(null) }
+    val initialHost = WebViewGuard.hostOf(url)
     BackHandler(onBack = onClose)
     DisposableEffect(Unit) {
         onDispose { webViewRef?.destroy() }
@@ -1304,12 +1305,21 @@ private fun SeriesWebScreen(
                         if (userAgent.isNotBlank()) {
                             settings.userAgentString = userAgent
                         }
+                        WebViewGuard.harden(settings)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.setSupportZoom(true)
                         settings.builtInZoomControls = true
                         settings.displayZoomControls = false
                         webViewClient = object : android.webkit.WebViewClient() {
+                            override fun shouldOverrideUrlLoading(
+                                view: android.webkit.WebView,
+                                request: android.webkit.WebResourceRequest
+                            ): Boolean {
+                                return !WebViewGuard.isAllowed(
+                                    request.url.toString(), initialHost
+                                )
+                            }
                             override fun onPageFinished(view: android.webkit.WebView?, u: String?) {
                                 super.onPageFinished(view, u)
                                 loading = false
