@@ -75,6 +75,12 @@
     <string name="download_remove">Hapus dari daftar</string>
     <string name="download_retry">Coba lagi</string>
 
+    <!-- Beranda -->
+    <string name="home_title">TrialFetch</string>
+    <string name="home_hint">Cari judul dari semua sumber komik.</string>
+    <string name="home_stat_reading">Lanjut baca</string>
+    <string name="home_stat_downloads">Unduhan</string>
+
     <!-- Detail series -->
     <string name="series_back">Kembali</string>
     <string name="series_open_web">Buka halaman situs asli</string>
