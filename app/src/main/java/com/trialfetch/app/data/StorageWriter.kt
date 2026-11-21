@@ -419,6 +419,7 @@ class StorageWriter(private val context: Context) {
      * sehingga chapter yang sudah terunduh tetap bisa dibaca.
      */
     fun listImagesByChapter(folderHint: String, token: String?): List<Uri> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyList()
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val hint = folderHint.lowercase()
         val rootPrefix = "${Environment.DIRECTORY_DOWNLOADS}/${OutputPaths.ROOT}/"
