@@ -1989,66 +1989,13 @@ private fun ReaderScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                // Kontainer navigator ala Mihon: angka kini
-                                // kiri, total kanan, slider di tengah.
-                                Row(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        .padding(horizontal = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Lebar stabil: angka total transparan
-                                    // di belakang agar slider tak bergeser.
-                                    Box(contentAlignment = Alignment.CenterEnd) {
-                                        Text(
-                                            text = "${list.size}",
-                                            color = Color.Transparent,
-                                            style = MaterialTheme.typography.labelLarge,
-                                            maxLines = 1
-                                        )
-                                        Text(
-                                            text = "${currentPage + 1}",
-                                            style = MaterialTheme.typography.labelLarge,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1
-                                        )
-                                    }
-                                    Slider(
-                                    value = currentPage.toFloat()
-                                        .coerceIn(0f, (list.size - 1).coerceAtLeast(0).toFloat()),
-                                    onValueChange = { v ->
-                                        val logical = v.toInt().coerceIn(0, list.size - 1)
-                                        readerScope.launch {
-                                            if (mode == ReaderMode.WEBTOON) {
-                                                vList.scrollToItem(logical)
-                                            } else {
-                                                val visual = if (rtl) {
-                                                    displayList.lastIndex - logical
-                                                } else logical
-                                                hState.scrollToPage(
-                                                    visual.coerceIn(0, displayList.lastIndex.coerceAtLeast(0))
-                                                )
-                                            }
-                                        }
-                                    },
-                                valueRange = 0f..(list.size - 1).coerceAtLeast(1).toFloat(),
-                                steps = (list.size - 2).coerceAtLeast(0),
-                                modifier = Modifier.weight(1f),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.primary,
-                                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                                Text(
+                                    "Halaman ${currentPage + 1} dari ${list.size}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f).padding(horizontal = Space.sm),
+                                    maxLines = 1
                                 )
-                                )
-                                    Text(
-                                        text = "${list.size}",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1
-                                    )
-                                }
                                 IconButton(
                                     onClick = { nextChapter?.let(onNavigate) },
                                     enabled = nextChapter != null
@@ -2060,6 +2007,33 @@ private fun ReaderScreen(
                                     )
                                 }
                             }
+                            Slider(
+                                value = currentPage.toFloat()
+                                    .coerceIn(0f, (list.size - 1).coerceAtLeast(0).toFloat()),
+                                onValueChange = { v ->
+                                    val logical = v.toInt().coerceIn(0, list.size - 1)
+                                    readerScope.launch {
+                                        if (mode == ReaderMode.WEBTOON) {
+                                            vList.scrollToItem(logical)
+                                        } else {
+                                            val visual = if (rtl) {
+                                                displayList.lastIndex - logical
+                                            } else logical
+                                            hState.scrollToPage(
+                                                visual.coerceIn(0, displayList.lastIndex.coerceAtLeast(0))
+                                            )
+                                        }
+                                    }
+                                },
+                                valueRange = 0f..(list.size - 1).coerceAtLeast(1).toFloat(),
+                                steps = (list.size - 2).coerceAtLeast(0),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.primary,
+                                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                                )
+                            )
                             Spacer(Modifier.height(4.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
