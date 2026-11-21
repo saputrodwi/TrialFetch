@@ -1,9 +1,7 @@
 package com.trialfetch.app.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -30,17 +30,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.trialfetch.app.R
 import com.trialfetch.app.data.HistoryEntry
-import com.trialfetch.app.ui.theme.BrutalCard
-import com.trialfetch.app.ui.theme.LocalExtraColors
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.trialfetch.app.ui.theme.Space
 
-/** Riwayat baca: ketuk untuk lanjutkan dari halaman terakhir. */
+/** Riwayat baca: daftar polos, ketuk untuk lanjut dari halaman terakhir. */
 @Composable
 fun HistoryScreen(
     items: List<HistoryEntry>,
@@ -48,109 +48,102 @@ fun HistoryScreen(
     onRemove: (String) -> Unit,
     onClear: () -> Unit
 ) {
-    val extra = LocalExtraColors.current
-    if (items.isEmpty()) {
-        Box(Modifier.fillMaxSize(), Alignment.Center) {
+    Column(Modifier.fillMaxSize().padding(horizontal = Space.lg)) {
+        Spacer(Modifier.height(Space.md))
+        Text(
+            stringResource(R.string.history_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.height(Space.sm))
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Belum ada riwayat baca.",
+                stringResource(R.string.history_count, items.size),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
             )
-        }
-        return
-    }
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "${items.size} entri",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = onClear) { Text("Hapus semua") }
+            if (items.isNotEmpty()) {
+                TextButton(onClick = onClear) { Text(stringResource(R.string.history_clear)) }
             }
         }
-        items(items, key = { it.key() }) { h ->
-            BrutalCard(
-                modifier = Modifier.fillMaxWidth(),
-                background = extra.card,
-                onClick = { onOpen(h) }
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(
-                        model = h.coverUrl.ifBlank { null },
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(width = 48.dp, height = 64.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(2.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        LazyColumn(
+            Modifier.weight(1f),
+            contentPadding = PaddingValues(vertical = Space.md),
+            verticalArrangement = Arrangement.spacedBy(Space.sm)
+        ) {
+            if (items.isEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.history_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = Space.xxl)
                     )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            h.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            h.chapterTitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (h.totalPages > 0) {
-                            Spacer(Modifier.height(8.dp))
-                            val pct = h.fraction?.let { (it * 100).toInt().coerceIn(0, 100) }
-                            Text(
-                                if (pct != null) "Terakhir dibaca: hal ${h.page} dari ${h.totalPages} · $pct%"
-                                else "Terakhir dibaca: hal ${h.page} dari ${h.totalPages}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            LinearProgressIndicator(
-                                progress = { h.fraction ?: 0f },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                h.source.displayName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                modifier = Modifier
-                                    .background(
-                                        MaterialTheme.colorScheme.surfaceVariant,
-                                        RoundedCornerShape(8.dp)
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                SimpleDateFormat("d MMM HH:mm", Locale.getDefault()).format(Date(h.updatedAt)),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    IconButton(onClick = { onRemove(h.key()) }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Hapus riwayat")
-                    }
                 }
             }
+            items(items, key = { it.key() }) { entry ->
+                HistoryRow(
+                    entry = entry,
+                    onClick = { onOpen(entry) },
+                    onRemove = { onRemove(entry.key()) }
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun HistoryRow(
+    entry: HistoryEntry,
+    onClick: () -> Unit,
+    onRemove: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = Space.touch + Space.lg)
+            .clickable(onClick = onClick)
+            .padding(vertical = Space.md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = entry.coverUrl.ifBlank { null },
+            contentDescription = null,
+            modifier = Modifier
+                .size(width = 48.dp, height = 64.dp)
+                .clip(RoundedCornerShape(4.dp)),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(Modifier.width(Space.md))
+        Column(Modifier.weight(1f)) {
+            Text(
+                entry.title,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(Space.xs))
+            Text(
+                entry.chapterTitle,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (entry.totalPages > 0) {
+                Spacer(Modifier.height(Space.sm))
+                LinearProgressIndicator(
+                    progress = { entry.fraction ?: 0f },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        Spacer(Modifier.width(Space.sm))
+        IconButton(onClick = onRemove) {
+            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.history_remove))
+        }
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }

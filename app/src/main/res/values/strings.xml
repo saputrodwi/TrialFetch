@@ -81,6 +81,13 @@
     <string name="home_stat_reading">Lanjut baca</string>
     <string name="home_stat_downloads">Unduhan</string>
 
+    <!-- Riwayat -->
+    <string name="history_title">Riwayat baca</string>
+    <string name="history_count">%1$d entri</string>
+    <string name="history_clear">Hapus semua</string>
+    <string name="history_empty">Belum ada riwayat baca. Buka chapter untuk mulai.</string>
+    <string name="history_remove">Hapus dari riwayat</string>
+
     <!-- Detail series -->
     <string name="series_back">Kembali</string>
     <string name="series_open_web">Buka halaman situs asli</string>
