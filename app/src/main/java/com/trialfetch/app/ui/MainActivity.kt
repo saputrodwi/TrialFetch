@@ -698,7 +698,14 @@ private fun RowScope.BottomTab(
         onClick = onClick,
         icon = {
             if (badgeCount > 0) {
-                BadgedBox(badge = { Badge { Text("$badgeCount") } }) {
+                BadgedBox(
+                    badge = {
+                        Badge(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ) { Text("$badgeCount") }
+                    }
+                ) {
                     Icon(icon, contentDescription = label)
                 }
             } else {
@@ -719,9 +726,9 @@ private fun RowScope.BottomTab(
         // terang di atas kuning yang nyaris tak terbaca itu dibuang).
         // Tak terpilih: ikon redup tapi tetap jelas.
         colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-            selectedIconColor = MaterialTheme.colorScheme.primary,
-            selectedTextColor = MaterialTheme.colorScheme.primary,
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
         )

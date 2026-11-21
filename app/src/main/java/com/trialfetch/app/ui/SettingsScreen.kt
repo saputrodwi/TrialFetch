@@ -1,7 +1,7 @@
 package com.trialfetch.app.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,15 +17,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,10 +29,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -252,51 +244,37 @@ private fun ChoiceRow(
     selectedIndex: Int,
     onSelect: (Int) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = Space.touch)
-                .clickable { expanded = true }
-                .padding(vertical = Space.sm),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    Column(Modifier.fillMaxWidth().padding(vertical = Space.sm)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(Space.md))
-            Text(
-                label,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                options.getOrNull(selectedIndex).orEmpty(),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.width(Space.sm))
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp)
-            )
+            Text(label, style = MaterialTheme.typography.bodyLarge)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        Spacer(Modifier.height(Space.sm))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Space.sm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             options.forEachIndexed { index, option ->
-                DropdownMenuItem(
-                    text = { Text(option) },
-                    trailingIcon = {
-                        if (index == selectedIndex) {
-                            Icon(Icons.Default.Check, contentDescription = null)
-                        }
-                    },
-                    onClick = {
-                        onSelect(index)
-                        expanded = false
+                val modifier = Modifier
+                    .heightIn(min = Space.touch)
+                    .weight(1f, fill = true)
+                if (index == selectedIndex) {
+                    androidx.compose.material3.Button(
+                        onClick = { onSelect(index) },
+                        modifier = modifier
+                    ) {
+                        Text(option, style = MaterialTheme.typography.labelSmall, maxLines = 1)
                     }
-                )
+                } else {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { onSelect(index) },
+                        modifier = modifier
+                    ) {
+                        Text(option, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    }
+                }
             }
         }
     }
@@ -360,13 +338,6 @@ private fun ActionRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        if (enabled) {
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp)
-            )
-        }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
