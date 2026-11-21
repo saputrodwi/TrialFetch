@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -330,13 +330,16 @@ fun SeriesDetailScreen(
                     )
                 }
             }
-            itemsIndexed(shown, key = { _, c -> c.chapterId }) { index, chapter ->
+            items(shown, key = { it.chapterId }) { chapter ->
                 val busy = (progress.state == DownloadProgress.State.RUNNING &&
                     progress.chapterId == chapter.chapterId) || chapter.chapterId in busyIds
                 val entry = readMap[chapter.chapterId]
-                val downloaded = ComicRepository.sanitize(chapter.title).lowercase() in downloadedKey
+                val folderName = ComicRepository.sanitize(chapter.title).lowercase()
+                val chapterToken = ComicRepository.chapterToken(chapter.title)
+                    ?.dropWhile { it.isLetter() }?.lowercase()
+                val downloaded = folderName in downloadedKey ||
+                    (chapterToken != null && downloadedKey.any { it.contains(chapterToken) })
                 ChapterLine(
-                    number = chapter.chapterNumber?.toString() ?: (index + 1).toString(),
                     title = chapter.title,
                     busy = busy,
                     downloaded = downloaded,
@@ -364,7 +367,6 @@ private fun hasProgress(lastRead: HistoryEntry?, lastChapter: Chapter?): Boolean
 
 @Composable
 private fun ChapterLine(
-    number: String,
     title: String,
     busy: Boolean,
     downloaded: Boolean,
@@ -387,12 +389,6 @@ private fun ChapterLine(
             Checkbox(checked = selected, onCheckedChange = { onToggleSelect() })
             Spacer(Modifier.width(Space.xs))
         }
-        Text(
-            number,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.width(44.dp)
-        )
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val detail = listOfNotNull(
@@ -413,11 +409,17 @@ private fun ChapterLine(
         Box(Modifier.size(Space.touch), contentAlignment = Alignment.Center) {
             when {
                 busy -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                downloaded && !selecting -> Icon(
-                    Icons.Default.Check,
-                    contentDescription = stringResource(R.string.series_downloaded),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                downloaded && !selecting -> androidx.compose.material3.Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.series_downloaded),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = Space.sm, vertical = Space.xs)
+                    )
+                }
                 !selecting -> IconButton(onClick = onDownload) {
                     Icon(Icons.Default.Download, contentDescription = stringResource(R.string.series_download, title))
                 }

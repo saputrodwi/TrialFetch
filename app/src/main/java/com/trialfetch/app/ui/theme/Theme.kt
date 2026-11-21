@@ -29,28 +29,29 @@ private object Palette {
     val OnAccent = Color(0xFFFFFFFF)
     val AccentContainer = Color(0xFFE8EDF7)
     val OnAccentContainer = Color(0xFF22356B)
-    val Neutral = Color(0xFF5B5D58)
+    val Neutral = Color(0xFF575A60)
 
-    val LightBackground = Color(0xFFF7F7F5)
-    val LightSurface = Color(0xFFFFFFFF)
-    val LightSurfaceVariant = Color(0xFFEFEFEC)
-    val LightOutline = Color(0xFFDADAD5)
-    val LightInk = Color(0xFF1B1C1A)
-    val LightInkSoft = Color(0xFF5B5D58)
+    val LightBackground = Color(0xFFF6F6F6)
+    val LightSurface = Color(0xFFFEFEFE)
+    val LightSurfaceVariant = Color(0xFFECEDEE)
+    val LightOutline = Color(0xFFD7D8DA)
+    val LightInk = Color(0xFF1A1B1E)
+    val LightInkSoft = Color(0xFF575A60)
     val LightError = Color(0xFFB3261E)
 
-    val DarkAccent = Color(0xFF9DB4F0)
-    val DarkOnAccent = Color(0xFF14224A)
+    val DarkAccent = Color(0xFF95A9DA)
+    val DarkOnAccent = Color(0xFF101418)
     val DarkAccentContainer = Color(0xFF26335C)
     val DarkOnAccentContainer = Color(0xFFD7E2FF)
-    val DarkNeutral = Color(0xFFA9AAA4)
-    val DarkBackground = Color(0xFF121312)
-    val DarkSurface = Color(0xFF1A1B1A)
-    val DarkSurfaceVariant = Color(0xFF252624)
-    val DarkOutline = Color(0xFF3A3B38)
-    val DarkInk = Color(0xFFE6E6E2)
-    val DarkInkSoft = Color(0xFFA9AAA4)
+    val DarkNeutral = Color(0xFFA7A9AE)
+    val DarkBackground = Color(0xFF111213)
+    val DarkSurface = Color(0xFF19191B)
+    val DarkSurfaceVariant = Color(0xFF222325)
+    val DarkOutline = Color(0xFF3B3C40)
+    val DarkInk = Color(0xFFE7E8E9)
+    val DarkInkSoft = Color(0xFFA7A9AE)
     val DarkError = Color(0xFFF2B8B5)
+    val DarkOnError = Color(0xFF601410)
 }
 
 /**
@@ -146,7 +147,7 @@ private val DarkColors = darkColorScheme(
     outline = Palette.DarkOutline,
     outlineVariant = Palette.DarkOutline,
     error = Palette.DarkError,
-    onError = Color(0xFF3B0E0E)
+    onError = Palette.DarkOnError
 )
 
 /** Satu keluarga font, dua weight: Regular untuk isi, SemiBold untuk judul. */
