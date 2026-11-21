@@ -12,54 +12,41 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
-import com.trialfetch.app.R
 
 /**
- * Sistem warna Trial Fetch: satu aksen (#3B5BA9) dan tiga tingkat netral.
- * Semua nilai hex hanya boleh ada di berkas ini; layar memakai
- * `MaterialTheme.colorScheme.*` atau token di [ExtraColors].
+ * Tema bergaya Mihon: satu aksen biru, tiga tingkat netral, dan tipografi
+ * sistem. Semua warna didefinisikan sekali di sini; layar memakai token
+ * melalui MaterialTheme.colorScheme.
  */
-private object Palette {
-    val Accent = Color(0xFF3B5BA9)
-    val OnAccent = Color(0xFFFFFFFF)
-    val AccentContainer = Color(0xFFE8EDF7)
-    val OnAccentContainer = Color(0xFF22356B)
-    val Neutral = Color(0xFF575A60)
-
-    val LightBackground = Color(0xFFF6F6F6)
-    val LightSurface = Color(0xFFFEFEFE)
-    val LightSurfaceVariant = Color(0xFFECEDEE)
-    val LightOutline = Color(0xFFD7D8DA)
-    val LightInk = Color(0xFF1A1B1E)
-    val LightInkSoft = Color(0xFF575A60)
+private object Mihon {
+    val LightPrimary = Color(0xFF1565C0)
+    val LightOnPrimary = Color(0xFFFFFFFF)
+    val LightPrimaryContainer = Color(0xFFE3F0FF)
+    val LightOnPrimaryContainer = Color(0xFF0A3E7A)
+    val LightBackground = Color(0xFFFBFBFD)
+    val LightSurface = Color(0xFFFFFFFF)
+    val LightSurfaceVariant = Color(0xFFF0F2F6)
+    val LightOutline = Color(0xFFD5D9E2)
+    val LightInk = Color(0xFF1A1C20)
+    val LightInkSoft = Color(0xFF5D6472)
     val LightError = Color(0xFFB3261E)
 
-    val DarkAccent = Color(0xFF95A9DA)
-    val DarkOnAccent = Color(0xFF101418)
-    val DarkAccentContainer = Color(0xFF26335C)
-    val DarkOnAccentContainer = Color(0xFFD7E2FF)
-    val DarkNeutral = Color(0xFFA7A9AE)
-    val DarkBackground = Color(0xFF111213)
-    val DarkSurface = Color(0xFF19191B)
-    val DarkSurfaceVariant = Color(0xFF222325)
-    val DarkOutline = Color(0xFF3B3C40)
-    val DarkInk = Color(0xFFE7E8E9)
-    val DarkInkSoft = Color(0xFFA7A9AE)
+    val DarkPrimary = Color(0xFF8AB4F8)
+    val DarkOnPrimary = Color(0xFF102A4C)
+    val DarkPrimaryContainer = Color(0xFF233B5E)
+    val DarkOnPrimaryContainer = Color(0xFFCFE0FF)
+    val DarkBackground = Color(0xFF0F1115)
+    val DarkSurface = Color(0xFF181B21)
+    val DarkSurfaceVariant = Color(0xFF242832)
+    val DarkOutline = Color(0xFF3A404D)
+    val DarkInk = Color(0xFFE8EAF0)
+    val DarkInkSoft = Color(0xFFA6ADBC)
     val DarkError = Color(0xFFF2B8B5)
     val DarkOnError = Color(0xFF601410)
 }
 
-/**
- * Nama field lama dipertahankan supaya layar yang belum disentuh tetap
- * kompil, tetapi semuanya sekarang mengarah ke satu aksen / netral.
- * `shadow`, `titleShadow`, dan `bgDot` sengaja transparan: dekorasi lama
- * (hard shadow, text-shadow, polkadot) tidak dipakai lagi.
- */
+/** Kompatibilitas untuk layar lama; semuanya diarahkan ke token tema. */
 data class ExtraColors(
     val card: Color,
     val cardLight: Color,
@@ -81,99 +68,73 @@ data class ExtraColors(
 
 val LocalExtraColors = staticCompositionLocalOf {
     ExtraColors(
-        card = Palette.LightSurfaceVariant,
-        cardLight = Palette.LightSurface,
-        inkSoft = Palette.LightInkSoft,
-        outline = Palette.LightOutline,
-        yellow = Palette.Accent,
-        yellowDeep = Palette.Accent,
-        pink = Palette.AccentContainer,
-        pinkDeep = Palette.AccentContainer,
-        blue = Palette.AccentContainer,
-        green = Palette.AccentContainer,
-        purple = Palette.AccentContainer,
-        red = Palette.LightError,
+        card = Mihon.LightSurfaceVariant,
+        cardLight = Mihon.LightSurface,
+        inkSoft = Mihon.LightInkSoft,
+        outline = Mihon.LightOutline,
+        yellow = Mihon.LightPrimary,
+        yellowDeep = Mihon.LightPrimary,
+        pink = Mihon.LightPrimaryContainer,
+        pinkDeep = Mihon.LightPrimaryContainer,
+        blue = Mihon.LightPrimaryContainer,
+        green = Mihon.LightPrimaryContainer,
+        purple = Mihon.LightPrimaryContainer,
+        red = Mihon.LightError,
         shadow = Color.Transparent,
         titleShadow = Color.Transparent,
         bgDot = Color.Transparent,
-        onAccent = Palette.OnAccent
+        onAccent = Mihon.LightOnPrimary
     )
 }
 
 private val LightColors = lightColorScheme(
-    primary = Palette.Accent,
-    onPrimary = Palette.OnAccent,
-    primaryContainer = Palette.AccentContainer,
-    onPrimaryContainer = Palette.OnAccentContainer,
-    secondary = Palette.Neutral,
-    onSecondary = Palette.OnAccent,
-    secondaryContainer = Palette.LightSurfaceVariant,
-    onSecondaryContainer = Palette.LightInk,
-    tertiary = Palette.Neutral,
-    onTertiary = Palette.OnAccent,
-    tertiaryContainer = Palette.LightSurfaceVariant,
-    onTertiaryContainer = Palette.LightInk,
-    background = Palette.LightBackground,
-    onBackground = Palette.LightInk,
-    surface = Palette.LightSurface,
-    onSurface = Palette.LightInk,
-    surfaceVariant = Palette.LightSurfaceVariant,
-    onSurfaceVariant = Palette.LightInkSoft,
-    outline = Palette.LightOutline,
-    outlineVariant = Palette.LightOutline,
-    error = Palette.LightError,
-    onError = Palette.OnAccent
+    primary = Mihon.LightPrimary,
+    onPrimary = Mihon.LightOnPrimary,
+    primaryContainer = Mihon.LightPrimaryContainer,
+    onPrimaryContainer = Mihon.LightOnPrimaryContainer,
+    secondary = Mihon.LightInkSoft,
+    onSecondary = Mihon.LightOnPrimary,
+    secondaryContainer = Mihon.LightSurfaceVariant,
+    onSecondaryContainer = Mihon.LightInk,
+    tertiary = Mihon.LightInkSoft,
+    onTertiary = Mihon.LightOnPrimary,
+    tertiaryContainer = Mihon.LightSurfaceVariant,
+    onTertiaryContainer = Mihon.LightInk,
+    background = Mihon.LightBackground,
+    onBackground = Mihon.LightInk,
+    surface = Mihon.LightSurface,
+    onSurface = Mihon.LightInk,
+    surfaceVariant = Mihon.LightSurfaceVariant,
+    onSurfaceVariant = Mihon.LightInkSoft,
+    outline = Mihon.LightOutline,
+    outlineVariant = Mihon.LightOutline,
+    error = Mihon.LightError,
+    onError = Mihon.LightOnPrimary
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Palette.DarkAccent,
-    onPrimary = Palette.DarkOnAccent,
-    primaryContainer = Palette.DarkAccentContainer,
-    onPrimaryContainer = Palette.DarkOnAccentContainer,
-    secondary = Palette.DarkNeutral,
-    onSecondary = Palette.DarkBackground,
-    secondaryContainer = Palette.DarkSurfaceVariant,
-    onSecondaryContainer = Palette.DarkInk,
-    tertiary = Palette.DarkNeutral,
-    onTertiary = Palette.DarkBackground,
-    tertiaryContainer = Palette.DarkSurfaceVariant,
-    onTertiaryContainer = Palette.DarkInk,
-    background = Palette.DarkBackground,
-    onBackground = Palette.DarkInk,
-    surface = Palette.DarkSurface,
-    onSurface = Palette.DarkInk,
-    surfaceVariant = Palette.DarkSurfaceVariant,
-    onSurfaceVariant = Palette.DarkInkSoft,
-    outline = Palette.DarkOutline,
-    outlineVariant = Palette.DarkOutline,
-    error = Palette.DarkError,
-    onError = Palette.DarkOnError
-)
-
-/** Satu keluarga font, dua weight: Regular untuk isi, SemiBold untuk judul. */
-private val Quicksand = FontFamily(
-    Font(R.font.quicksand_regular, FontWeight.Normal),
-    Font(R.font.quicksand_semibold, FontWeight.SemiBold)
-)
-
-private val TypeScale = Typography()
-
-private val AppTypography = Typography(
-    displayLarge = TypeScale.displayLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    displayMedium = TypeScale.displayMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    displaySmall = TypeScale.displaySmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    headlineLarge = TypeScale.headlineLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    headlineMedium = TypeScale.headlineMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    headlineSmall = TypeScale.headlineSmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    titleLarge = TypeScale.titleLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    titleMedium = TypeScale.titleMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    titleSmall = TypeScale.titleSmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TypeScale.bodyLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.Normal),
-    bodyMedium = TypeScale.bodyMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.Normal),
-    bodySmall = TypeScale.bodySmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.Normal),
-    labelLarge = TypeScale.labelLarge.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    labelMedium = TypeScale.labelMedium.copy(fontFamily = Quicksand, fontWeight = FontWeight.SemiBold),
-    labelSmall = TypeScale.labelSmall.copy(fontFamily = Quicksand, fontWeight = FontWeight.Normal)
+    primary = Mihon.DarkPrimary,
+    onPrimary = Mihon.DarkOnPrimary,
+    primaryContainer = Mihon.DarkPrimaryContainer,
+    onPrimaryContainer = Mihon.DarkOnPrimaryContainer,
+    secondary = Mihon.DarkInkSoft,
+    onSecondary = Mihon.DarkBackground,
+    secondaryContainer = Mihon.DarkSurfaceVariant,
+    onSecondaryContainer = Mihon.DarkInk,
+    tertiary = Mihon.DarkInkSoft,
+    onTertiary = Mihon.DarkBackground,
+    tertiaryContainer = Mihon.DarkSurfaceVariant,
+    onTertiaryContainer = Mihon.DarkInk,
+    background = Mihon.DarkBackground,
+    onBackground = Mihon.DarkInk,
+    surface = Mihon.DarkSurface,
+    onSurface = Mihon.DarkInk,
+    surfaceVariant = Mihon.DarkSurfaceVariant,
+    onSurfaceVariant = Mihon.DarkInkSoft,
+    outline = Mihon.DarkOutline,
+    outlineVariant = Mihon.DarkOutline,
+    error = Mihon.DarkError,
+    onError = Mihon.DarkOnError
 )
 
 @Composable
@@ -184,41 +145,41 @@ fun TrialFetchTheme(
     val colors = if (darkTheme) DarkColors else LightColors
     val extra = if (darkTheme) {
         ExtraColors(
-            card = Palette.DarkSurfaceVariant,
-            cardLight = Palette.DarkSurface,
-            inkSoft = Palette.DarkInkSoft,
-            outline = Palette.DarkOutline,
-            yellow = Palette.DarkAccent,
-            yellowDeep = Palette.DarkAccent,
-            pink = Palette.DarkAccentContainer,
-            pinkDeep = Palette.DarkAccentContainer,
-            blue = Palette.DarkAccentContainer,
-            green = Palette.DarkAccentContainer,
-            purple = Palette.DarkAccentContainer,
-            red = Palette.DarkError,
+            card = Mihon.DarkSurfaceVariant,
+            cardLight = Mihon.DarkSurface,
+            inkSoft = Mihon.DarkInkSoft,
+            outline = Mihon.DarkOutline,
+            yellow = Mihon.DarkPrimary,
+            yellowDeep = Mihon.DarkPrimary,
+            pink = Mihon.DarkPrimaryContainer,
+            pinkDeep = Mihon.DarkPrimaryContainer,
+            blue = Mihon.DarkPrimaryContainer,
+            green = Mihon.DarkPrimaryContainer,
+            purple = Mihon.DarkPrimaryContainer,
+            red = Mihon.DarkError,
             shadow = Color.Transparent,
             titleShadow = Color.Transparent,
             bgDot = Color.Transparent,
-            onAccent = Palette.DarkOnAccent
+            onAccent = Mihon.DarkOnPrimary
         )
     } else {
         ExtraColors(
-            card = Palette.LightSurfaceVariant,
-            cardLight = Palette.LightSurface,
-            inkSoft = Palette.LightInkSoft,
-            outline = Palette.LightOutline,
-            yellow = Palette.Accent,
-            yellowDeep = Palette.Accent,
-            pink = Palette.AccentContainer,
-            pinkDeep = Palette.AccentContainer,
-            blue = Palette.AccentContainer,
-            green = Palette.AccentContainer,
-            purple = Palette.AccentContainer,
-            red = Palette.LightError,
+            card = Mihon.LightSurfaceVariant,
+            cardLight = Mihon.LightSurface,
+            inkSoft = Mihon.LightInkSoft,
+            outline = Mihon.LightOutline,
+            yellow = Mihon.LightPrimary,
+            yellowDeep = Mihon.LightPrimary,
+            pink = Mihon.LightPrimaryContainer,
+            pinkDeep = Mihon.LightPrimaryContainer,
+            blue = Mihon.LightPrimaryContainer,
+            green = Mihon.LightPrimaryContainer,
+            purple = Mihon.LightPrimaryContainer,
+            red = Mihon.LightError,
             shadow = Color.Transparent,
             titleShadow = Color.Transparent,
             bgDot = Color.Transparent,
-            onAccent = Palette.OnAccent
+            onAccent = Mihon.LightOnPrimary
         )
     }
 
@@ -236,7 +197,7 @@ fun TrialFetchTheme(
     CompositionLocalProvider(LocalExtraColors provides extra) {
         MaterialTheme(
             colorScheme = colors,
-            typography = AppTypography,
+            typography = Typography(),
             content = content
         )
     }

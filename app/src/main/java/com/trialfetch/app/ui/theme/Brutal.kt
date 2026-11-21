@@ -6,13 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -22,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
@@ -31,21 +26,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Komponen bersama aplikasi. Nama lama dipertahankan supaya seluruh layar
- * tetap kompil, tetapi tampilannya sekarang minimalis: satu aksen, surface
- * tonal, garis 1dp, tanpa bayangan dekoratif.
+ * Komponen bersama. Nama lama dipertahankan supaya semua layar kompil,
+ * tetapi tampilannya kini mengikuti bahasa visual Mihon: datar, satu
+ * aksen, garis tipis, tanpa bayangan dekoratif.
  */
-private val CardShape = RoundedCornerShape(4.dp)
-private val PillShape = RoundedCornerShape(4.dp)
+private val CardShape = RoundedCornerShape(8.dp)
+private val PillShape = RoundedCornerShape(8.dp)
 
-/** Kompatibilitas dengan pemanggil lama; dekorasi bayangan tidak dipakai. */
 fun Modifier.hardShadow(
     color: Color,
     offset: Dp = 4.dp,
     shape: Shape = CardShape
 ): Modifier = this
 
-/** Latar polos. Polkadot lama dihapus karena bukan informasi. */
 @Composable
 fun PolkaDotBackground(
     modifier: Modifier = Modifier,
@@ -85,7 +78,9 @@ fun BrutalCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val base = modifier.background(MaterialTheme.colorScheme.surfaceVariant, shape)
+    val base = modifier
+        .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+        .border(borderWidth, borderColor, shape)
     Surface(
         modifier = if (onClick != null) base.clickable(onClick = onClick) else base,
         color = Color.Transparent,
@@ -95,10 +90,6 @@ fun BrutalCard(
     }
 }
 
-/**
- * Satu tombol utama (aksen) per layar. Pemanggil lama yang memberi
- * `background` selain aksen otomatis menjadi tombol sekunder.
- */
 @Composable
 fun BrutalButton(
     text: String,
@@ -111,28 +102,16 @@ fun BrutalButton(
     val primary = background == LocalExtraColors.current.yellow
     val buttonModifier = modifier.heightIn(min = Space.touch)
     if (primary) {
-        Button(
-            onClick = onClick,
-            modifier = buttonModifier,
-            enabled = enabled,
-            shape = CardShape
-        ) {
+        Button(onClick = onClick, modifier = buttonModifier, enabled = enabled, shape = CardShape) {
             Text(text, style = MaterialTheme.typography.labelLarge)
         }
     } else {
-        OutlinedButton(
-            onClick = onClick,
-            modifier = buttonModifier,
-            enabled = enabled,
-            shape = CardShape
-        ) {
+        OutlinedButton(onClick = onClick, modifier = buttonModifier, enabled = enabled, shape = CardShape) {
             Text(text, style = MaterialTheme.typography.labelLarge)
         }
     }
 }
 
-/** Pilihan ganda: state terpilih memakai aksen, sisanya netral. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BrutalChoiceRow(
     options: List<String>,
@@ -141,36 +120,29 @@ fun BrutalChoiceRow(
     modifier: Modifier = Modifier,
     accent: Color = LocalExtraColors.current.yellow
 ) {
-    FlowRow(
-        modifier = modifier,
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Space.sm),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Space.sm)
-    ) {
+    androidx.compose.foundation.layout.Row(modifier) {
         options.forEachIndexed { index, option ->
             val selected = index == selectedIndex
-            val choiceModifier = Modifier.heightIn(min = Space.touch)
+            val choiceModifier = Modifier
+                .heightIn(min = Space.touch)
+                .weight(1f, fill = false)
             if (selected) {
                 Button(
                     onClick = { onSelect(index) },
                     modifier = choiceModifier,
-                    shape = CardShape
-                ) {
-                    Text(option, style = MaterialTheme.typography.labelMedium)
-                }
+                    shape = PillShape
+                ) { Text(option, style = MaterialTheme.typography.labelMedium) }
             } else {
                 OutlinedButton(
                     onClick = { onSelect(index) },
                     modifier = choiceModifier,
-                    shape = CardShape
-                ) {
-                    Text(option, style = MaterialTheme.typography.labelMedium)
-                }
+                    shape = PillShape
+                ) { Text(option, style = MaterialTheme.typography.labelMedium) }
             }
         }
     }
 }
 
-/** Empty state: satu kalimat, tanpa ilustrasi atau garis putus-putus. */
 @Composable
 fun BrutalDashedBox(
     modifier: Modifier = Modifier,
@@ -194,7 +166,6 @@ fun BrutalDashedBox(
     }
 }
 
-/** Inisial series: identitas, bukan dekorasi. */
 @Composable
 fun BrutalAvatar(
     text: String,
@@ -205,8 +176,7 @@ fun BrutalAvatar(
     Box(
         modifier = modifier
             .size(size)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape),
         contentAlignment = Alignment.Center
     ) {
         Text(

@@ -1703,8 +1703,11 @@ private fun ReaderScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    (if (seriesTitle.isNotBlank()) title else "Membaca") +
-                                        if (isStreaming) " • online" else "",
+                                    listOfNotNull(
+                                        if (seriesTitle.isNotBlank()) title else null,
+                                        if (isStreaming) "online" else "tersimpan",
+                                        mode.label
+                                    ).joinToString(" · "),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.labelSmall,
                                     maxLines = 1,
@@ -1864,33 +1867,45 @@ private fun ReaderScreen(
                                 }
                             }
                             Spacer(Modifier.height(4.dp))
-                            // Barisan ikon fungsi rata (ala Mihon): mode,
-                            // daftar chapter, unduh. Tanpa pil/border.
+                            // Pilihan mode baca eksplisit (Mihon): tiga
+                            // tombol dengan label, bukan ikon samar.
                             val ctx = LocalContext.current
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(Space.sm),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ReaderMode.entries.forEach { option ->
+                                    val active = option == mode
+                                    val chip = Modifier
+                                        .heightIn(min = Space.touch)
+                                        .weight(1f)
+                                    if (active) {
+                                        androidx.compose.material3.Button(
+                                            onClick = { onModeChange(option) },
+                                            modifier = chip
+                                        ) {
+                                            Text(option.label, style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    } else {
+                                        androidx.compose.material3.OutlinedButton(
+                                            onClick = {
+                                                onModeChange(option)
+                                                Toast.makeText(ctx, option.label, Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = chip
+                                        ) {
+                                            Text(option.label, style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                IconButton(onClick = {
-                                    val next = when (mode) {
-                                        ReaderMode.LEFT_TO_RIGHT -> ReaderMode.RIGHT_TO_LEFT
-                                        ReaderMode.RIGHT_TO_LEFT -> ReaderMode.WEBTOON
-                                        ReaderMode.WEBTOON -> ReaderMode.LEFT_TO_RIGHT
-                                    }
-                                    onModeChange(next)
-                                    Toast.makeText(ctx, next.label, Toast.LENGTH_SHORT).show()
-                                }) {
-                                    Icon(
-                                        when (mode) {
-                                            ReaderMode.WEBTOON -> Icons.Default.ViewAgenda
-                                            ReaderMode.RIGHT_TO_LEFT -> Icons.Default.ArrowBack
-                                            ReaderMode.LEFT_TO_RIGHT -> Icons.Default.Refresh
-                                        },
-                                        contentDescription = "Ganti mode baca",
-                                        tint = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
                                 IconButton(onClick = onOpenSeries) {
                                     Icon(
                                         Icons.Default.List,
