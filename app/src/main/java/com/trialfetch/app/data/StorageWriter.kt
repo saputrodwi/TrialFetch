@@ -412,8 +412,9 @@ class StorageWriter(private val context: Context) {
                     if (!isImageName(name)) continue
                     val relative = c.getString(pathIdx) ?: continue
                     val folder = relative.trimEnd('/').substringAfterLast('/').lowercase()
+                    val number = token?.dropWhile { it.isLetter() }
                     val match = folder == hint ||
-                        (token != null && folder.matches(Regex(".*$token.*", RegexOption.IGNORECASE)))
+                        (number != null && number.isNotBlank() && folder.contains(number))
                     if (match) {
                         val uri = Uri.withAppendedPath(collection, c.getLong(idIdx).toString())
                         found += Triple(folder, name, uri)
