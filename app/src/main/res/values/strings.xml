@@ -59,6 +59,22 @@
     <string name="settings_build">TrialFetch 1.0 (build %1$d)</string>
     <string name="settings_choose">Pilih %1$s</string>
 
+    <!-- Unduhan -->
+    <string name="downloads_title">Unduhan</string>
+    <string name="downloads_summary">Berjalan %1$d · antre %2$d · selesai %3$d</string>
+    <string name="downloads_pause">Jeda semua</string>
+    <string name="downloads_resume">Lanjutkan</string>
+    <string name="downloads_clear">Bersihkan selesai</string>
+    <string name="downloads_empty">Belum ada unduhan. Pilih chapter dari series untuk mulai.</string>
+    <string name="download_state_active">Mengunduh</string>
+    <string name="download_state_queued">Menunggu</string>
+    <string name="download_state_done">Selesai</string>
+    <string name="download_state_cancelled">Dibatalkan</string>
+    <string name="download_state_failed">Gagal</string>
+    <string name="download_cancel">Batalkan unduhan</string>
+    <string name="download_remove">Hapus dari daftar</string>
+    <string name="download_retry">Coba lagi</string>
+
     <!-- Detail series -->
     <string name="series_back">Kembali</string>
     <string name="series_open_web">Buka halaman situs asli</string>

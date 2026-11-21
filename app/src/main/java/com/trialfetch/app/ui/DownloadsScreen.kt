@@ -1,6 +1,6 @@
 package com.trialfetch.app.ui
 
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,18 +9,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -30,23 +31,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.trialfetch.app.R
 import com.trialfetch.app.data.QueueItem
 import com.trialfetch.app.data.QueueItemState
-import com.trialfetch.app.ui.theme.BrutalCard
-import com.trialfetch.app.ui.theme.LocalExtraColors
+import com.trialfetch.app.ui.theme.Space
 
 /**
- * Layar Unduhan: seluruh antrian di satu tempat. Sengaja HANYA antrian
- * (tanpa panel progres legacy): semua unduhan lewat antrian, jadi panel
- * progres + baris AKTIF menampilkan unduhan yang sama dua kali.
- * Dipisah dari layar series supaya terlihat dari mana pun (via bottom
- * bar), bukan terkubur di bawah daftar chapter.
+ * Unduhan: satu daftar antrean dengan status dan progres per baris.
+ * Tidak ada kartu bertumpuk; aksi berupa ikon yang jelas fungsinya.
  */
 @Composable
 fun DownloadsScreen(
@@ -59,198 +56,166 @@ fun DownloadsScreen(
     onRetryItem: (Long) -> Unit,
     onClearFinished: () -> Unit
 ) {
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        if (queueItems.isNotEmpty()) {
-            item {
-                QueueCard(
-                    items = queueItems,
-                    paused = queuePaused,
-                    onPauseAll = onPauseAll,
-                    onResumeAll = onResumeAll,
-                    onCancelItem = onCancelItem,
-                    onRemoveItem = onRemoveItem,
-                    onRetryItem = onRetryItem,
-                    onClearFinished = onClearFinished
-                )
-            }
-        }
-        if (queueItems.isEmpty()) {
-            item {
-                BoxEmpty(
-                    "Belum ada unduhan.\nPilih chapter dari series untuk mulai.",
-                    Modifier.fillParentMaxSize()
-                )
-            }
-        }
-    }
-}
+    val active = queueItems.count { it.state == QueueItemState.ACTIVE }
+    val queued = queueItems.count { it.state == QueueItemState.QUEUED }
+    val done = queueItems.count { it.state == QueueItemState.DONE }
 
-@Composable
-private fun BoxEmpty(text: String, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.layout.Box(
-        // Modifier dari call site (fillParentMaxSize) agar benar-benar
-        // tengah layar di dalam LazyColumn. Tidak bisa dipanggil di sini
-        // karena hanya tersedia dalam scope item LazyColumn.
-        modifier,
-        contentAlignment = Alignment.Center
-    ) {
+    Column(Modifier.fillMaxSize().padding(horizontal = Space.lg)) {
+        Spacer(Modifier.height(Space.md))
         Text(
-            text,
+            stringResource(R.string.downloads_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.height(Space.sm))
+        Text(
+            stringResource(R.string.downloads_summary, active, queued, done),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 32.dp)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-@Composable
-internal fun QueueCard(
-    items: List<QueueItem>,
-    paused: Boolean,
-    onPauseAll: () -> Unit,
-    onResumeAll: () -> Unit,
-    onCancelItem: (Long) -> Unit,
-    onRemoveItem: (Long) -> Unit,
-    onRetryItem: (Long) -> Unit,
-    onClearFinished: () -> Unit
-) {
-    val extra = LocalExtraColors.current
-    val activeCount = items.count { it.state == QueueItemState.ACTIVE }
-    val queuedCount = items.count { it.state == QueueItemState.QUEUED }
-    val doneCount = items.count { it.state == QueueItemState.DONE }
-    BrutalCard(modifier = Modifier.fillMaxWidth(), background = extra.card) {
-        Text(
-            "Antrian ($doneCount/${items.size} selesai)",
-            style = MaterialTheme.typography.titleSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(Modifier.height(4.dp))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (paused) {
-                TextButton(onClick = onResumeAll) { Text("Lanjut") }
-            } else {
-                TextButton(onClick = onPauseAll) { Text("Jeda") }
-            }
-            TextButton(onClick = onClearFinished) { Text("Bersih") }
-        }
-        Spacer(Modifier.height(8.dp))
-        if (paused && (activeCount > 0 || queuedCount > 0)) {
-            Text(
-                "Dijeda — unduhan lanjut dari gambar terakhir saat dilanjutkan.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-        items.forEachIndexed { index, item ->
-            if (index > 0) {
-                androidx.compose.material3.HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant
+        Spacer(Modifier.height(Space.md))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = if (queuePaused) onResumeAll else onPauseAll) {
+                Text(
+                    stringResource(
+                        if (queuePaused) R.string.downloads_resume else R.string.downloads_pause
+                    )
                 )
             }
-            QueueRow(
-                item = item,
-                onCancel = { onCancelItem(item.id) },
-                onRemove = { onRemoveItem(item.id) },
-                onRetry = { onRetryItem(item.id) }
-            )
+            Spacer(Modifier.weight(1f))
+            if (done > 0) {
+                TextButton(onClick = onClearFinished) {
+                    Text(stringResource(R.string.downloads_clear))
+                }
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(Modifier.height(Space.sm))
+
+        LazyColumn(
+            Modifier.weight(1f),
+            contentPadding = PaddingValues(vertical = Space.md),
+            verticalArrangement = Arrangement.spacedBy(Space.sm)
+        ) {
+            if (queueItems.isEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.downloads_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = Space.xxl)
+                    )
+                }
+            }
+            items(queueItems, key = { it.id }) { item ->
+                DownloadRow(
+                    item = item,
+                    onCancel = { onCancelItem(item.id) },
+                    onRemove = { onRemoveItem(item.id) },
+                    onRetry = { onRetryItem(item.id) }
+                )
+            }
         }
     }
 }
 
 @Composable
-internal fun QueueRow(
+private fun DownloadRow(
     item: QueueItem,
     onCancel: () -> Unit,
     onRemove: () -> Unit,
     onRetry: () -> Unit
 ) {
-    Column(Modifier.fillMaxWidth()) {
+    val progress = if (item.total > 0) {
+        item.done.toFloat() / item.total.toFloat()
+    } else 0f
+    val statusText = when (item.state) {
+        QueueItemState.ACTIVE -> stringResource(R.string.download_state_active)
+        QueueItemState.QUEUED -> stringResource(R.string.download_state_queued)
+        QueueItemState.DONE -> stringResource(R.string.download_state_done)
+        QueueItemState.CANCELLED -> stringResource(R.string.download_state_cancelled)
+        QueueItemState.FAILED -> stringResource(R.string.download_state_failed)
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = Space.touch + Space.lg)
+            .clickable {
+                when (item.state) {
+                    QueueItemState.FAILED -> onRetry()
+                    QueueItemState.DONE -> onRemove()
+                    else -> onCancel()
+                }
+            }
+            .padding(vertical = Space.md)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Sampul series: baris antrian langsung terbaca tanpa buka detail.
-            AsyncImage(
-                model = item.series.coverUrl.ifBlank { null },
-                contentDescription = null,
-                modifier = Modifier
-                    .size(width = 40.dp, height = 56.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(Modifier.width(12.dp))
+            val icon = when (item.state) {
+                QueueItemState.DONE -> Icons.Default.CheckCircle
+                QueueItemState.FAILED -> Icons.Default.Error
+                else -> null
+            }
+            if (icon != null) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = if (item.state == QueueItemState.FAILED) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(Space.sm))
+            }
             Column(Modifier.weight(1f)) {
+                Text(
+                    item.series.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 Text(
                     item.chapter.title,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                val statusColor = when (item.state) {
-                    QueueItemState.DONE -> MaterialTheme.colorScheme.primary
-                    QueueItemState.FAILED -> MaterialTheme.colorScheme.error
-                    QueueItemState.ACTIVE -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
-                val percent = if (item.state == QueueItemState.ACTIVE && item.total > 0)
-                    " · ${(item.done * 100 / item.total).coerceIn(0, 100)}%" else ""
-                Text(
-                    when (item.state) {
-                        QueueItemState.QUEUED -> "● Menunggu"
-                        QueueItemState.ACTIVE ->
-                            if (item.total > 0) "● Mengunduh ${item.done}/${item.total}$percent"
-                            else "● Mengunduh…"
-                        QueueItemState.DONE -> "● Selesai"
-                        QueueItemState.FAILED -> "● Gagal${item.error?.let { ": $it" } ?: ""}"
-                        QueueItemState.CANCELLED -> "● Dibatalkan"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = statusColor,
-                    fontWeight = if (item.state == QueueItemState.ACTIVE ||
-                        item.state == QueueItemState.FAILED
-                    ) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
-            // Tombol ikon kompak: teks "Batal/Hapus/Ulangi" memenuhi baris.
+            Spacer(Modifier.width(Space.sm))
             when (item.state) {
                 QueueItemState.ACTIVE -> IconButton(onClick = onCancel) {
-                    Icon(Icons.Default.Cancel, contentDescription = "Batalkan unduhan")
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.download_cancel))
                 }
-                QueueItemState.QUEUED -> IconButton(onClick = onRemove) {
-                    Icon(Icons.Default.Delete, contentDescription = "Hapus dari antrian")
+                QueueItemState.DONE, QueueItemState.CANCELLED -> IconButton(onClick = onRemove) {
+                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.download_remove))
                 }
-                QueueItemState.FAILED -> {
-                    IconButton(onClick = onRetry) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Ulangi unduhan")
-                    }
-                    IconButton(onClick = onRemove) {
-                        Icon(Icons.Default.Delete, contentDescription = "Hapus dari antrian")
-                    }
+                QueueItemState.FAILED -> IconButton(onClick = onRetry) {
+                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.download_retry))
                 }
-                QueueItemState.DONE, QueueItemState.CANCELLED ->
-                    IconButton(onClick = onRemove) {
-                        Icon(Icons.Default.Delete, contentDescription = "Hapus dari antrian")
-                    }
+                QueueItemState.QUEUED -> Unit
             }
         }
-        if (item.state == QueueItemState.ACTIVE && item.total > 0) {
-            Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(Space.sm))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                statusText,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            if (item.total > 0) {
+                Text(
+                    "${item.done}/${item.total}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (item.state == QueueItemState.ACTIVE || item.state == QueueItemState.QUEUED) {
+            Spacer(Modifier.height(Space.xs))
             LinearProgressIndicator(
-                progress = { (item.done.toFloat() / item.total).coerceIn(0f, 1f) },
+                progress = { progress },
                 modifier = Modifier.fillMaxWidth()
             )
         }
     }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
