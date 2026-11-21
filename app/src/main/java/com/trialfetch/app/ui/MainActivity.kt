@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -146,6 +147,7 @@ import com.trialfetch.app.data.ComicRepository
 import com.trialfetch.app.data.DownloadProgress
 import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.ui.theme.LocalExtraColors
+import com.trialfetch.app.ui.theme.Space
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
