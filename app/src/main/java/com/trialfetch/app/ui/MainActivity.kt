@@ -1649,41 +1649,45 @@ private fun ReaderScreen(
                     .padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                com.trialfetch.app.ui.theme.BrutalCard(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    background = MaterialTheme.colorScheme.surface
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(
-                        error,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    com.trialfetch.app.ui.theme.BrutalButton(
-                        text = "Coba lagi",
-                        onClick = onRetry,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = onDownload, modifier = Modifier.fillMaxWidth()) {
-                        Text("Unduh saja")
-                    }
-                    TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-                        Text("Tutup")
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            error,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        com.trialfetch.app.ui.theme.BrutalButton(
+                            text = "Coba lagi",
+                            onClick = onRetry,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(onClick = onDownload, modifier = Modifier.fillMaxWidth()) {
+                            Text("Unduh saja")
+                        }
+                        TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
+                            Text("Tutup")
+                        }
                     }
                 }
             }
             pages == null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                com.trialfetch.app.ui.theme.BrutalCard(
-                    background = MaterialTheme.colorScheme.surface
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
-                        Spacer(Modifier.width(14.dp))
-                        Text(
-                            "Memuat halaman…",
-                            style = MaterialTheme.typography.titleSmall
-                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text("Memuat halaman…", style = MaterialTheme.typography.titleSmall)
                     }
                 }
             }
@@ -1693,20 +1697,23 @@ private fun ReaderScreen(
                     .padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                com.trialfetch.app.ui.theme.BrutalCard(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    background = MaterialTheme.colorScheme.surface
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(
-                        "Tidak ada gambar untuk dibaca.",
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    com.trialfetch.app.ui.theme.BrutalButton(
-                        text = "Tutup",
-                        onClick = onClose,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Tidak ada gambar untuk dibaca.",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        com.trialfetch.app.ui.theme.BrutalButton(
+                            text = "Tutup",
+                            onClick = onClose,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
             else -> {
@@ -1778,7 +1785,7 @@ private fun ReaderScreen(
                 // tinta/border — bersih di atas gambar. Sembunyi/tampil
                 // mengikuti ketukan.
                 var menuOpen by remember { mutableStateOf(false) }
-                val barBg = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                val barBg = MaterialTheme.colorScheme.surface
                 AnimatedVisibility(
                     visible = menusVisible,
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -1802,7 +1809,7 @@ private fun ReaderScreen(
                             }
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
-                                com.trialfetch.app.ui.theme.BrutalTitle(
+                                Text(
                                     text = seriesTitle.ifBlank { title },
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -1896,9 +1903,7 @@ private fun ReaderScreen(
                                     Icon(
                                         Icons.Default.SkipPrevious,
                                         contentDescription = "Chapter sebelumnya",
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(
-                                            alpha = if (prevChapter != null) 1f else 0.3f
-                                        )
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 // Kontainer navigator ala Mihon: angka kini
@@ -1906,8 +1911,8 @@ private fun ReaderScreen(
                                 Row(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(24.dp))
-                                        .background(barBg)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
                                         .padding(horizontal = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -1963,9 +1968,7 @@ private fun ReaderScreen(
                                     Icon(
                                         Icons.Default.SkipNext,
                                         contentDescription = "Chapter berikutnya",
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(
-                                            alpha = if (nextChapter != null) 1f else 0.3f
-                                        )
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
