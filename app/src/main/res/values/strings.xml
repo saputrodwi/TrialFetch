@@ -88,6 +88,17 @@
     <string name="history_empty">Belum ada riwayat baca. Buka chapter untuk mulai.</string>
     <string name="history_remove">Hapus dari riwayat</string>
 
+    <!-- Tersimpan -->
+    <string name="saved_title">Tersimpan</string>
+    <string name="saved_count">%1$d series</string>
+    <string name="saved_check">Cek update</string>
+    <string name="saved_updates">%1$d chapter baru</string>
+    <string name="saved_clear_updates">Bersihkan</string>
+    <string name="saved_empty">Belum ada series tersimpan. Buka series lalu ketuk ikon simpan.</string>
+    <string name="saved_cover">Sampul %1$s</string>
+    <string name="saved_remove">Hapus %1$s dari simpanan</string>
+    <string name="saved_new_badge">Baru</string>
+
     <!-- Detail series -->
     <string name="series_back">Kembali</string>
     <string name="series_open_web">Buka halaman situs asli</string>
