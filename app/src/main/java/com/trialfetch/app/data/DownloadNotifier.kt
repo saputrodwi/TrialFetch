@@ -7,7 +7,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.trialfetch.app.ui.MainActivity
 
 /**
@@ -98,17 +100,38 @@ class DownloadNotifier(private val context: Context) {
             .setContentIntent(openIntent(target, requestCode))
             .setOnlyAlertOnce(true)
             .setAutoCancel(true)
+            .setColor(
+                ContextCompat.getColor(
+                    context, com.trialfetch.app.R.color.notification_accent
+                )
+            )
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
 
     fun showRunning(title: String, done: Int, total: Int) {
         ensureChannel()
         val percent = if (total > 0) (done * 100 / total) else 0
         val text = if (total > 0) "$done dari $total halaman ($percent%)" else "Menyiapkan…"
+        val view = RemoteViews(context.packageName, com.trialfetch.app.R.layout.notification_download).apply {
+            setTextViewText(com.trialfetch.app.R.id.notif_title, title)
+            setTextViewText(com.trialfetch.app.R.id.notif_text, text)
+            setProgressBar(
+                com.trialfetch.app.R.id.notif_progress, 100, percent, total <= 0
+            )
+        }
         val n = base(
             CHANNEL_ID, com.trialfetch.app.R.drawable.ic_notif_download,
             OPEN_DOWNLOADS, 1
         )
             .setContentTitle(title)
             .setContentText(text)
+            .setCustomContentView(view)
+            .setColor(
+                ContextCompat.getColor(
+                    context, com.trialfetch.app.R.color.notification_accent
+                )
+            )
+            .setCategory(Notification.CATEGORY_PROGRESS)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setProgress(100, percent, total <= 0)
             .setOngoing(true)
             .setAutoCancel(false)
@@ -134,19 +157,14 @@ class DownloadNotifier(private val context: Context) {
         // sampai user menutupnya sendiri, supaya path hasil unduhan sempat
         // dibaca. Notifikasi berjalan (progress) ditimpa otomatis oleh
         // notify berikutnya dengan ID yang sama.
-        val cover = loadBitmap(coverUrl)
         val n = base(
             CHANNEL_ID, com.trialfetch.app.R.drawable.ic_notif_done,
             OPEN_DOWNLOADS, 3
         )
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(
-                if (cover != null) NotificationCompat.BigPictureStyle()
-                    .bigPicture(cover)
-                    .setSummaryText(text)
-                else NotificationCompat.BigTextStyle().bigText(text)
-            )
+            .setSubText("Selesai")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setProgress(0, 0, false)
             .setOngoing(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)

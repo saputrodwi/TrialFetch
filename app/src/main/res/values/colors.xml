@@ -8,4 +8,8 @@
     <color name="ic_launcher_background">#F3EFE9</color>
     <!-- Warna latar splash, sama dengan nilai variabel bg versi web. -->
     <color name="splash_background">#F3EFE9</color>
+
+    <color name="notification_title">#1A1B1E</color>
+    <color name="notification_sub">#575A60</color>
+    <color name="notification_accent">#3B5BA9</color>
 </resources>

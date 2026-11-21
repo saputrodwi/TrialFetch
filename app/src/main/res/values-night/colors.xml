@@ -3,4 +3,8 @@
     <color name="ic_launcher_background">#F3EFE9</color>
     <!-- Warna latar splash untuk mode gelap, sama dengan variabel bg versi web. -->
     <color name="splash_background">#262322</color>
+
+    <color name="notification_title">#E7E8E9</color>
+    <color name="notification_sub">#A7A9AE</color>
+    <color name="notification_accent">#95A9DA</color>
 </resources>
