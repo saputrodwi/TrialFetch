@@ -13,6 +13,14 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
+ * Penanda sekaligus metadata chapter ala Mihon. Selain menyimpan info
+ * series, nama `.nomedia` menyembunyikan gambar unduhan dari galeri sistem.
+ * File `info.txt` lama tetap dibaca sebagai fallback.
+ */
+const val INFO_FILE = ".nomedia"
+const val LEGACY_INFO_FILE = "info.txt"
+
+/**
  * Menulis hasil unduhan ke folder publik Download/TrialFetch.
  *
  * Dua jalur karena Android-split:
@@ -35,14 +43,6 @@ class StorageWriter(private val context: Context) {
          * anggap lengkap padahal ekstraksi bisa saja terputus di tengah.
          */
         const val COMPLETE_MARKER = ".complete"
-
-        /**
-         * Penanda sekaligus metadata chapter ala Mihon. Selain menyimpan
-         * info series, nama `.nomedia` menyembunyikan gambar unduhan dari
-         * galeri sistem. File `info.txt` lama tetap dibaca sebagai fallback.
-         */
-        const val INFO_FILE = ".nomedia"
-        const val LEGACY_INFO_FILE = "info.txt"
     }
 
     internal val resolver = context.contentResolver
