@@ -1885,7 +1885,7 @@ private fun ReaderScreen(
                                 Icon(
                                     when (mode) {
                                         ReaderMode.WEBTOON -> Icons.Default.ViewAgenda
-                                        ReaderMode.RIGHT_TO_LEFT -> Icons.Default.ArrowBack
+                                        ReaderMode.RIGHT_TO_LEFT -> Icons.Default.ArrowUpward
                                         ReaderMode.LEFT_TO_RIGHT -> Icons.Default.AutoStories
                                     },
                                     contentDescription = "Ganti mode baca: ${mode.label}",
