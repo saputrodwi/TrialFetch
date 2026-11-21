@@ -1058,8 +1058,8 @@ private fun SeriesScreen(
                     shownChapters.forEachIndexed { index, ch ->
                         if (index > 0) {
                             HorizontalDivider(
-                                thickness = 2.dp,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f)
+                                thickness = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant
                             )
                         }
                         val entry = readMap[ch.chapterId]
@@ -1192,16 +1192,14 @@ private fun SeriesHeader(
                 }
                 Spacer(Modifier.height(6.dp))
                 Surface(
-                    color = extra.blue,
-                    // Eksplisit (jangan andalkan bawaan): biru pastel di
-                    // kedua mode sehingga teksnya harus gelap.
-                    contentColor = extra.onAccent,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         "${info.chapters.size} chapter",
-                        Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelLarge
+                        Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
             }
@@ -1541,19 +1539,14 @@ private fun SavedScreen(
                             Text(
                                 item.source.displayName,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = extra.onAccent,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 modifier = Modifier
-                                    .border(
-                                        2.dp,
-                                        MaterialTheme.colorScheme.onBackground,
-                                        RoundedCornerShape(999.dp)
-                                    )
                                     .background(
-                                        extra.blue,
-                                        RoundedCornerShape(999.dp)
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                        RoundedCornerShape(8.dp)
                                     )
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                             if (item.author.isNotBlank()) {
                                 Spacer(Modifier.width(6.dp))

@@ -1,55 +1,52 @@
 package com.trialfetch.app.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.Crop
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
+import com.trialfetch.app.BuildConfig
+import com.trialfetch.app.R
 import com.trialfetch.app.core.DohProvider
 import com.trialfetch.app.data.DownloadSettings
 import com.trialfetch.app.data.NamingRule
 import com.trialfetch.app.data.OutputMode
 import com.trialfetch.app.data.ReaderMode
 import com.trialfetch.app.data.ThemeMode
-import com.trialfetch.app.ui.theme.BrutalButton
-import com.trialfetch.app.ui.theme.BrutalCard
-import com.trialfetch.app.ui.theme.BrutalChoiceRow
-import com.trialfetch.app.ui.theme.BrutalTitle
-import com.trialfetch.app.ui.theme.LocalExtraColors
+import com.trialfetch.app.ui.theme.Space
 
 /**
- * Layar pengaturan: tiap seksi satu kartu, satu jenis kontrol per jenis
- * pilihan (pil brutal untuk opsi sedikit, chip untuk opsi banyak),
- * tanpa paragraf penjelasan.
+ * Pengaturan disusun sebagai daftar seksi datar: satu judul, baris-baris
+ * dengan kontrol di kanan, dan pilihan ganda di bawah label. Tidak ada
+ * kartu bertumpuk agar hierarki tetap terbaca di layar sempit.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settings: DownloadSettings,
@@ -67,244 +64,216 @@ fun SettingsScreen(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(horizontal = Space.lg, vertical = Space.md)
     ) {
-        SectionCard("Tampilan", Icons.Default.Palette) {
-            BrutalChoiceRow(
+        Text(
+            stringResource(R.string.settings_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.height(Space.xl))
+
+        SectionBlock(stringResource(R.string.settings_section_display)) {
+            ChoiceSetting(
+                label = stringResource(R.string.settings_theme),
                 options = ThemeMode.entries.map { it.label },
-                selectedIndex = ThemeMode.entries.indexOf(settings.themeMode),
-                onSelect = { i ->
-                    onChange(settings.copy(themeMode = ThemeMode.entries[i]))
-                }
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        SectionCard("Mode baca", Icons.Default.AutoStories) {
-            BrutalChoiceRow(
+                selectedIndex = ThemeMode.entries.indexOf(settings.themeMode)
+            ) { i -> onChange(settings.copy(themeMode = ThemeMode.entries[i])) }
+            ChoiceSetting(
+                label = stringResource(R.string.settings_reader_mode),
                 options = ReaderMode.entries.map { it.label },
-                selectedIndex = ReaderMode.entries.indexOf(settings.readerMode),
-                onSelect = { i ->
-                    onChange(settings.copy(readerMode = ReaderMode.entries[i]))
-                }
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Berlaku untuk semua chapter; tetap bisa diganti sementara dari bilah bawah reader.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                selectedIndex = ReaderMode.entries.indexOf(settings.readerMode)
+            ) { i -> onChange(settings.copy(readerMode = ReaderMode.entries[i])) }
+            Caption(stringResource(R.string.settings_reader_hint))
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        SectionCard("Unduhan", Icons.Default.Download) {
-            BrutalChoiceRow(
-                options = listOf("Folder", "ZIP"),
-                selectedIndex = if (settings.outputMode == OutputMode.FOLDER) 0 else 1,
-                onSelect = { i ->
-                    onChange(
-                        settings.copy(
-                            outputMode = if (i == 0) OutputMode.FOLDER else OutputMode.ZIP
-                        )
+        SectionBlock(stringResource(R.string.settings_section_download)) {
+            ChoiceSetting(
+                label = stringResource(R.string.settings_output_mode),
+                options = listOf(
+                    stringResource(R.string.settings_output_folder),
+                    stringResource(R.string.settings_output_zip)
+                ),
+                selectedIndex = if (settings.outputMode == OutputMode.FOLDER) 0 else 1
+            ) { i ->
+                onChange(
+                    settings.copy(
+                        outputMode = if (i == 0) OutputMode.FOLDER else OutputMode.ZIP
                     )
-                }
-            )
-            Spacer(Modifier.height(12.dp))
-            BrutalChoiceRow(
+                )
+            }
+            ChoiceSetting(
+                label = stringResource(R.string.settings_naming),
                 options = NamingRule.PRESETS.map { it.second },
                 selectedIndex = NamingRule.PRESETS.indexOfFirst { it.first == settings.naming }
-                    .takeIf { it >= 0 } ?: 0,
-                onSelect = { i ->
-                    onChange(settings.copy(naming = NamingRule.PRESETS[i].first))
-                },
-                accent = LocalExtraColors.current.green
-            )
-            Spacer(Modifier.height(12.dp))
+                    .takeIf { it >= 0 } ?: 0
+            ) { i -> onChange(settings.copy(naming = NamingRule.PRESETS[i].first)) }
             PreviewRow(settings.naming)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Tersimpan di Download/TrialFetch/.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        SectionCard("Banner Baozimh", Icons.Default.Crop) {
+            Caption(stringResource(R.string.settings_download_path))
             RowToggle(
-                title = "Potong banner otomatis",
-                subtitle = "Hapus pita iklan 200px di gambar Baozimh.",
+                title = stringResource(R.string.settings_crop_banner),
+                subtitle = stringResource(R.string.settings_crop_banner_hint),
                 checked = settings.cropBanner
             ) { v -> onChange(settings.copy(cropBanner = v)) }
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        SectionCard("DNS over HTTPS", Icons.Default.Dns) {
+        SectionBlock(stringResource(R.string.settings_section_network)) {
             RowToggle(
-                title = "Pakai DoH",
-                subtitle = "Aktifkan bila situs tidak bisa dibuka padahal internet lancar.",
+                title = stringResource(R.string.settings_doh),
+                subtitle = stringResource(R.string.settings_doh_hint),
                 checked = settings.dohEnabled
             ) { v -> onChange(settings.copy(dohEnabled = v)) }
             if (settings.dohEnabled) {
-                Spacer(Modifier.height(12.dp))
-                BrutalChoiceRow(
+                ChoiceSetting(
+                    label = stringResource(R.string.settings_doh_provider),
                     options = DohProvider.entries.map { it.label },
-                    selectedIndex = DohProvider.entries.indexOf(settings.dohProvider),
-                    onSelect = { i ->
-                        onChange(settings.copy(dohProvider = DohProvider.entries[i]))
-                    }
-                )
+                    selectedIndex = DohProvider.entries.indexOf(settings.dohProvider)
+                ) { i -> onChange(settings.copy(dohProvider = DohProvider.entries[i])) }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        SectionCard("Data", Icons.Default.Folder) {
-            BrutalButton(
-                text = "Cadangkan bookmark & riwayat",
-                onClick = onExportBackup,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(8.dp))
-            BrutalButton(
-                text = "Pulihkan dari cadangan",
-                onClick = onImportBackup,
-                modifier = Modifier.fillMaxWidth(),
-                background = LocalExtraColors.current.blue
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        SectionCard("Akses file", Icons.Default.Folder) {
+        SectionBlock(stringResource(R.string.settings_section_data)) {
+            ActionRow(stringResource(R.string.settings_backup)) { onExportBackup() }
+            ActionRow(stringResource(R.string.settings_restore)) { onImportBackup() }
             Text(
-                if (manageGranted) "Akses semua file: aktif — unduhan dari instalasi/varian lain ikut terbaca."
-                else "Akses semua file: MATI — unduhan dari instalasi/varian lain tidak terbaca.",
+                stringResource(
+                    if (manageGranted) R.string.settings_manage_on else R.string.settings_manage_off
+                ),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = Space.sm)
             )
             if (!manageGranted) {
-                Spacer(Modifier.height(8.dp))
-                BrutalButton(
-                    text = "Izinkan di Pengaturan",
-                    onClick = onRequestManage,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                ActionRow(stringResource(R.string.settings_manage_action)) { onRequestManage() }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        SectionCard("Diagnostik", Icons.Default.BugReport) {
-            Text(
-                "Bila unduhan tak terbaca padahal file ada, jalankan ini lalu kirim hasilnya.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
+        SectionBlock(stringResource(R.string.settings_section_diagnostics)) {
+            Caption(stringResource(R.string.settings_diagnostics_hint))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                BrutalButton(
-                    text = "Jalankan",
-                    onClick = onRunDiagnostics
-                )
-                Spacer(Modifier.width(8.dp))
+                Button(onClick = onRunDiagnostics) {
+                    Text(stringResource(R.string.settings_run))
+                }
+                Spacer(Modifier.width(Space.sm))
                 TextButton(onClick = {
+                    val clip = android.content.ClipData.newPlainText("diagnostik", diagResult)
                     val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
                         as android.content.ClipboardManager
-                    cm.setPrimaryClip(
-                        android.content.ClipData.newPlainText("diagnostik", diagResult)
-                    )
-                    android.widget.Toast.makeText(ctx, "Hasil disalin", android.widget.Toast.LENGTH_SHORT).show()
-                }) {
-                    Text("Salin")
-                }
+                    cm.setPrimaryClip(clip)
+                    android.widget.Toast.makeText(
+                        ctx, R.string.settings_copied, android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }) { Text(stringResource(R.string.settings_copy)) }
             }
             if (diagResult.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Space.sm))
                 Text(
                     diagResult,
                     style = MaterialTheme.typography.bodySmall,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace
                 )
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-
+        Spacer(Modifier.height(Space.xl))
         TextButton(onClick = onReset) {
-            Text("Kembalikan bawaan")
+            Text(stringResource(R.string.settings_reset))
         }
-
-        Spacer(Modifier.height(16.dp))
-        // Info build: supaya jelas APK mana yang terpasang saat lapor bug
-        // (versionName statis "1.0" tidak bisa dipakai pembeda).
         Text(
-            "TrialFetch 1.0 (build ${com.trialfetch.app.BuildConfig.VERSION_CODE})",
+            stringResource(R.string.settings_build, BuildConfig.VERSION_CODE),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Space.xl))
     }
 }
 
 @Composable
-private fun SectionCard(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    content: @Composable () -> Unit
-) {
-    val extra = LocalExtraColors.current
-    BrutalCard(modifier = Modifier.fillMaxWidth(), background = extra.card) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            BrutalTitle(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        content()
-    }
+private fun SectionBlock(title: String, content: @Composable () -> Unit) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.semantics { heading() }
+    )
+    Spacer(Modifier.height(Space.md))
+    content()
+    Spacer(Modifier.height(Space.md))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(Modifier.height(Space.lg))
 }
 
-/** Pratinjau nama file supaya efeknya kelihatan sebelum disimpan. */
+@Composable
+private fun Caption(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(vertical = Space.sm)
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChoiceSetting(
+    label: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit
+) {
+    Text(label, style = MaterialTheme.typography.bodyLarge)
+    Spacer(Modifier.height(Space.sm))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(Space.sm),
+        verticalArrangement = Arrangement.spacedBy(Space.sm)
+    ) {
+        options.forEachIndexed { index, option ->
+            val modifier = Modifier.heightIn(min = Space.touch)
+            if (index == selectedIndex) {
+                Button(
+                    onClick = { onSelect(index) },
+                    modifier = modifier,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) { Text(option, style = MaterialTheme.typography.labelMedium) }
+            } else {
+                OutlinedButton(onClick = { onSelect(index) }, modifier = modifier) {
+                    Text(option, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+    }
+    Spacer(Modifier.height(Space.md))
+}
+
+@Composable
+private fun ActionRow(text: String, onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = Space.touch)
+    ) { Text(text, modifier = Modifier.fillMaxWidth()) }
+}
+
 @Composable
 private fun PreviewRow(naming: NamingRule) {
     val examples = listOf(1, 2, 12, 121)
-    androidx.compose.foundation.layout.Box(
+    Text(
+        stringResource(
+            R.string.settings_naming_example,
+            examples.joinToString("  ") { naming.fileName(it, "jpg") }
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        fontFamily = FontFamily.Monospace,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                2.dp,
-                MaterialTheme.colorScheme.onBackground,
-                androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-            )
-            .background(
-                MaterialTheme.colorScheme.surface,
-                androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-            )
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        Text(
-            "Contoh: " + examples.joinToString("  ") { naming.fileName(it, "jpg") },
-            style = MaterialTheme.typography.bodyMedium,
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-        )
-    }
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .padding(Space.md)
+    )
 }
 
 @Composable
@@ -314,12 +283,15 @@ private fun RowToggle(
     checked: Boolean,
     onChange: (Boolean) -> Unit
 ) {
-    androidx.compose.foundation.layout.Row(
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = Space.touch),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Space.xs))
             Text(
                 subtitle,
                 style = MaterialTheme.typography.bodySmall,

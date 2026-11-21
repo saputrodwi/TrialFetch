@@ -24,4 +24,37 @@
     <string name="title_copied">Judul disalin</string>
     <string name="pages_progress">Hal %1$d dari %2$d · %3$d%%</string>
     <string name="pages_progress_short">Hal %1$d dari %2$d</string>
+
+    <!-- Pengaturan -->
+    <string name="settings_title">Pengaturan</string>
+    <string name="settings_section_display">Tampilan</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_reader_mode">Mode baca</string>
+    <string name="settings_reader_hint">Berlaku untuk semua chapter. Bisa diganti sementara dari bilah reader.</string>
+    <string name="settings_section_download">Unduhan</string>
+    <string name="settings_output_mode">Bentuk berkas</string>
+    <string name="settings_output_folder">Folder</string>
+    <string name="settings_output_zip">ZIP</string>
+    <string name="settings_naming">Nama berkas</string>
+    <string name="settings_naming_example">Contoh: %1$s</string>
+    <string name="settings_download_path">Tersimpan di Download/TrialFetch/.</string>
+    <string name="settings_crop_banner">Potong banner otomatis</string>
+    <string name="settings_crop_banner_hint">Hapus pita iklan 200px di gambar Baozimh.</string>
+    <string name="settings_section_network">Jaringan</string>
+    <string name="settings_doh">Pakai DoH</string>
+    <string name="settings_doh_hint">Aktifkan bila situs tidak bisa dibuka padahal internet lancar.</string>
+    <string name="settings_doh_provider">Penyedia DoH</string>
+    <string name="settings_section_data">Data</string>
+    <string name="settings_backup">Cadangkan bookmark &amp; riwayat</string>
+    <string name="settings_restore">Pulihkan dari cadangan</string>
+    <string name="settings_manage_on">Akses semua file aktif — unduhan dari varian lain ikut terbaca.</string>
+    <string name="settings_manage_off">Akses semua file mati — unduhan dari varian lain tidak terbaca.</string>
+    <string name="settings_manage_action">Izinkan di Pengaturan</string>
+    <string name="settings_section_diagnostics">Diagnostik</string>
+    <string name="settings_diagnostics_hint">Bila unduhan tak terbaca padahal file ada, jalankan lalu kirim hasilnya.</string>
+    <string name="settings_run">Jalankan</string>
+    <string name="settings_copy">Salin</string>
+    <string name="settings_copied">Hasil disalin</string>
+    <string name="settings_reset">Kembalikan bawaan</string>
+    <string name="settings_build">TrialFetch 1.0 (build %1$d)</string>
 </resources>
