@@ -57,4 +57,34 @@
     <string name="settings_copied">Hasil disalin</string>
     <string name="settings_reset">Kembalikan bawaan</string>
     <string name="settings_build">TrialFetch 1.0 (build %1$d)</string>
+
+    <!-- Detail series -->
+    <string name="series_back">Kembali</string>
+    <string name="series_open_web">Buka halaman situs asli</string>
+    <string name="series_bookmark_add">Simpan series</string>
+    <string name="series_bookmark_remove">Hapus dari simpanan</string>
+    <string name="series_cover">Sampul %1$s</string>
+    <string name="series_chapter_count">%1$d chapter</string>
+    <string name="series_continue_reading">Lanjutkan membaca</string>
+    <string name="series_continue">Lanjut</string>
+    <string name="series_start_read">Mulai baca</string>
+    <string name="series_save">Simpan</string>
+    <string name="series_saved">Tersimpan</string>
+    <string name="series_synopsis">Sinopsis</string>
+    <string name="series_hide_synopsis">Tutup</string>
+    <string name="series_chapters">Daftar chapter</string>
+    <string name="series_sort_old">Urut lama ke baru</string>
+    <string name="series_sort_new">Urut baru ke lama</string>
+    <string name="series_select">Pilih</string>
+    <string name="series_cancel_select">Batal</string>
+    <string name="series_all">Semua</string>
+    <string name="series_none">Kosongkan</string>
+    <string name="series_download_selected">Unduh (%1$d)</string>
+    <string name="series_filter">Saring judul/nomor</string>
+    <string name="series_clear_filter">Bersihkan saringan</string>
+    <string name="series_no_chapters">Chapter belum tersedia.</string>
+    <string name="series_read_pages">Terakhir: hal %1$d/%2$d</string>
+    <string name="series_read_last">Terakhir: %1$s</string>
+    <string name="series_downloaded">Sudah diunduh</string>
+    <string name="series_download">Unduh %1$s</string>
 </resources>

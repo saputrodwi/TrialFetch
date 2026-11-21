@@ -542,7 +542,8 @@ fun AppRoot(
                         sourceId = entry.arguments?.getString(Routes.ARG_SOURCE).orEmpty(),
                         comicId = entry.arguments?.getString(Routes.ARG_COMIC_ID).orEmpty(),
                         vm = vm,
-                        storageGranted = storageGranted
+                        storageGranted = storageGranted,
+                        onBack = { nav.popBackStack() }
                     )
                 }
                 composable(Routes.SAVED) {
@@ -731,7 +732,8 @@ private fun SeriesRoute(
     sourceId: String,
     comicId: String,
     vm: MainViewModel,
-    storageGranted: Boolean
+    storageGranted: Boolean,
+    onBack: () -> Unit = {}
 ) {
     val seriesState by vm.series.collectAsStateWithLifecycle()
     val downloadState by vm.progress.collectAsStateWithLifecycle()
@@ -823,8 +825,9 @@ private fun SeriesRoute(
                     it.source == infoNow.source && it.comicId == infoNow.comicId
                 }.associateBy { it.chapterId }
             }
-            SeriesScreen(
+            SeriesDetailScreen(
                 info = infoNow,
+                onBack = onBack,
                 progress = downloadState,
                 // Semua chapter yang QUEUED/ACTIVE di series ini ikut
                 // menampilkan spinner — bukan cuma yang sedang berjalan.
