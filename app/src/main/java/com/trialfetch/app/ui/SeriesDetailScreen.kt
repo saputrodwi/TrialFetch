@@ -2,7 +2,9 @@ package com.trialfetch.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -85,6 +87,7 @@ fun SeriesDetailScreen(
     onContinue: (Chapter, Int) -> Unit = { _, _ -> },
     onBack: () -> Unit = {}
 ) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     var newestFirst by remember { mutableStateOf(true) }
     var filter by remember { mutableStateOf("") }
     var selecting by remember { mutableStateOf(false) }
@@ -124,7 +127,20 @@ fun SeriesDetailScreen(
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .pointerInput(info.title) {
+                        detectTapGestures(onLongPress = {
+                            val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                as android.content.ClipboardManager
+                            cm.setPrimaryClip(
+                                android.content.ClipData.newPlainText("judul komik", info.title)
+                            )
+                            android.widget.Toast.makeText(
+                                ctx, R.string.title_copied, android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        })
+                    }
             )
             IconButton(onClick = onOpenWeb) {
                 Icon(Icons.Default.Public, contentDescription = stringResource(R.string.series_open_web))

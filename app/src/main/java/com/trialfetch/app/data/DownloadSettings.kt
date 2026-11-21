@@ -72,17 +72,24 @@ data class DownloadSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dohEnabled: Boolean = false,
     val dohProvider: DohProvider = DohProvider.CLOUDFLARE,
-    val readerMode: ReaderMode = ReaderMode.PAGED
+    val readerMode: ReaderMode = ReaderMode.LEFT_TO_RIGHT
 )
 
-/** Mode baca: geser per halaman, atau gulir vertikal ala webtoon. */
+/**
+ * Mode baca. Mode "Halaman" dihapus: perilakunya identik dengan
+ * kiri-kanan/kanan-kiri, bedanya hanya arah geser. Nilai lama "PAGED"
+ * otomatis dimigrasikan ke [LEFT_TO_RIGHT] agar pengaturan lama tetap valid.
+ */
 enum class ReaderMode(val label: String) {
-    PAGED("Halaman"),
-    WEBTOON("Webtoon");
+    LEFT_TO_RIGHT("Kiri ke kanan"),
+    RIGHT_TO_LEFT("Kanan ke kiri"),
+    WEBTOON("Gulir vertikal");
 
     companion object {
-        fun fromName(value: String?): ReaderMode =
-            entries.firstOrNull { it.name == value } ?: PAGED
+        fun fromName(value: String?): ReaderMode = when (value) {
+            "PAGED" -> LEFT_TO_RIGHT
+            else -> entries.firstOrNull { it.name == value } ?: LEFT_TO_RIGHT
+        }
     }
 }
 

@@ -717,9 +717,9 @@ private fun RowScope.BottomTab(
         // terang di atas kuning yang nyaris tak terbaca itu dibuang).
         // Tak terpilih: ikon redup tapi tetap jelas.
         colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-            indicatorColor = LocalExtraColors.current.yellow,
-            selectedIconColor = LocalExtraColors.current.onAccent,
-            selectedTextColor = LocalExtraColors.current.onAccent,
+            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1594,25 +1594,35 @@ private fun ReaderScreen(
             }
             else -> {
                 val list = pages
-                val hState = rememberPagerState(pageCount = { list.size })
+                val rtl = mode == ReaderMode.RIGHT_TO_LEFT
+                // Urutan tampilan untuk pager. Chapter selalu disimpan dalam
+                // urutan logis 1..N; RTL hanya membalik urutan tampilannya.
+                val displayList = if (rtl) list.asReversed() else list
+                val hState = rememberPagerState(pageCount = { displayList.size })
                 val vList = rememberLazyListState()
                 // Lompat ke halaman terakhir dibaca (dari riwayat).
-                LaunchedEffect(list.size) {
-                    val target = initialPage.coerceIn(0, (list.size - 1).coerceAtLeast(0))
-                    if (target > 0) {
+                LaunchedEffect(list.size, mode) {
+                    val logical = initialPage.coerceIn(0, (list.size - 1).coerceAtLeast(0))
+                    if (logical > 0) {
+                        val visual = if (rtl) displayList.lastIndex - logical else logical
                         try {
-                            hState.scrollToPage(target)
+                            hState.scrollToPage(visual.coerceIn(0, displayList.lastIndex.coerceAtLeast(0)))
                         } catch (_: Exception) {
                         }
                         try {
-                            vList.scrollToItem(target)
+                            vList.scrollToItem(logical)
                         } catch (_: Exception) {
                         }
                     }
                 }
-                // Laporkan posisi agar tersimpan ke riwayat.
-                val currentPage =
-                    if (mode == ReaderMode.WEBTOON) vList.firstVisibleItemIndex else hState.currentPage
+                // Posisi yang dilaporkan ke riwayat selalu dalam urutan logis.
+                val currentPage = if (mode == ReaderMode.WEBTOON) {
+                    vList.firstVisibleItemIndex
+                } else if (rtl) {
+                    (displayList.lastIndex - hState.currentPage).coerceIn(0, list.lastIndex.coerceAtLeast(0))
+                } else {
+                    hState.currentPage
+                }
                 LaunchedEffect(currentPage, list.size) {
                     onPageChange(currentPage, list.size)
                 }
@@ -1650,7 +1660,7 @@ private fun ReaderScreen(
                         userScrollEnabled = !pagerLocked
                     ) { page ->
                         ZoomablePage(
-                            item = list[page],
+                            item = displayList[page],
                             active = hState.currentPage == page,
                             onLockChange = setLock,
                             onImageTap = { menusVisible = !menusVisible }
@@ -1812,12 +1822,17 @@ private fun ReaderScreen(
                                     value = currentPage.toFloat()
                                         .coerceIn(0f, (list.size - 1).coerceAtLeast(0).toFloat()),
                                     onValueChange = { v ->
-                                        val target = v.toInt().coerceIn(0, list.size - 1)
+                                        val logical = v.toInt().coerceIn(0, list.size - 1)
                                         readerScope.launch {
                                             if (mode == ReaderMode.WEBTOON) {
-                                                vList.scrollToItem(target)
+                                                vList.scrollToItem(logical)
                                             } else {
-                                                hState.scrollToPage(target)
+                                                val visual = if (rtl) {
+                                                    displayList.lastIndex - logical
+                                                } else logical
+                                                hState.scrollToPage(
+                                                    visual.coerceIn(0, displayList.lastIndex.coerceAtLeast(0))
+                                                )
                                             }
                                         }
                                     },
@@ -1858,19 +1873,20 @@ private fun ReaderScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(onClick = {
-                                    val next = if (mode == ReaderMode.WEBTOON) ReaderMode.PAGED
-                                    else ReaderMode.WEBTOON
+                                    val next = when (mode) {
+                                        ReaderMode.LEFT_TO_RIGHT -> ReaderMode.RIGHT_TO_LEFT
+                                        ReaderMode.RIGHT_TO_LEFT -> ReaderMode.WEBTOON
+                                        ReaderMode.WEBTOON -> ReaderMode.LEFT_TO_RIGHT
+                                    }
                                     onModeChange(next)
-                                    Toast.makeText(
-                                        ctx,
-                                        if (next == ReaderMode.WEBTOON) "Mode: Webtoon"
-                                        else "Mode: Halaman",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    Toast.makeText(ctx, next.label, Toast.LENGTH_SHORT).show()
                                 }) {
                                     Icon(
-                                        if (mode == ReaderMode.WEBTOON) Icons.Default.ViewAgenda
-                                        else Icons.Default.AutoStories,
+                                        when (mode) {
+                                            ReaderMode.WEBTOON -> Icons.Default.ViewAgenda
+                                            ReaderMode.RIGHT_TO_LEFT -> Icons.Default.ArrowBack
+                                            ReaderMode.LEFT_TO_RIGHT -> Icons.Default.ArrowForward
+                                        },
                                         contentDescription = "Ganti mode baca",
                                         tint = MaterialTheme.colorScheme.onSurface
                                     )

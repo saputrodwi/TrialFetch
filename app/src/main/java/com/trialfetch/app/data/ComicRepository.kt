@@ -187,12 +187,11 @@ class ComicRepository(
             }
             if (images.isNotEmpty()) return images
         }
-        // Jalan terakhir: cari chapter di seluruh pohon Download/TrialFetch
-        // memakai nama folder/token. Menolong unduhan lama yang judul
-        // seriesnya berubah atau-format foldernya sudah tidak cocok lagi.
-        val hint = sanitize(chapter.title)
-        val token = chapterToken(chapter.title)
-        return storage.listImagesByChapter(hint, token)
+        // TIDAK ada fallback pencarian global: dulu chapter dari series /
+        // sumber lain dengan nomor sama ikut terbaca. Semua jalur di atas
+        // sudah dibatasi ke folder series ini (termasuk bentuk lama dan
+        // info.txt milik comicId yang sama).
+        return emptyList()
     }
 
     /** true bila chapter sudah terunduh (ringan, tanpa membaca isi). */
