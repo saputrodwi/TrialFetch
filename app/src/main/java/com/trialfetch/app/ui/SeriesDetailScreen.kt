@@ -115,45 +115,6 @@ fun SeriesDetailScreen(
     val lastChapter = lastRead?.let { e -> info.chapters.firstOrNull { it.chapterId == e.chapterId } }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = Space.touch).padding(horizontal = Space.sm),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.series_back))
-            }
-            Text(
-                info.title,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .weight(1f)
-                    .pointerInput(info.title) {
-                        detectTapGestures(onLongPress = {
-                            val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                                as android.content.ClipboardManager
-                            cm.setPrimaryClip(
-                                android.content.ClipData.newPlainText("judul komik", info.title)
-                            )
-                            android.widget.Toast.makeText(
-                                ctx, R.string.title_copied, android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        })
-                    }
-            )
-            IconButton(onClick = onOpenWeb) {
-                Icon(Icons.Default.Public, contentDescription = stringResource(R.string.series_open_web))
-            }
-            IconButton(onClick = onToggleBookmark) {
-                Icon(
-                    if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                    contentDescription = stringResource(
-                        if (isBookmarked) R.string.series_bookmark_remove else R.string.series_bookmark_add
-                    )
-                )
-            }
-        }
 
         LazyColumn(
             Modifier.weight(1f),
@@ -177,7 +138,19 @@ fun SeriesDetailScreen(
                                 info.title,
                                 style = MaterialTheme.typography.titleLarge,
                                 maxLines = 4,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.pointerInput(info.title) {
+                                    detectTapGestures(onLongPress = {
+                                        val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                            as android.content.ClipboardManager
+                                        cm.setPrimaryClip(
+                                            android.content.ClipData.newPlainText("judul komik", info.title)
+                                        )
+                                        android.widget.Toast.makeText(
+                                            ctx, R.string.title_copied, android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    })
+                                }
                             )
                             Spacer(Modifier.height(Space.sm))
                             Text(
@@ -440,17 +413,12 @@ private fun ChapterLine(
         Box(Modifier.size(Space.touch), contentAlignment = Alignment.Center) {
             when {
                 busy -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                downloaded && !selecting -> androidx.compose.material3.Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(
-                        stringResource(R.string.series_downloaded),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(horizontal = Space.sm, vertical = Space.xs)
-                    )
-                }
+                downloaded && !selecting -> Icon(
+                    Icons.Default.Check,
+                    contentDescription = stringResource(R.string.series_downloaded),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
                 !selecting -> IconButton(onClick = onDownload) {
                     Icon(Icons.Default.Download, contentDescription = stringResource(R.string.series_download, title))
                 }

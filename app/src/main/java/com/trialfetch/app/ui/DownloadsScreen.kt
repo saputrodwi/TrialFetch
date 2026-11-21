@@ -72,11 +72,6 @@ fun DownloadsScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(
-            stringResource(R.string.downloads_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
         Spacer(Modifier.height(Space.md))
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = if (queuePaused) onResumeAll else onPauseAll) {

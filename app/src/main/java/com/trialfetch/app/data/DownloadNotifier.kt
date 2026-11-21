@@ -24,6 +24,10 @@ class DownloadNotifier(private val context: Context) {
     private val manager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    /** Status jeda antrian, disinkronkan dari UI agar aksi notifikasi benar. */
+    @Volatile
+    var paused: Boolean = false
+
     companion object {
         const val CHANNEL_ID = "downloads"
         const val CHANNEL_UPDATES = "updates"
@@ -109,7 +113,12 @@ class DownloadNotifier(private val context: Context) {
             )
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
 
-    fun showRunning(title: String, done: Int, total: Int, paused: Boolean = false) {
+    /** Gambar ulang notifikasi progres (dipakai saat status jeda berubah). */
+    fun refreshRunning(title: String, done: Int, total: Int) {
+        showRunning(title, done, total)
+    }
+
+    fun showRunning(title: String, done: Int, total: Int, paused: Boolean = this.paused) {
         ensureChannel()
         val percent = if (total > 0) (done * 100 / total) else 0
         val text = if (total > 0) "$done dari $total halaman ($percent%)" else "Menyiapkan…"

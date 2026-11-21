@@ -68,6 +68,7 @@
     <string name="settings_manage_title">Akses semua file</string>
     <string name="settings_manage_off_desc">Izin ini memungkinkan unduhan dari aplikasi atau varian lain tetap terbaca. Aktifkan bila koleksi lama tidak muncul.</string>
     <string name="settings_copy_desc">Salin hasil diagnostik ke clipboard.</string>
+    <string name="settings_open">Buka</string>
 
     <!-- Unduhan -->
     <string name="downloads_title">Unduhan</string>

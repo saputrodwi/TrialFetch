@@ -331,9 +331,7 @@ class ComicRepository(
                 while (it.moveToNext()) {
                     n++
                     val name = it.getString(nameIdx).orEmpty()
-                    if (name == INFO_FILE || name.endsWith(".nomedia") ||
-                        name == LEGACY_INFO_FILE
-                    ) nInfo++
+                    if (name == LEGACY_INFO_FILE) nInfo++
                 }
             }
             out.appendLine("mediaRows=$n mediaInfoTxt=$nInfo")
@@ -722,6 +720,7 @@ class ComicRepository(
         val savedPath: String = when (settings.outputMode) {
             OutputMode.FOLDER -> {
                 storage.writeText(parentPath, INFO_FILE, info)
+                storage.writeNoMedia(parentPath)
                 storage.displayPath(parentPath)
             }
             OutputMode.ZIP -> {
@@ -732,9 +731,9 @@ class ComicRepository(
                 if (zipSink == null || !zipSink.commit()) {
                     return@withContext fail("Gagal menyelesaikan arsip ZIP.")
                 }
-                storage.writeText(seriesDir, "$chapterDir.nomedia", info)
-                // Sembunyikan arsip ZIP dari galeri seperti Mihon.
-                storage.writeText(seriesDir, INFO_FILE, "")
+                storage.writeText(seriesDir, "$chapterDir.info.txt", info)
+                // Sembunyikan folder series dari galeri seperti Mihon.
+                storage.writeNoMedia(seriesDir)
                 storage.displayPath("$seriesDir/$zipName")
             }
         }

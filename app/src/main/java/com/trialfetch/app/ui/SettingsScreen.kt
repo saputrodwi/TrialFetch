@@ -1,5 +1,7 @@
 package com.trialfetch.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,8 +13,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -212,37 +217,43 @@ private fun SettingChoice(
     onSelect: (Int) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(vertical = Space.md)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = Space.touch + Space.md)
+                .background(
+                    MaterialTheme.colorScheme.surfaceVariant,
+                    androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                )
+                .clickable { expanded = true }
+                .padding(Space.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge)
+                Text(title, style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(Space.xs))
                 Text(
                     description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(Modifier.height(Space.sm))
+                Text(
+                    options.getOrNull(selectedIndex).orEmpty(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
-            Spacer(Modifier.widthCompat())
-            Text(
-                options.getOrNull(selectedIndex).orEmpty(),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            Spacer(Modifier.width(Space.sm))
+            Icon(
+                Icons.Default.ArrowDropDown,
+                contentDescription = stringResource(R.string.settings_choose, title)
             )
         }
-        androidx.compose.material3.DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEachIndexed { index, option ->
-                androidx.compose.material3.DropdownMenuItem(
+                DropdownMenuItem(
                     text = { Text(option) },
                     onClick = {
                         onSelect(index)
@@ -252,6 +263,7 @@ private fun SettingChoice(
             }
         }
     }
+    Spacer(Modifier.height(Space.sm))
 }
 
 @Composable
@@ -288,25 +300,39 @@ private fun SettingAction(
     onClick: () -> Unit,
     enabled: Boolean = true
 ) {
-    Column(
+    Row(
         Modifier
             .fillMaxWidth()
+            .heightIn(min = Space.touch + Space.md)
+            .background(
+                MaterialTheme.colorScheme.primaryContainer,
+                androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+            )
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = Space.md)
+            .padding(Space.md),
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(Modifier.height(Space.xs))
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+        Spacer(Modifier.width(Space.sm))
         Text(
-            title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (enabled) MaterialTheme.colorScheme.onSurface
-            else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(Space.xs))
-        Text(
-            description,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            stringResource(R.string.settings_open),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
+    Spacer(Modifier.height(Space.sm))
 }
 
 @Composable

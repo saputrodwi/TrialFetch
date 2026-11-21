@@ -17,8 +17,12 @@ import java.util.zip.ZipOutputStream
  * series, nama `.nomedia` menyembunyikan gambar unduhan dari galeri sistem.
  * File `info.txt` lama tetap dibaca sebagai fallback.
  */
-const val INFO_FILE = ".nomedia"
+/** Metadata chapter: tetap info.txt agar tidak diubah MediaStore. */
+const val INFO_FILE = "info.txt"
 const val LEGACY_INFO_FILE = "info.txt"
+
+/** Penanda galeri ala Mihon, ditulis lewat File langsung. */
+const val NOMEDIA_FILE = ".nomedia"
 
 /**
  * Menulis hasil unduhan ke folder publik Download/TrialFetch.
@@ -257,10 +261,9 @@ class StorageWriter(private val context: Context) {
                     MediaStore.Downloads.RELATIVE_PATH,
                     MediaStore.Downloads.DISPLAY_NAME
                 ),
-                "(${MediaStore.Downloads.DISPLAY_NAME} LIKE ? OR ${MediaStore.Downloads.DISPLAY_NAME} = ?) " +
-                    "AND ${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
+                "${MediaStore.Downloads.DISPLAY_NAME} = ? AND ${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
                 arrayOf(
-                    "%.nomedia", LEGACY_INFO_FILE,
+                    LEGACY_INFO_FILE,
                     "${Environment.DIRECTORY_DOWNLOADS}/${OutputPaths.ROOT}/%"
                 ),
                 null
@@ -282,11 +285,8 @@ class StorageWriter(private val context: Context) {
                     // ZIP: "<chapter>.nomedia" ada di folder series.
                     val parts = relPath.trimEnd('/').split("/")
                     if (parts.size < 4) continue
-                    if (name == INFO_FILE || name == LEGACY_INFO_FILE) {
+                    if (name == LEGACY_INFO_FILE) {
                         result[parts.last()] = parts.drop(2).dropLast(1).joinToString("/")
-                    } else if (name.endsWith(".nomedia")) {
-                        val chapter = name.removeSuffix(".nomedia")
-                        result[chapter] = parts.drop(2).joinToString("/")
                     }
                 }
             }
@@ -333,20 +333,12 @@ class StorageWriter(private val context: Context) {
         for (child in children) {
             if (child.isDirectory) {
                 scanInfoTxt(child, sourceDisplayName, seriesTitle, comicId, out, root, depth + 1)
-            } else if (child.name == INFO_FILE || child.name == LEGACY_INFO_FILE ||
-                child.name.endsWith(".nomedia")
-            ) {
+            } else if (child.name == LEGACY_INFO_FILE) {
                 val content = runCatching { child.readText() }.getOrNull() ?: continue
                 if (!infoTxtMatches(content, sourceDisplayName, seriesTitle, comicId)) continue
                 val folder = child.parentFile ?: continue
-                if (child.name.endsWith(".nomedia") && child.name != INFO_FILE) {
-                    // Mode ZIP: "<chapter>.nomedia" berada di folder series.
-                    out[child.name.removeSuffix(".nomedia")] = folder.relativeTo(root).path
-                } else {
-                    // Mode Folder: penanda berada di dalam folder chapter.
-                    val seriesDir = folder.parentFile ?: continue
-                    out[folder.name] = seriesDir.relativeTo(root).path
-                }
+                val seriesDir = folder.parentFile ?: continue
+                out[folder.name] = seriesDir.relativeTo(root).path
             }
         }
     }
@@ -813,6 +805,22 @@ class StorageWriter(private val context: Context) {
     fun writeText(folderPath: String, fileName: String, text: String): Uri? {
         if (!writeFile(folderPath, fileName, text.toByteArray(Charsets.UTF_8))) return null
         return findByName(folderPath, fileName)
+    }
+
+    /**
+     * Tulis file `.nomedia` melalui File API langsung. MediaStore mengganti
+     * nama file yang diawali titik menjadi `_.nomedia.txt`, jadi tidak bisa
+     * dipakai untuk marker ini. File API bekerja di sini karena izin akses
+     * sudah diberikan (atau API < 29).
+     */
+    fun writeNoMedia(folderPath: String) {
+        runCatching {
+            val dir = treeFile(folderPath)
+            dir.mkdirs()
+            java.io.File(dir, NOMEDIA_FILE).apply {
+                if (!exists()) createNewFile()
+            }
+        }
     }
 
     /** Baca teks file yang sudah ditulis sebelumnya (pulihkan cadangan). */

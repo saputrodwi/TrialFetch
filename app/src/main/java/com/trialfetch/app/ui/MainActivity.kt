@@ -368,7 +368,11 @@ fun AppRoot(
                 }
             com.trialfetch.app.data.DownloadNotifier.OPEN_CANCEL -> vm.cancelDownload()
             com.trialfetch.app.data.DownloadNotifier.OPEN_TOGGLE_PAUSE -> {
-                if (queuePaused) vm.queue.resumeAll() else vm.queue.pauseAll()
+                val nextPaused = !queuePaused
+                if (nextPaused) vm.queue.pauseAll() else vm.queue.resumeAll()
+                vm.repo.notifier.paused = nextPaused
+                val st = vm.progress.value
+                vm.repo.notifier.refreshRunning(st.chapterTitle.orEmpty(), st.done, st.total)
             }
             null -> return@LaunchedEffect
             else -> return@LaunchedEffect
@@ -683,8 +687,24 @@ fun AppRoot(
                     DownloadsScreen(
                         queueItems = queueItems,
                         queuePaused = queuePaused,
-                        onPauseAll = vm.queue::pauseAll,
-                        onResumeAll = vm.queue::resumeAll,
+                        onPauseAll = {
+                            vm.queue.pauseAll()
+                            vm.repo.notifier.paused = true
+                            vm.repo.notifier.refreshRunning(
+                                vm.progress.value.chapterTitle.orEmpty(),
+                                vm.progress.value.done,
+                                vm.progress.value.total
+                            )
+                        },
+                        onResumeAll = {
+                            vm.queue.resumeAll()
+                            vm.repo.notifier.paused = false
+                            vm.repo.notifier.refreshRunning(
+                                vm.progress.value.chapterTitle.orEmpty(),
+                                vm.progress.value.done,
+                                vm.progress.value.total
+                            )
+                        },
                         onCancelItem = vm.queue::cancelItem,
                         onRemoveItem = vm.queue::removeItem,
                         onRetryItem = vm.queue::retryItem,
@@ -1638,7 +1658,7 @@ private fun ReaderScreen(
     // cubit/geser tetap jalan, double-tap zoom juga akur.
     var menusVisible by remember { mutableStateOf(true) }
     val readerScope = rememberCoroutineScope()
-    val readerBg = MaterialTheme.colorScheme.background
+    val readerBg = MaterialTheme.colorScheme.surface
     Box(
         Modifier
             .fillMaxSize()
@@ -1853,6 +1873,25 @@ private fun ReaderScreen(
                                 )
                             }
                             Spacer(Modifier.width(10.dp))
+                            IconButton(onClick = {
+                                onModeChange(
+                                    when (mode) {
+                                        ReaderMode.LEFT_TO_RIGHT -> ReaderMode.RIGHT_TO_LEFT
+                                        ReaderMode.RIGHT_TO_LEFT -> ReaderMode.WEBTOON
+                                        ReaderMode.WEBTOON -> ReaderMode.LEFT_TO_RIGHT
+                                    }
+                                )
+                            }) {
+                                Icon(
+                                    when (mode) {
+                                        ReaderMode.WEBTOON -> Icons.Default.ViewAgenda
+                                        ReaderMode.RIGHT_TO_LEFT -> Icons.Default.ArrowBack
+                                        ReaderMode.LEFT_TO_RIGHT -> Icons.Default.Refresh
+                                    },
+                                    contentDescription = "Ganti mode baca: ${mode.label}",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                             IconButton(onClick = { menuOpen = true }) {
                                 Icon(
                                     Icons.Default.MoreVert,
