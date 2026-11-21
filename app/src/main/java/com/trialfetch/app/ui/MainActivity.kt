@@ -937,13 +937,13 @@ private fun SeriesScreen(
                                 Text(
                                     "Lanjutkan membaca",
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = extra.onAccent
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 Text(
                                     lastRead.chapterTitle,
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = extra.onAccent,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -1493,14 +1493,15 @@ private fun SavedScreen(
                 ) {
                     Text(
                         "Chapter baru:",
-                        style = MaterialTheme.typography.labelLarge
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(4.dp))
                     updates.forEach { u ->
                         Text(
-                            "• $u",
+                            u,
                             style = MaterialTheme.typography.bodySmall,
-                            color = extra.onAccent,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -1652,7 +1653,7 @@ private fun ReaderScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(
@@ -1679,7 +1680,7 @@ private fun ReaderScreen(
             pages == null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     Row(
                         Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -1700,7 +1701,7 @@ private fun ReaderScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(
@@ -1811,7 +1812,7 @@ private fun ReaderScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(
                                     text = seriesTitle.ifBlank { title },
-                                    style = MaterialTheme.typography.titleSmall,
+                                    style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -1911,7 +1912,7 @@ private fun ReaderScreen(
                                 Row(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(12.dp))
+                                        .clip(RoundedCornerShape(4.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
                                         .padding(horizontal = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically

@@ -381,6 +381,49 @@ class StorageWriter(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
+    /**
+     * Cari gambar chapter di seluruh pohon Download/TrialFetch berdasarkan
+     * nama folder atau token nomor. Dipakai sebagai jalan terakhir saat
+     * struktur folder berubah (judul series diganti, format lama, dll.)
+     * sehingga chapter yang sudah terunduh tetap bisa dibaca.
+     */
+    fun listImagesByChapter(folderHint: String, token: String?): List<Uri> {
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val hint = folderHint.lowercase()
+        val rootPrefix = "${Environment.DIRECTORY_DOWNLOADS}/${OutputPaths.ROOT}/"
+        return runCatching {
+            val found = ArrayList<Triple<String, String, Uri>>()
+            resolver.query(
+                collection,
+                arrayOf(
+                    MediaStore.Downloads._ID,
+                    MediaStore.Downloads.DISPLAY_NAME,
+                    MediaStore.Downloads.RELATIVE_PATH
+                ),
+                "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
+                arrayOf("$rootPrefix%"),
+                "${MediaStore.Downloads.DISPLAY_NAME} ASC"
+            )?.use { c ->
+                val idIdx = c.getColumnIndex(MediaStore.Downloads._ID)
+                val nameIdx = c.getColumnIndex(MediaStore.Downloads.DISPLAY_NAME)
+                val pathIdx = c.getColumnIndex(MediaStore.Downloads.RELATIVE_PATH)
+                while (c.moveToNext()) {
+                    val name = c.getString(nameIdx) ?: continue
+                    if (!isImageName(name)) continue
+                    val relative = c.getString(pathIdx) ?: continue
+                    val folder = relative.trimEnd('/').substringAfterLast('/').lowercase()
+                    val match = folder == hint ||
+                        (token != null && folder.matches(Regex(".*$token.*", RegexOption.IGNORECASE)))
+                    if (match) {
+                        val uri = Uri.withAppendedPath(collection, c.getLong(idIdx).toString())
+                        found += Triple(folder, name, uri)
+                    }
+                }
+            }
+            found.sortedWith(compareBy({ it.first }, { it.second })).map { it.third }
+        }.getOrDefault(emptyList())
+    }
+
     private fun isImageName(name: String): Boolean {
         val n = name.lowercase()
         return n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png") ||

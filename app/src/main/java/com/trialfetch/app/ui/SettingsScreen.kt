@@ -1,7 +1,9 @@
 package com.trialfetch.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -16,11 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -225,24 +224,34 @@ private fun ChoiceSetting(
     Text(label, style = MaterialTheme.typography.bodyLarge)
     Spacer(Modifier.height(Space.sm))
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(Space.sm),
+        horizontalArrangement = Arrangement.spacedBy(Space.lg),
         verticalArrangement = Arrangement.spacedBy(Space.sm)
     ) {
         options.forEachIndexed { index, option ->
-            val modifier = Modifier.heightIn(min = Space.touch)
-            if (index == selectedIndex) {
-                Button(
-                    onClick = { onSelect(index) },
-                    modifier = modifier,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) { Text(option, style = MaterialTheme.typography.labelMedium) }
-            } else {
-                OutlinedButton(onClick = { onSelect(index) }, modifier = modifier) {
-                    Text(option, style = MaterialTheme.typography.labelMedium)
-                }
+            val selected = index == selectedIndex
+            Column(
+                Modifier
+                    .heightIn(min = Space.touch)
+                    .clickable { onSelect(index) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    option,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(Space.xs))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surface
+                        )
+                )
             }
         }
     }

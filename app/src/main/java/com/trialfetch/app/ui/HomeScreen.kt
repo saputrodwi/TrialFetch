@@ -27,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -35,7 +34,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -119,7 +117,7 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text(stringResource(R.string.url_hint)) },
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(4.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                         keyboardActions = KeyboardActions(onGo = {
                             if (!urlLoading && urlInput.isNotBlank()) {
@@ -310,7 +308,7 @@ private fun SearchField(
         modifier = Modifier.fillMaxWidth(),
         label = { Text("Cari judul komik") },
         singleLine = true,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(4.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
@@ -336,7 +334,7 @@ private fun StatusNote(text: String) {
     Box(
         Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
             .padding(Space.md)
     ) {
         Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -358,15 +356,30 @@ private fun SectionHeader(text: String) {
 
 @Composable
 private fun SourcePill(text: String, selected: Boolean, onClick: () -> Unit) {
-    val modifier = Modifier.heightIn(min = Space.touch)
-    if (selected) {
-        Button(onClick = onClick, modifier = modifier) {
-            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-        }
-    } else {
-        OutlinedButton(onClick = onClick, modifier = modifier) {
-            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-        }
+    Column(
+        Modifier
+            .heightIn(min = Space.touch)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(Space.xs))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surface
+                )
+        )
     }
 }
 
@@ -385,7 +398,7 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
             contentDescription = null,
             modifier = Modifier
                 .size(width = 48.dp, height = 64.dp)
-                .clip(RoundedCornerShape(8.dp)),
+                .clip(RoundedCornerShape(4.dp)),
             contentScale = ContentScale.Crop
         )
         Spacer(Modifier.width(Space.xs))
@@ -466,7 +479,7 @@ private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
             contentDescription = null,
             modifier = Modifier
                 .size(width = 48.dp, height = 64.dp)
-                .clip(RoundedCornerShape(8.dp)),
+                .clip(RoundedCornerShape(4.dp)),
             contentScale = ContentScale.Crop
         )
         Spacer(Modifier.width(Space.xs))

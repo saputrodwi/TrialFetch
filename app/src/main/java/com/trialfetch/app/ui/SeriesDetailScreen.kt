@@ -38,7 +38,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -66,8 +65,9 @@ import com.trialfetch.app.data.HistoryEntry
 import com.trialfetch.app.ui.theme.Space
 
 /**
- * Detail series: header dengan sampul dan aksi utama, lalu daftar chapter
- * polos. Tidak ada kartu bertumpuk supaya daftar panjang tetap ringan.
+ * Detail series bergaya editorial: tanpa kartu, nomor chapter besar di
+ * kiri, dan aksi utama berupa teks/outline. Ini sengaja berbeda jauh dari
+ * tampilan kartu sein sebelumnya.
  */
 @Composable
 fun SeriesDetailScreen(
@@ -96,9 +96,7 @@ fun SeriesDetailScreen(
         filter = ""
     }
 
-    val downloadedKey = remember(downloadedIds) {
-        downloadedIds.map { it.lowercase() }.toSet()
-    }
+    val downloadedKey = remember(downloadedIds) { downloadedIds.map { it.lowercase() }.toSet() }
     val shown = remember(info.chapters, newestFirst, filter) {
         val q = filter.trim()
         val asc = info.chapters.mapIndexed { i, c -> Triple(c, c.chapterNumber, i) }
@@ -111,16 +109,11 @@ fun SeriesDetailScreen(
         if (newestFirst) asc.asReversed() else asc
     }
     val lastRead = remember(readMap) { readMap.values.maxByOrNull { it.updatedAt } }
-    val lastChapter = lastRead?.let { e ->
-        info.chapters.firstOrNull { it.chapterId == e.chapterId }
-    }
+    val lastChapter = lastRead?.let { e -> info.chapters.firstOrNull { it.chapterId == e.chapterId } }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = Space.touch)
-                .padding(horizontal = Space.sm),
+            Modifier.fillMaxWidth().heightIn(min = Space.touch).padding(horizontal = Space.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
@@ -145,133 +138,184 @@ fun SeriesDetailScreen(
                 )
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         LazyColumn(
             Modifier.weight(1f),
-            contentPadding = PaddingValues(
-                horizontal = Space.lg,
-                vertical = Space.md
-            ),
+            contentPadding = PaddingValues(horizontal = Space.lg, vertical = Space.md),
             verticalArrangement = Arrangement.spacedBy(Space.md)
         ) {
             item {
-                SeriesHero(
-                    info = info,
-                    isBookmarked = isBookmarked,
-                    onToggleBookmark = onToggleBookmark,
-                    onReadFirst = { info.chapters.firstOrNull()?.let(onRead) },
-                    onContinue = { lastChapter?.let { onContinue(it, lastRead?.page ?: 0) } },
-                    hasProgress = lastRead != null && lastChapter != null
-                )
-            }
-            if (lastRead != null && lastChapter != null) {
-                item {
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            Modifier.padding(Space.md),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    stringResource(R.string.series_continue_reading),
-                                    style = MaterialTheme.typography.labelMedium
-                                )
-                                Spacer(Modifier.height(Space.xs))
-                                Text(
-                                    lastRead.chapterTitle,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            Spacer(Modifier.width(Space.sm))
-                            Button(onClick = { onContinue(lastChapter, lastRead.page) }) {
-                                Text(stringResource(R.string.series_continue))
-                            }
+                Column {
+                    Row {
+                        AsyncImage(
+                            model = info.coverUrl.ifBlank { null },
+                            contentDescription = stringResource(R.string.series_cover, info.title),
+                            modifier = Modifier
+                                .size(width = 96.dp, height = 136.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(Modifier.width(Space.md))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                info.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                maxLines = 4,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(Modifier.height(Space.sm))
+                            Text(
+                                listOfNotNull(
+                                    info.source.displayName,
+                                    info.author.takeIf { it.isNotBlank() },
+                                    info.status.takeIf { it.isNotBlank() }
+                                ).joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(Space.sm))
+                            Text(
+                                stringResource(R.string.series_chapter_count, info.chapters.size),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
-                }
-            }
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        stringResource(R.string.series_chapter_count, shown.size),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier
-                            .weight(1f)
-                            .semantics { heading() }
-                    )
-                    IconButton(onClick = { newestFirst = !newestFirst }) {
-                        Icon(
-                            if (newestFirst) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                            contentDescription = stringResource(
-                                if (newestFirst) R.string.series_sort_old else R.string.series_sort_new
-                            )
-                        )
-                    }
-                    TextButton(onClick = {
-                        selecting = !selecting
-                        selectedIds = emptySet()
-                    }) {
-                        Text(
-                            stringResource(
-                                if (selecting) R.string.series_cancel_select else R.string.series_select
-                            )
-                        )
-                    }
-                }
-            }
-            item {
-                OutlinedTextField(
-                    value = filter,
-                    onValueChange = { filter = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.series_filter)) },
-                    singleLine = true,
-                    trailingIcon = {
-                        if (filter.isNotBlank()) {
-                            IconButton(onClick = { filter = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.series_clear_filter))
-                            }
-                        } else {
-                            Icon(Icons.Default.Search, contentDescription = null)
-                        }
-                    }
-                )
-            }
-            if (selecting) {
-                item {
+                    Spacer(Modifier.height(Space.md))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = {
-                            selectedIds = if (selectedIds.size == info.chapters.size) {
-                                emptySet()
+                            if (hasProgress(lastRead, lastChapter)) {
+                                lastChapter?.let { onContinue(it, lastRead?.page ?: 0) }
                             } else {
-                                info.chapters.map { it.chapterId }.toSet()
+                                info.chapters.firstOrNull()?.let(onRead)
                             }
                         }) {
                             Text(
                                 stringResource(
-                                    if (selectedIds.size == info.chapters.size) R.string.series_none
-                                    else R.string.series_all
+                                    if (hasProgress(lastRead, lastChapter)) R.string.series_continue
+                                    else R.string.series_start_read
+                                ),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                        Spacer(Modifier.width(Space.sm))
+                        OutlinedButton(onClick = onToggleBookmark) {
+                            Text(
+                                stringResource(
+                                    if (isBookmarked) R.string.series_saved else R.string.series_save
                                 )
                             )
                         }
-                        Spacer(Modifier.weight(1f))
-                        Button(
-                            onClick = {
+                    }
+                    if (info.synopsis.isNotBlank()) {
+                        Spacer(Modifier.height(Space.md))
+                        Text(
+                            info.synopsis,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            if (hasProgress(lastRead, lastChapter)) {
+                item {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .heightIn(min = Space.touch)
+                            .padding(horizontal = Space.md, vertical = Space.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.series_continue_reading),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                lastRead?.chapterTitle.orEmpty(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        TextButton(onClick = { lastChapter?.let { onContinue(it, lastRead?.page ?: 0) } }) {
+                            Text(stringResource(R.string.series_continue))
+                        }
+                    }
+                }
+            }
+            item {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.series_chapter_count, shown.size),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f).semantics { heading() }
+                        )
+                        IconButton(onClick = { newestFirst = !newestFirst }) {
+                            Icon(
+                                if (newestFirst) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                contentDescription = stringResource(
+                                    if (newestFirst) R.string.series_sort_old else R.string.series_sort_new
+                                )
+                            )
+                        }
+                        TextButton(onClick = {
+                            selecting = !selecting
+                            selectedIds = emptySet()
+                        }) {
+                            Text(
+                                stringResource(
+                                    if (selecting) R.string.series_cancel_select else R.string.series_select
+                                )
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = filter,
+                        onValueChange = { filter = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.series_filter)) },
+                        singleLine = true,
+                        trailingIcon = {
+                            if (filter.isNotBlank()) {
+                                IconButton(onClick = { filter = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.series_clear_filter))
+                                }
+                            } else {
+                                Icon(Icons.Default.Search, contentDescription = null)
+                            }
+                        }
+                    )
+                    if (selecting) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = {
+                                selectedIds = if (selectedIds.size == info.chapters.size) {
+                                    emptySet()
+                                } else info.chapters.map { it.chapterId }.toSet()
+                            }) {
+                                Text(
+                                    stringResource(
+                                        if (selectedIds.size == info.chapters.size) R.string.series_none
+                                        else R.string.series_all
+                                    )
+                                )
+                            }
+                            Spacer(Modifier.weight(1f))
+                            Button(onClick = {
                                 val picked = info.chapters.filter { it.chapterId in selectedIds }
                                 if (picked.isNotEmpty()) onEnqueue(picked)
                                 selecting = false
                                 selectedIds = emptySet()
-                            },
-                            enabled = selectedIds.isNotEmpty()
-                        ) {
-                            Text(stringResource(R.string.series_download_selected, selectedIds.size))
+                            }, enabled = selectedIds.isNotEmpty()) {
+                                Text(stringResource(R.string.series_download_selected, selectedIds.size))
+                            }
                         }
                     }
                 }
@@ -292,144 +336,36 @@ fun SeriesDetailScreen(
                 val entry = readMap[chapter.chapterId]
                 val downloaded = ComicRepository.sanitize(chapter.title).lowercase() in downloadedKey
                 ChapterLine(
-                    chapter = chapter,
+                    number = chapter.chapterNumber?.toString() ?: (index + 1).toString(),
+                    title = chapter.title,
                     busy = busy,
                     downloaded = downloaded,
                     readText = entry?.let {
-                        if (it.totalPages > 0) {
-                            stringResource(R.string.series_read_pages, it.page, it.totalPages)
-                        } else {
-                            stringResource(R.string.series_read_last, it.chapterTitle)
-                        }
+                        if (it.totalPages > 0) stringResource(R.string.series_read_pages, it.page, it.totalPages)
+                        else stringResource(R.string.series_read_last, it.chapterTitle)
                     },
                     selecting = selecting,
                     selected = chapter.chapterId in selectedIds,
                     onToggleSelect = {
                         selectedIds = if (chapter.chapterId in selectedIds) {
                             selectedIds - chapter.chapterId
-                        } else {
-                            selectedIds + chapter.chapterId
-                        }
+                        } else selectedIds + chapter.chapterId
                     },
                     onRead = { onRead(chapter) },
                     onDownload = { onDownload(chapter) }
                 )
-                if (index < shown.lastIndex) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
             }
         }
     }
 }
 
-@Composable
-private fun SeriesHero(
-    info: SeriesInfo,
-    isBookmarked: Boolean,
-    onToggleBookmark: () -> Unit,
-    onReadFirst: () -> Unit,
-    onContinue: () -> Unit,
-    hasProgress: Boolean
-) {
-    var synopsisExpanded by remember { mutableStateOf(false) }
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(Space.md)) {
-            Row {
-                AsyncImage(
-                    model = info.coverUrl.ifBlank { null },
-                    contentDescription = stringResource(R.string.series_cover, info.title),
-                    modifier = Modifier
-                        .size(width = 88.dp, height = 120.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
-                )
-                Spacer(Modifier.width(Space.md))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        info.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.height(Space.sm))
-                    val meta = listOfNotNull(
-                        info.source.displayName,
-                        info.author.takeIf { it.isNotBlank() },
-                        info.status.takeIf { it.isNotBlank() }
-                    ).joinToString(" · ")
-                    Text(
-                        meta,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.height(Space.sm))
-                    Text(
-                        stringResource(R.string.series_chapter_count, info.chapters.size),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier
-                            .background(
-                                MaterialTheme.colorScheme.secondaryContainer,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = Space.sm, vertical = Space.xs)
-                    )
-                }
-            }
-            Spacer(Modifier.height(Space.md))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = if (hasProgress) onContinue else onReadFirst) {
-                    Text(
-                        stringResource(
-                            if (hasProgress) R.string.series_continue else R.string.series_start_read
-                        )
-                    )
-                }
-                Spacer(Modifier.width(Space.sm))
-                OutlinedButton(onClick = onToggleBookmark) {
-                    Icon(
-                        if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(Space.xs))
-                    Text(
-                        stringResource(
-                            if (isBookmarked) R.string.series_saved else R.string.series_save
-                        )
-                    )
-                }
-            }
-            if (info.synopsis.isNotBlank()) {
-                Spacer(Modifier.height(Space.md))
-                Text(
-                    info.synopsis,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (synopsisExpanded) Int.MAX_VALUE else 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-                TextButton(onClick = { synopsisExpanded = !synopsisExpanded }) {
-                    Text(
-                        stringResource(
-                            if (synopsisExpanded) R.string.series_hide_synopsis else R.string.series_synopsis
-                        )
-                    )
-                }
-            }
-        }
-    }
-}
+private fun hasProgress(lastRead: HistoryEntry?, lastChapter: Chapter?): Boolean =
+    lastRead != null && lastChapter != null
 
 @Composable
 private fun ChapterLine(
-    chapter: Chapter,
+    number: String,
+    title: String,
     busy: Boolean,
     downloaded: Boolean,
     readText: String?,
@@ -442,7 +378,7 @@ private fun ChapterLine(
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = Space.touch)
+            .heightIn(min = 72.dp)
             .clickable { if (selecting) onToggleSelect() else onRead() }
             .padding(vertical = Space.sm),
         verticalAlignment = Alignment.CenterVertically
@@ -451,19 +387,19 @@ private fun ChapterLine(
             Checkbox(checked = selected, onCheckedChange = { onToggleSelect() })
             Spacer(Modifier.width(Space.xs))
         }
+        Text(
+            number,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.width(44.dp)
+        )
         Column(Modifier.weight(1f)) {
-            Text(
-                chapter.title,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val detail = listOfNotNull(
                 readText,
                 if (downloaded && !busy) stringResource(R.string.series_downloaded) else null
             ).joinToString(" · ")
             if (detail.isNotBlank()) {
-                Spacer(Modifier.height(Space.xs))
                 Text(
                     detail,
                     style = MaterialTheme.typography.bodySmall,
@@ -483,9 +419,10 @@ private fun ChapterLine(
                     tint = MaterialTheme.colorScheme.primary
                 )
                 !selecting -> IconButton(onClick = onDownload) {
-                    Icon(Icons.Default.Download, contentDescription = stringResource(R.string.series_download, chapter.title))
+                    Icon(Icons.Default.Download, contentDescription = stringResource(R.string.series_download, title))
                 }
             }
         }
     }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
