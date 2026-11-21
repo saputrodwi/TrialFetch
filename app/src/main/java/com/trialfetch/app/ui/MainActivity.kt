@@ -1886,7 +1886,7 @@ private fun ReaderScreen(
                                     when (mode) {
                                         ReaderMode.WEBTOON -> Icons.Default.ViewAgenda
                                         ReaderMode.RIGHT_TO_LEFT -> Icons.Default.ArrowBack
-                                        ReaderMode.LEFT_TO_RIGHT -> Icons.Default.Refresh
+                                        ReaderMode.LEFT_TO_RIGHT -> Icons.Default.Cached
                                     },
                                     contentDescription = "Ganti mode baca: ${mode.label}",
                                     tint = MaterialTheme.colorScheme.onSurface
