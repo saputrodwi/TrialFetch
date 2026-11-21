@@ -504,7 +504,28 @@ fun AppRoot(
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             NavHost(nav, startDestination = Routes.HOME) {
-                composable(Routes.HOME) {
+                composable(Routes.HOME,
+                    enterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    exitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popEnterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popExitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    }
+                ) {
                     HomeScreen(
                         query = searchState.query,
                         onQueryChange = vm::onQueryChange,
@@ -541,7 +562,27 @@ fun AppRoot(
                     arguments = listOf(
                         navArgument(Routes.ARG_SOURCE) { type = NavType.StringType; defaultValue = "" },
                         navArgument(Routes.ARG_COMIC_ID) { type = NavType.StringType; defaultValue = "" }
-                    )
+                    ),
+                    enterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    exitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popEnterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popExitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    }
                 ) { entry ->
                     SeriesRoute(
                         sourceId = entry.arguments?.getString(Routes.ARG_SOURCE).orEmpty(),
@@ -551,7 +592,28 @@ fun AppRoot(
                         onBack = { nav.popBackStack() }
                     )
                 }
-                composable(Routes.SAVED) {
+                composable(Routes.SAVED,
+                    enterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    exitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popEnterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popExitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    }
+                ) {
                     val updates by vm.bookmarkUpdates.collectAsStateWithLifecycle()
                     val checking by vm.updateChecking.collectAsStateWithLifecycle()
                     SavedScreen(
@@ -566,7 +628,28 @@ fun AppRoot(
                         onClearUpdates = vm::clearBookmarkUpdates
                     )
                 }
-                composable(Routes.HISTORY) {
+                composable(Routes.HISTORY,
+                    enterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    exitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popEnterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popExitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    }
+                ) {
                     HistoryScreen(
                         items = history,
                         onOpen = vm::openHistory,
@@ -574,7 +657,28 @@ fun AppRoot(
                         onClear = vm::clearHistory
                     )
                 }
-                composable(Routes.DOWNLOADS) {
+                composable(Routes.DOWNLOADS,
+                    enterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    exitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popEnterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popExitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    }
+                ) {
                     DownloadsScreen(
                         queueItems = queueItems,
                         queuePaused = queuePaused,
@@ -586,7 +690,28 @@ fun AppRoot(
                         onClearFinished = vm.queue::clearFinished
                     )
                 }
-                composable(Routes.SETTINGS) {
+                composable(Routes.SETTINGS,
+                    enterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    exitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popEnterTransition = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    },
+                    popExitTransition = {
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    }
+                ) {
                     SettingsScreen(
                         settings = settings,
                         onChange = vm::updateSettings,
@@ -874,6 +999,7 @@ private fun SeriesRoute(
                     userAgent = vm.userAgent,
                     onClose = { webUrl = null }
                 )
+            }
             }
         }
     }
