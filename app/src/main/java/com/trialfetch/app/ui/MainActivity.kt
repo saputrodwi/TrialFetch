@@ -1000,7 +1000,6 @@ private fun SeriesRoute(
                     onClose = { webUrl = null }
                 )
             }
-            }
         }
     }
 }
