@@ -83,7 +83,7 @@ data class DownloadSettings(
 enum class ReaderMode(val label: String) {
     LEFT_TO_RIGHT("Kiri ke kanan"),
     RIGHT_TO_LEFT("Kanan ke kiri"),
-    WEBTOON("Gulir vertikal");
+    WEBTOON("Webtoon");
 
     companion object {
         fun fromName(value: String?): ReaderMode = when (value) {

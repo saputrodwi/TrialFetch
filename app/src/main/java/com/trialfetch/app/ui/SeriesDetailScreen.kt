@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -88,6 +87,7 @@ fun SeriesDetailScreen(
     onBack: () -> Unit = {}
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    var synopsisExpanded by remember { mutableStateOf(false) }
     var newestFirst by remember { mutableStateOf(true) }
     var filter by remember { mutableStateOf("") }
     var selecting by remember { mutableStateOf(false) }
@@ -154,7 +154,6 @@ fun SeriesDetailScreen(
                 )
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         LazyColumn(
             Modifier.weight(1f),
@@ -227,12 +226,28 @@ fun SeriesDetailScreen(
                     if (info.synopsis.isNotBlank()) {
                         Spacer(Modifier.height(Space.md))
                         Text(
-                            info.synopsis,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
+                            stringResource(R.string.series_synopsis),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(Modifier.height(Space.xs))
+                        androidx.compose.foundation.text.selection.SelectionContainer {
+                            Text(
+                                info.synopsis,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = if (synopsisExpanded) Int.MAX_VALUE else 4,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        TextButton(onClick = { synopsisExpanded = !synopsisExpanded }) {
+                            Text(
+                                stringResource(
+                                    if (synopsisExpanded) R.string.series_hide_synopsis
+                                    else R.string.series_more_synopsis
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -442,5 +457,4 @@ private fun ChapterLine(
             }
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }

@@ -33,6 +33,8 @@ class DownloadNotifier(private val context: Context) {
         const val EXTRA_OPEN = "trialfetch.open"
         const val OPEN_DOWNLOADS = "downloads"
         const val OPEN_SAVED = "saved"
+        const val OPEN_CANCEL = "cancel"
+        const val OPEN_TOGGLE_PAUSE = "toggle_pause"
     }
 
     fun ensureChannel() {
@@ -107,7 +109,7 @@ class DownloadNotifier(private val context: Context) {
             )
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
 
-    fun showRunning(title: String, done: Int, total: Int) {
+    fun showRunning(title: String, done: Int, total: Int, paused: Boolean = false) {
         ensureChannel()
         val percent = if (total > 0) (done * 100 / total) else 0
         val text = if (total > 0) "$done dari $total halaman ($percent%)" else "Menyiapkan…"
@@ -136,6 +138,15 @@ class DownloadNotifier(private val context: Context) {
             .setOngoing(true)
             .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel, "Batal",
+                openIntent(OPEN_CANCEL, 9)
+            )
+            .addAction(
+                if (paused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause,
+                if (paused) "Lanjutkan" else "Jeda",
+                openIntent(OPEN_TOGGLE_PAUSE, 10)
+            )
             .addAction(
                 android.R.drawable.ic_menu_view, "Lihat",
                 openIntent(OPEN_DOWNLOADS, 2)

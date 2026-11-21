@@ -2,6 +2,8 @@ package com.trialfetch.app.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,15 +22,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -91,7 +89,6 @@ fun HomeScreen(
     onOpenDownloads: () -> Unit = {}
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
-    var sourceMenu by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
 
     if (showUrlDialog) {
@@ -173,30 +170,21 @@ fun HomeScreen(
         )
         Spacer(Modifier.height(Space.sm))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.section_sources),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f)
-            )
-            Box {
-                TextButton(onClick = { sourceMenu = true }) {
-                    Text(if (allSelected) stringResource(R.string.all_sources) else source.displayName)
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                }
-                DropdownMenu(expanded = sourceMenu, onDismissRequest = { sourceMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.all_sources)) },
-                        onClick = { onAllSources(); sourceMenu = false }
-                    )
-                    sources.forEach { s ->
-                        DropdownMenuItem(
-                            text = { Text(s.displayName) },
-                            onClick = { onSourceChange(s); sourceMenu = false }
-                        )
-                    }
-                }
+        Text(
+            stringResource(R.string.section_sources),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(Space.sm))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(Space.sm)
+        ) {
+            SourceChip(stringResource(R.string.all_sources), allSelected, onAllSources)
+            sources.forEach { s ->
+                SourceChip(s.displayName, !allSelected && source == s, { onSourceChange(s) })
             }
         }
         if (query.isNotBlank() || results.isNotEmpty() || error != null) {
@@ -216,7 +204,6 @@ fun HomeScreen(
         error?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(Space.sm))
 
         if (results.isNotEmpty()) {
@@ -249,6 +236,20 @@ fun HomeScreen(
                     items(doneDownloads, key = { it.id }) { d -> DownloadRow(d, onOpenDownloads) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SourceChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val chip = Modifier.heightIn(min = Space.touch)
+    if (selected) {
+        androidx.compose.material3.Button(onClick = onClick, modifier = chip) {
+            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+    } else {
+        androidx.compose.material3.OutlinedButton(onClick = onClick, modifier = chip) {
+            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
 }
@@ -297,7 +298,6 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
             }
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -322,7 +322,6 @@ private fun DownloadRow(item: QueueItem, onClick: () -> Unit) {
             )
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -361,5 +360,4 @@ private fun ResultRow(r: SearchResult, onClick: () -> Unit) {
             )
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }

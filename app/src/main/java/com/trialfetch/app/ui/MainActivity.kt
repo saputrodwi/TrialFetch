@@ -90,7 +90,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.animation.AnimatedVisibility
@@ -366,6 +365,10 @@ fun AppRoot(
                     popUpTo(Routes.HOME)
                     launchSingleTop = true
                 }
+            com.trialfetch.app.data.DownloadNotifier.OPEN_CANCEL -> vm.cancelDownload()
+            com.trialfetch.app.data.DownloadNotifier.OPEN_TOGGLE_PAUSE -> {
+                if (queuePaused) vm.queue.resumeAll() else vm.queue.pauseAll()
+            }
             null -> return@LaunchedEffect
             else -> return@LaunchedEffect
         }
@@ -1735,6 +1738,23 @@ private fun ReaderScreen(
                                 expanded = menuOpen,
                                 onDismissRequest = { menuOpen = false }
                             ) {
+                                ReaderMode.entries.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option.label) },
+                                        trailingIcon = {
+                                            if (option == mode) {
+                                                Icon(
+                                                    Icons.Default.Check,
+                                                    contentDescription = null
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            menuOpen = false
+                                            onModeChange(option)
+                                        }
+                                    )
+                                }
                                 DropdownMenuItem(
                                     text = { Text("Unduh chapter") },
                                     leadingIcon = {
@@ -1873,40 +1893,6 @@ private fun ReaderScreen(
                                         contentDescription = "Chapter berikutnya",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                }
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            // Pilihan mode baca eksplisit (Mihon): tiga
-                            // tombol dengan label, bukan ikon samar.
-                            val ctx = LocalContext.current
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                ReaderMode.entries.forEach { option ->
-                                    val active = option == mode
-                                    val chip = Modifier
-                                        .heightIn(min = Space.touch)
-                                        .weight(1f)
-                                    if (active) {
-                                        androidx.compose.material3.Button(
-                                            onClick = { onModeChange(option) },
-                                            modifier = chip
-                                        ) {
-                                            Text(option.label, style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    } else {
-                                        androidx.compose.material3.OutlinedButton(
-                                            onClick = {
-                                                onModeChange(option)
-                                                Toast.makeText(ctx, option.label, Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = chip
-                                        ) {
-                                            Text(option.label, style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
                                 }
                             }
                             Spacer(Modifier.height(4.dp))

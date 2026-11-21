@@ -58,6 +58,16 @@
     <string name="settings_reset">Kembalikan bawaan</string>
     <string name="settings_build">TrialFetch 1.0 (build %1$d)</string>
     <string name="settings_choose">Pilih %1$s</string>
+    <string name="settings_theme_desc">Pilih tampilan terang, gelap, atau mengikuti sistem.</string>
+    <string name="settings_reader_mode_desc">Arah geser halaman, atau gulir vertikal untuk webtoon.</string>
+    <string name="settings_output_mode_desc">Simpan setiap chapter sebagai folder gambar atau satu berkas ZIP.</string>
+    <string name="settings_naming_desc">Bentuk nama file gambar di folder chapter.</string>
+    <string name="settings_doh_provider_desc">Layanan yang dipakai untuk menyelesaikan nama domain.</string>
+    <string name="settings_backup_desc">Simpan bookmark dan riwayat ke file yang bisa dipindahkan.</string>
+    <string name="settings_restore_desc">Pulihkan bookmark dan riwayat dari file cadangan.</string>
+    <string name="settings_manage_title">Akses semua file</string>
+    <string name="settings_manage_off_desc">Izin ini memungkinkan unduhan dari aplikasi atau varian lain tetap terbaca. Aktifkan bila koleksi lama tidak muncul.</string>
+    <string name="settings_copy_desc">Salin hasil diagnostik ke clipboard.</string>
 
     <!-- Unduhan -->
     <string name="downloads_title">Unduhan</string>
@@ -74,6 +84,7 @@
     <string name="download_cancel">Batalkan unduhan</string>
     <string name="download_remove">Hapus dari daftar</string>
     <string name="download_retry">Coba lagi</string>
+    <string name="downloads_note">Batalkan menghentikan unduhan; hapus hanya menghapus entri dari daftar. File yang sudah tersimpan tetap ada di Download/TrialFetch.</string>
 
     <!-- Beranda -->
     <string name="home_title">TrialFetch</string>
@@ -113,6 +124,7 @@
     <string name="series_saved">Tersimpan</string>
     <string name="series_synopsis">Sinopsis</string>
     <string name="series_hide_synopsis">Tutup</string>
+    <string name="series_more_synopsis">Selengkapnya</string>
     <string name="series_chapters">Daftar chapter</string>
     <string name="series_sort_old">Urut lama ke baru</string>
     <string name="series_sort_new">Urut baru ke lama</string>

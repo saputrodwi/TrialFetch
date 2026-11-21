@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -73,6 +72,11 @@ fun DownloadsScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Text(
+            stringResource(R.string.downloads_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(Space.md))
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = if (queuePaused) onResumeAll else onPauseAll) {
@@ -89,7 +93,6 @@ fun DownloadsScreen(
                 }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(Space.sm))
 
         LazyColumn(
@@ -181,16 +184,18 @@ private fun DownloadRow(
             }
             Spacer(Modifier.width(Space.sm))
             when (item.state) {
-                QueueItemState.ACTIVE -> IconButton(onClick = onCancel) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.download_cancel))
+                QueueItemState.ACTIVE -> TextButton(onClick = onCancel) {
+                    Text(stringResource(R.string.download_cancel))
                 }
-                QueueItemState.DONE, QueueItemState.CANCELLED -> IconButton(onClick = onRemove) {
-                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.download_remove))
+                QueueItemState.DONE, QueueItemState.CANCELLED -> TextButton(onClick = onRemove) {
+                    Text(stringResource(R.string.download_remove))
                 }
-                QueueItemState.FAILED -> IconButton(onClick = onRetry) {
-                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.download_retry))
+                QueueItemState.FAILED -> TextButton(onClick = onRetry) {
+                    Text(stringResource(R.string.download_retry))
                 }
-                QueueItemState.QUEUED -> Unit
+                QueueItemState.QUEUED -> TextButton(onClick = onCancel) {
+                    Text(stringResource(R.string.download_cancel))
+                }
             }
         }
         Spacer(Modifier.height(Space.sm))
@@ -217,5 +222,4 @@ private fun DownloadRow(
             )
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }

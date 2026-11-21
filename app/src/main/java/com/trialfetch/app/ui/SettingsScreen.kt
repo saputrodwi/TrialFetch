@@ -1,7 +1,6 @@
 package com.trialfetch.app.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,35 +9,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Crop
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.trialfetch.app.BuildConfig
 import com.trialfetch.app.R
 import com.trialfetch.app.core.DohProvider
@@ -50,9 +41,8 @@ import com.trialfetch.app.data.ThemeMode
 import com.trialfetch.app.ui.theme.Space
 
 /**
- * Pengaturan: satu sistem baris untuk semua opsi. Tiap baris memakai
- * ikon fungsi, label, nilai aktif, dan panah — tidak ada kartu bertumpuk
- * maupun kontrol yang tampil beda-beda antar seksi.
+ * Pengaturan: daftar berisi penjelasan. Tiap opsi menampilkan apa fungsinya
+ * dan nilai aktifnya; tidak ada ikon dekoratif di setiap baris.
  */
 @Composable
 fun SettingsScreen(
@@ -71,34 +61,34 @@ fun SettingsScreen(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = Space.lg, vertical = Space.md)
+            .padding(horizontal = Space.lg, vertical = Space.lg)
     ) {
         Text(
             stringResource(R.string.settings_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.semantics { heading() }
         )
-        Spacer(Modifier.height(Space.lg))
+        Spacer(Modifier.height(Space.xl))
 
-        SettingsGroup(stringResource(R.string.settings_section_display), Icons.Default.Palette) {
-            ChoiceRow(
-                icon = Icons.Default.Palette,
-                label = stringResource(R.string.settings_theme),
+        SettingSection(stringResource(R.string.settings_section_display)) {
+            SettingChoice(
+                title = stringResource(R.string.settings_theme),
+                description = stringResource(R.string.settings_theme_desc),
                 options = ThemeMode.entries.map { it.label },
                 selectedIndex = ThemeMode.entries.indexOf(settings.themeMode)
             ) { i -> onChange(settings.copy(themeMode = ThemeMode.entries[i])) }
-            ChoiceRow(
-                icon = Icons.Default.AutoStories,
-                label = stringResource(R.string.settings_reader_mode),
+            SettingChoice(
+                title = stringResource(R.string.settings_reader_mode),
+                description = stringResource(R.string.settings_reader_mode_desc),
                 options = ReaderMode.entries.map { it.label },
                 selectedIndex = ReaderMode.entries.indexOf(settings.readerMode)
             ) { i -> onChange(settings.copy(readerMode = ReaderMode.entries[i])) }
         }
 
-        SettingsGroup(stringResource(R.string.settings_section_download), Icons.Default.Download) {
-            ChoiceRow(
-                icon = Icons.Default.Folder,
-                label = stringResource(R.string.settings_output_mode),
+        SettingSection(stringResource(R.string.settings_section_download)) {
+            SettingChoice(
+                title = stringResource(R.string.settings_output_mode),
+                description = stringResource(R.string.settings_output_mode_desc),
                 options = listOf(
                     stringResource(R.string.settings_output_folder),
                     stringResource(R.string.settings_output_zip)
@@ -111,99 +101,85 @@ fun SettingsScreen(
                     )
                 )
             }
-            ChoiceRow(
-                icon = Icons.Default.Download,
-                label = stringResource(R.string.settings_naming),
+            SettingChoice(
+                title = stringResource(R.string.settings_naming),
+                description = stringResource(R.string.settings_naming_desc),
                 options = NamingRule.PRESETS.map { it.second },
                 selectedIndex = NamingRule.PRESETS.indexOfFirst { it.first == settings.naming }
                     .takeIf { it >= 0 } ?: 0
             ) { i -> onChange(settings.copy(naming = NamingRule.PRESETS[i].first)) }
-            Text(
+            SettingNote(
                 stringResource(
                     R.string.settings_naming_example,
                     listOf(1, 12, 121).joinToString("  ") { settings.naming.fileName(it, "jpg") }
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                fontFamily = FontFamily.Monospace,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = Space.touch + Space.md, bottom = Space.md)
+                )
             )
-            SwitchRow(
-                icon = Icons.Default.Crop,
-                label = stringResource(R.string.settings_crop_banner),
-                subtitle = stringResource(R.string.settings_crop_banner_hint),
+            SettingSwitch(
+                title = stringResource(R.string.settings_crop_banner),
+                description = stringResource(R.string.settings_crop_banner_hint),
                 checked = settings.cropBanner
             ) { v -> onChange(settings.copy(cropBanner = v)) }
         }
 
-        SettingsGroup(stringResource(R.string.settings_section_network), Icons.Default.Dns) {
-            SwitchRow(
-                icon = Icons.Default.Dns,
-                label = stringResource(R.string.settings_doh),
-                subtitle = stringResource(R.string.settings_doh_hint),
+        SettingSection(stringResource(R.string.settings_section_network)) {
+            SettingSwitch(
+                title = stringResource(R.string.settings_doh),
+                description = stringResource(R.string.settings_doh_hint),
                 checked = settings.dohEnabled
             ) { v -> onChange(settings.copy(dohEnabled = v)) }
             if (settings.dohEnabled) {
-                ChoiceRow(
-                    icon = Icons.Default.Dns,
-                    label = stringResource(R.string.settings_doh_provider),
+                SettingChoice(
+                    title = stringResource(R.string.settings_doh_provider),
+                    description = stringResource(R.string.settings_doh_provider_desc),
                     options = DohProvider.entries.map { it.label },
                     selectedIndex = DohProvider.entries.indexOf(settings.dohProvider)
                 ) { i -> onChange(settings.copy(dohProvider = DohProvider.entries[i])) }
             }
         }
 
-        SettingsGroup(stringResource(R.string.settings_section_data), Icons.Default.Folder) {
-            ActionRow(
-                icon = Icons.Default.Folder,
-                label = stringResource(R.string.settings_backup),
+        SettingSection(stringResource(R.string.settings_section_data)) {
+            SettingAction(
+                title = stringResource(R.string.settings_backup),
+                description = stringResource(R.string.settings_backup_desc),
                 onClick = onExportBackup
             )
-            ActionRow(
-                icon = Icons.Default.Folder,
-                label = stringResource(R.string.settings_restore),
+            SettingAction(
+                title = stringResource(R.string.settings_restore),
+                description = stringResource(R.string.settings_restore_desc),
                 onClick = onImportBackup
             )
-            ActionRow(
-                icon = Icons.Default.Folder,
-                label = stringResource(
-                    if (manageGranted) R.string.settings_manage_on else R.string.settings_manage_action
+            SettingAction(
+                title = stringResource(R.string.settings_manage_title),
+                description = stringResource(
+                    if (manageGranted) R.string.settings_manage_on else R.string.settings_manage_off_desc
                 ),
                 onClick = onRequestManage,
                 enabled = !manageGranted
             )
         }
 
-        SettingsGroup(stringResource(R.string.settings_section_diagnostics), Icons.Default.BugReport) {
-            ActionRow(
-                icon = Icons.Default.BugReport,
-                label = stringResource(R.string.settings_run),
+        SettingSection(stringResource(R.string.settings_section_diagnostics)) {
+            SettingAction(
+                title = stringResource(R.string.settings_run),
+                description = stringResource(R.string.settings_diagnostics_hint),
                 onClick = onRunDiagnostics
             )
-            ActionRow(
-                icon = Icons.Default.BugReport,
-                label = stringResource(R.string.settings_copy),
-                onClick = {
-                    val clip = android.content.ClipData.newPlainText("diagnostik", diagResult)
-                    val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                        as android.content.ClipboardManager
-                    cm.setPrimaryClip(clip)
-                }
-            )
             if (diagResult.isNotBlank()) {
-                Text(
-                    diagResult,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = Space.touch + Space.md, bottom = Space.md)
+                SettingNote(diagResult)
+                SettingAction(
+                    title = stringResource(R.string.settings_copy),
+                    description = stringResource(R.string.settings_copy_desc),
+                    onClick = {
+                        val clip = android.content.ClipData.newPlainText("diagnostik", diagResult)
+                        val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                            as android.content.ClipboardManager
+                        cm.setPrimaryClip(clip)
+                    }
                 )
             }
         }
 
-        Spacer(Modifier.height(Space.lg))
+        Spacer(Modifier.height(Space.xl))
         TextButton(onClick = onReset) { Text(stringResource(R.string.settings_reset)) }
         Text(
             stringResource(R.string.settings_build, BuildConfig.VERSION_CODE),
@@ -215,129 +191,131 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsGroup(
-    title: String,
-    icon: ImageVector,
-    content: @Composable () -> Unit
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(Space.sm))
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.semantics { heading() }
-        )
-    }
+private fun SettingSection(title: String, content: @Composable () -> Unit) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.semantics { heading() }
+    )
     Spacer(Modifier.height(Space.sm))
     content()
-    Spacer(Modifier.height(Space.md))
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    Spacer(Modifier.height(Space.lg))
+    Spacer(Modifier.height(Space.xl))
 }
 
 @Composable
-private fun ChoiceRow(
-    icon: ImageVector,
-    label: String,
+private fun SettingChoice(
+    title: String,
+    description: String,
     options: List<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit
 ) {
-    Column(Modifier.fillMaxWidth().padding(vertical = Space.sm)) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable { expanded = true }
+            .padding(vertical = Space.md)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(Space.md))
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(Space.xs))
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.widthCompat())
+            Text(
+                options.getOrNull(selectedIndex).orEmpty(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
-        Spacer(Modifier.height(Space.sm))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Space.sm),
-            verticalAlignment = Alignment.CenterVertically
+        androidx.compose.material3.DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
         ) {
             options.forEachIndexed { index, option ->
-                val modifier = Modifier
-                    .heightIn(min = Space.touch)
-                    .weight(1f, fill = true)
-                if (index == selectedIndex) {
-                    androidx.compose.material3.Button(
-                        onClick = { onSelect(index) },
-                        modifier = modifier
-                    ) {
-                        Text(option, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onSelect(index)
+                        expanded = false
                     }
-                } else {
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = { onSelect(index) },
-                        modifier = modifier
-                    ) {
-                        Text(option, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                    }
-                }
+                )
             }
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
-private fun SwitchRow(
-    icon: ImageVector,
-    label: String,
-    subtitle: String,
+private fun Modifier.widthCompat(): Modifier = this.padding(start = Space.sm)
+
+@Composable
+private fun SettingSwitch(
+    title: String,
+    description: String,
     checked: Boolean,
     onChange: (Boolean) -> Unit
 ) {
     Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = Space.touch)
-            .padding(vertical = Space.sm),
+        Modifier.fillMaxWidth().heightIn(min = Space.touch).padding(vertical = Space.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(Space.md))
         Column(Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.height(Space.xs))
             Text(
-                subtitle,
+                description,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Spacer(Modifier.width(Space.sm))
         Switch(checked = checked, onCheckedChange = onChange)
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
-private fun ActionRow(
-    icon: ImageVector,
-    label: String,
+private fun SettingAction(
+    title: String,
+    description: String,
     onClick: () -> Unit,
     enabled: Boolean = true
 ) {
-    Row(
+    Column(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = Space.touch)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = Space.sm),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = Space.md)
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(Space.md))
         Text(
-            label,
+            title,
             style = MaterialTheme.typography.bodyLarge,
             color = if (enabled) MaterialTheme.colorScheme.onSurface
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(Space.xs))
+        Text(
+            description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+@Composable
+private fun SettingNote(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        fontFamily = FontFamily.Monospace,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(vertical = Space.md)
+    )
 }

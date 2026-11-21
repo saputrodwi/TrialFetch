@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -67,7 +66,6 @@ fun HistoryScreen(
                 TextButton(onClick = onClear) { Text(stringResource(R.string.history_clear)) }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         LazyColumn(
             Modifier.weight(1f),
@@ -134,6 +132,14 @@ private fun HistoryRow(
             )
             if (entry.totalPages > 0) {
                 Spacer(Modifier.height(Space.sm))
+                val pct = entry.fraction?.let { (it * 100).toInt().coerceIn(0, 100) }
+                Text(
+                    if (pct != null) stringResource(R.string.pages_progress, entry.page, entry.totalPages, pct)
+                    else stringResource(R.string.pages_progress_short, entry.page, entry.totalPages),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(Space.xs))
                 LinearProgressIndicator(
                     progress = { entry.fraction ?: 0f },
                     modifier = Modifier.fillMaxWidth()
@@ -145,5 +151,4 @@ private fun HistoryRow(
             Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.history_remove))
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
