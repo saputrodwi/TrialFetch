@@ -35,8 +35,8 @@ import androidx.compose.ui.unit.dp
  * tetap kompil, tetapi tampilannya sekarang minimalis: satu aksen, surface
  * tonal, garis 1dp, tanpa bayangan dekoratif.
  */
-private val CardShape = RoundedCornerShape(12.dp)
-private val PillShape = RoundedCornerShape(8.dp)
+private val CardShape = RoundedCornerShape(4.dp)
+private val PillShape = RoundedCornerShape(4.dp)
 
 /** Kompatibilitas dengan pemanggil lama; dekorasi bayangan tidak dipakai. */
 fun Modifier.hardShadow(
@@ -85,9 +85,7 @@ fun BrutalCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val base = modifier
-        .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-        .border(borderWidth, borderColor, shape)
+    val base = modifier.background(MaterialTheme.colorScheme.surfaceVariant, shape)
     Surface(
         modifier = if (onClick != null) base.clickable(onClick = onClick) else base,
         color = Color.Transparent,
@@ -113,11 +111,21 @@ fun BrutalButton(
     val primary = background == LocalExtraColors.current.yellow
     val buttonModifier = modifier.heightIn(min = Space.touch)
     if (primary) {
-        Button(onClick = onClick, modifier = buttonModifier, enabled = enabled) {
+        Button(
+            onClick = onClick,
+            modifier = buttonModifier,
+            enabled = enabled,
+            shape = CardShape
+        ) {
             Text(text, style = MaterialTheme.typography.labelLarge)
         }
     } else {
-        OutlinedButton(onClick = onClick, modifier = buttonModifier, enabled = enabled) {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = buttonModifier,
+            enabled = enabled,
+            shape = CardShape
+        ) {
             Text(text, style = MaterialTheme.typography.labelLarge)
         }
     }
@@ -142,11 +150,19 @@ fun BrutalChoiceRow(
             val selected = index == selectedIndex
             val choiceModifier = Modifier.heightIn(min = Space.touch)
             if (selected) {
-                Button(onClick = { onSelect(index) }, modifier = choiceModifier) {
+                Button(
+                    onClick = { onSelect(index) },
+                    modifier = choiceModifier,
+                    shape = CardShape
+                ) {
                     Text(option, style = MaterialTheme.typography.labelMedium)
                 }
             } else {
-                OutlinedButton(onClick = { onSelect(index) }, modifier = choiceModifier) {
+                OutlinedButton(
+                    onClick = { onSelect(index) },
+                    modifier = choiceModifier,
+                    shape = CardShape
+                ) {
                     Text(option, style = MaterialTheme.typography.labelMedium)
                 }
             }
