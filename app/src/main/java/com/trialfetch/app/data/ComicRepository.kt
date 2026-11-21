@@ -332,8 +332,8 @@ class ComicRepository(
                 while (it.moveToNext()) {
                     n++
                     val name = it.getString(nameIdx).orEmpty()
-                    if (name == StorageWriter.INFO_FILE || name.endsWith(".nomedia") ||
-                        name == StorageWriter.LEGACY_INFO_FILE
+                    if (name == INFO_FILE || name.endsWith(".nomedia") ||
+                        name == LEGACY_INFO_FILE
                     ) nInfo++
                 }
             }
@@ -722,7 +722,7 @@ class ComicRepository(
 
         val savedPath: String = when (settings.outputMode) {
             OutputMode.FOLDER -> {
-                storage.writeText(parentPath, StorageWriter.INFO_FILE, info)
+                storage.writeText(parentPath, INFO_FILE, info)
                 storage.displayPath(parentPath)
             }
             OutputMode.ZIP -> {
@@ -735,7 +735,7 @@ class ComicRepository(
                 }
                 storage.writeText(seriesDir, "$chapterDir.nomedia", info)
                 // Sembunyikan arsip ZIP dari galeri seperti Mihon.
-                storage.writeText(seriesDir, StorageWriter.INFO_FILE, "")
+                storage.writeText(seriesDir, INFO_FILE, "")
                 storage.displayPath("$seriesDir/$zipName")
             }
         }
