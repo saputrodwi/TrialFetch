@@ -331,7 +331,10 @@ class ComicRepository(
                 val nameIdx = it.getColumnIndex(android.provider.MediaStore.Downloads.DISPLAY_NAME)
                 while (it.moveToNext()) {
                     n++
-                    if (it.getString(nameIdx) == "info.txt") nInfo++
+                    val name = it.getString(nameIdx).orEmpty()
+                    if (name == StorageWriter.INFO_FILE || name.endsWith(".nomedia") ||
+                        name == StorageWriter.LEGACY_INFO_FILE
+                    ) nInfo++
                 }
             }
             out.appendLine("mediaRows=$n mediaInfoTxt=$nInfo")
@@ -719,7 +722,7 @@ class ComicRepository(
 
         val savedPath: String = when (settings.outputMode) {
             OutputMode.FOLDER -> {
-                storage.writeText(parentPath, "info.txt", info)
+                storage.writeText(parentPath, StorageWriter.INFO_FILE, info)
                 storage.displayPath(parentPath)
             }
             OutputMode.ZIP -> {
@@ -730,7 +733,9 @@ class ComicRepository(
                 if (zipSink == null || !zipSink.commit()) {
                     return@withContext fail("Gagal menyelesaikan arsip ZIP.")
                 }
-                storage.writeText(seriesDir, "$chapterDir.info.txt", info)
+                storage.writeText(seriesDir, "$chapterDir.nomedia", info)
+                // Sembunyikan arsip ZIP dari galeri seperti Mihon.
+                storage.writeText(seriesDir, StorageWriter.INFO_FILE, "")
                 storage.displayPath("$seriesDir/$zipName")
             }
         }

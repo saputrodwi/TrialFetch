@@ -35,6 +35,14 @@ class StorageWriter(private val context: Context) {
          * anggap lengkap padahal ekstraksi bisa saja terputus di tengah.
          */
         const val COMPLETE_MARKER = ".complete"
+
+        /**
+         * Penanda sekaligus metadata chapter ala Mihon. Selain menyimpan
+         * info series, nama `.nomedia` menyembunyikan gambar unduhan dari
+         * galeri sistem. File `info.txt` lama tetap dibaca sebagai fallback.
+         */
+        const val INFO_FILE = ".nomedia"
+        const val LEGACY_INFO_FILE = "info.txt"
     }
 
     internal val resolver = context.contentResolver
@@ -244,26 +252,41 @@ class StorageWriter(private val context: Context) {
             val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             resolver.query(
                 collection,
-                arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.RELATIVE_PATH),
-                "${MediaStore.Downloads.DISPLAY_NAME} = ? AND ${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
-                arrayOf("info.txt", "${Environment.DIRECTORY_DOWNLOADS}/${OutputPaths.ROOT}/%"),
+                arrayOf(
+                    MediaStore.Downloads._ID,
+                    MediaStore.Downloads.RELATIVE_PATH,
+                    MediaStore.Downloads.DISPLAY_NAME
+                ),
+                "(${MediaStore.Downloads.DISPLAY_NAME} LIKE ? OR ${MediaStore.Downloads.DISPLAY_NAME} = ?) " +
+                    "AND ${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
+                arrayOf(
+                    "%.nomedia", LEGACY_INFO_FILE,
+                    "${Environment.DIRECTORY_DOWNLOADS}/${OutputPaths.ROOT}/%"
+                ),
                 null
             )?.use { c ->
                 val idIdx = c.getColumnIndex(MediaStore.Downloads._ID)
                 val pathIdx = c.getColumnIndex(MediaStore.Downloads.RELATIVE_PATH)
+                val nameIdx = c.getColumnIndex(MediaStore.Downloads.DISPLAY_NAME)
                 while (c.moveToNext()) {
                     val id = c.getLong(idIdx)
                     val relPath = c.getString(pathIdx) ?: continue
+                    val name = c.getString(nameIdx) ?: continue
                     val uri = ContentUris.withAppendedId(collection, id)
                     val content = runCatching {
                         resolver.openInputStream(uri)
                             ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
                     }.getOrNull() ?: continue
                     if (!infoTxtMatches(content, sourceDisplayName, seriesTitle, comicId)) continue
-                    // relPath = "Download/TrialFetch/<...>/<chapter>/"
+                    // relPath = "Download/TrialFetch/<series>/<chapter>/"
+                    // ZIP: "<chapter>.nomedia" ada di folder series.
                     val parts = relPath.trimEnd('/').split("/")
-                    if (parts.size >= 4) {
+                    if (parts.size < 4) continue
+                    if (name == INFO_FILE || name == LEGACY_INFO_FILE) {
                         result[parts.last()] = parts.drop(2).dropLast(1).joinToString("/")
+                    } else if (name.endsWith(".nomedia")) {
+                        val chapter = name.removeSuffix(".nomedia")
+                        result[chapter] = parts.drop(2).joinToString("/")
                     }
                 }
             }
@@ -310,12 +333,20 @@ class StorageWriter(private val context: Context) {
         for (child in children) {
             if (child.isDirectory) {
                 scanInfoTxt(child, sourceDisplayName, seriesTitle, comicId, out, root, depth + 1)
-            } else if (child.name == "info.txt") {
+            } else if (child.name == INFO_FILE || child.name == LEGACY_INFO_FILE ||
+                child.name.endsWith(".nomedia")
+            ) {
                 val content = runCatching { child.readText() }.getOrNull() ?: continue
                 if (!infoTxtMatches(content, sourceDisplayName, seriesTitle, comicId)) continue
-                val chapterDir = child.parentFile?.name ?: continue
-                val seriesDir = child.parentFile?.parentFile ?: continue
-                out[chapterDir] = seriesDir.relativeTo(root).path
+                val folder = child.parentFile ?: continue
+                if (child.name.endsWith(".nomedia") && child.name != INFO_FILE) {
+                    // Mode ZIP: "<chapter>.nomedia" berada di folder series.
+                    out[child.name.removeSuffix(".nomedia")] = folder.relativeTo(root).path
+                } else {
+                    // Mode Folder: penanda berada di dalam folder chapter.
+                    val seriesDir = folder.parentFile ?: continue
+                    out[folder.name] = seriesDir.relativeTo(root).path
+                }
             }
         }
     }
@@ -812,7 +843,7 @@ class StorageWriter(private val context: Context) {
         name.endsWith(".heic", true) -> "image/heic"
         name.endsWith(".jxl", true) -> "image/jxl"
         name.endsWith(".zip", true) -> "application/zip"
-        name.endsWith(".txt", true) -> "text/plain"
+        name.endsWith(".txt", true) || name.endsWith(".nomedia", true) -> "text/plain"
         else -> "application/octet-stream"
     }
 }
