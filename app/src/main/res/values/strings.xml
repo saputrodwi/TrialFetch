@@ -57,6 +57,7 @@
     <string name="settings_copied">Hasil disalin</string>
     <string name="settings_reset">Kembalikan bawaan</string>
     <string name="settings_build">TrialFetch 1.0 (build %1$d)</string>
+    <string name="settings_choose">Pilih %1$s</string>
 
     <!-- Detail series -->
     <string name="series_back">Kembali</string>
