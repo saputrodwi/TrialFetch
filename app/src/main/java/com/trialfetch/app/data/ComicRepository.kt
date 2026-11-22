@@ -459,7 +459,7 @@ class ComicRepository(
         Source.RUMAN -> "https://www.rumanhua.org/news/$comicId"
         Source.MANHUAHAO -> "https://m.manhuahao.com/$comicId"
         Source.MANGAGO -> "https://www.mgeko.cc/manga/$comicId/"
-        Source.HIPMH -> "https://m.hipmh.com/series/$comicId/"
+        Source.HIPMH -> "https://m.hipmh.com/works/$comicId/"
         Source.MANGADEX -> "https://mangadex.org/manga/$comicId/"
     }
 
