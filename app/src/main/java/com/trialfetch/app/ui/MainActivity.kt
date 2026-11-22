@@ -122,6 +122,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -1829,18 +1830,18 @@ private fun ReaderScreen(
                 // tinta/border — bersih di atas gambar. Sembunyi/tampil
                 // mengikuti ketukan.
                 var menuOpen by remember { mutableStateOf(false) }
-                val barBg = MaterialTheme.colorScheme.surface
+                val barBg = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
                 AnimatedVisibility(
                     visible = menusVisible,
                     modifier = Modifier.align(Alignment.TopCenter),
                     enter = fadeIn() + slideInVertically { -it },
                     exit = fadeOut() + slideOutVertically { -it }
                 ) {
-                    Column(Modifier.fillMaxWidth()) {
+                    Box(Modifier.fillMaxWidth()) {
+                        ReaderBarBackdrop(barBg)
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .background(barBg)
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1873,25 +1874,6 @@ private fun ReaderScreen(
                                 )
                             }
                             Spacer(Modifier.width(10.dp))
-                            IconButton(onClick = {
-                                onModeChange(
-                                    when (mode) {
-                                        ReaderMode.LEFT_TO_RIGHT -> ReaderMode.RIGHT_TO_LEFT
-                                        ReaderMode.RIGHT_TO_LEFT -> ReaderMode.WEBTOON
-                                        ReaderMode.WEBTOON -> ReaderMode.LEFT_TO_RIGHT
-                                    }
-                                )
-                            }) {
-                                Icon(
-                                    when (mode) {
-                                        ReaderMode.WEBTOON -> Icons.Default.ViewAgenda
-                                        ReaderMode.RIGHT_TO_LEFT -> Icons.Default.ArrowUpward
-                                        ReaderMode.LEFT_TO_RIGHT -> Icons.Default.AutoStories
-                                    },
-                                    contentDescription = "Ganti mode baca: ${mode.label}",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
                             IconButton(onClick = { menuOpen = true }) {
                                 Icon(
                                     Icons.Default.MoreVert,
@@ -1972,12 +1954,13 @@ private fun ReaderScreen(
                     enter = fadeIn() + slideInVertically { it },
                     exit = fadeOut() + slideOutVertically { it }
                 ) {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(barBg)
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
+                    Box(Modifier.fillMaxWidth()) {
+                        ReaderBarBackdrop(barBg)
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(
                                     onClick = { prevChapter?.let(onNavigate) },
@@ -2061,6 +2044,20 @@ private fun ReaderScreen(
             }
         }
     }
+
+/** Latar bilah reader: solid transparan di bawah API 31, blur di atasnya. */
+@Composable
+private fun ReaderBarBackdrop(color: androidx.compose.ui.graphics.Color) {
+    Box(
+        Modifier
+            .matchParentSize()
+            .background(color)
+            .then(
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(12.dp)
+                else Modifier
+            )
+    )
+}
 
 /**
  * Tombol ikon lingkaran bergaris tinta + bayangan keras untuk reader.
