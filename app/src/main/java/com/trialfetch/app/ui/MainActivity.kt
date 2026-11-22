@@ -122,7 +122,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -1837,11 +1836,10 @@ private fun ReaderScreen(
                     enter = fadeIn() + slideInVertically { -it },
                     exit = fadeOut() + slideOutVertically { -it }
                 ) {
-                    Box(Modifier.fillMaxWidth()) {
-                        ReaderBarBackdrop(barBg)
                         Row(
                             Modifier
                                 .fillMaxWidth()
+                                .background(barBg)
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1943,7 +1941,6 @@ private fun ReaderScreen(
                                 )
                             }
                         }
-                    }
                 }
                 // Bilah bawah ala Mihon: navigator chapter terpadu
                 // (prev + slider + next) lalu barisan ikon fungsi.
@@ -1954,11 +1951,10 @@ private fun ReaderScreen(
                     enter = fadeIn() + slideInVertically { it },
                     exit = fadeOut() + slideOutVertically { it }
                 ) {
-                    Box(Modifier.fillMaxWidth()) {
-                        ReaderBarBackdrop(barBg)
                         Column(
                             Modifier
                                 .fillMaxWidth()
+                                .background(barBg)
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2039,25 +2035,10 @@ private fun ReaderScreen(
                                 }
                             }
                         }
-                    }
                 }
             }
         }
     }
-}
-
-/** Latar bilah reader: solid transparan di bawah API 31, blur di atasnya. */
-@Composable
-private fun ReaderBarBackdrop(color: androidx.compose.ui.graphics.Color) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(color)
-            .then(
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(12.dp)
-                else Modifier
-            )
-    )
 }
 
 /**

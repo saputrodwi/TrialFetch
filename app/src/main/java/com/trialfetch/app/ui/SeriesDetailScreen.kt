@@ -88,6 +88,7 @@ fun SeriesDetailScreen(
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var synopsisExpanded by remember { mutableStateOf(false) }
+    var synopsisOverflow by remember { mutableStateOf(false) }
     var newestFirst by remember { mutableStateOf(true) }
     var filter by remember { mutableStateOf("") }
     var selecting by remember { mutableStateOf(false) }
@@ -195,6 +196,10 @@ fun SeriesDetailScreen(
                                 )
                             )
                         }
+                        Spacer(Modifier.width(Space.sm))
+                        OutlinedButton(onClick = onOpenWeb) {
+                            Text(stringResource(R.string.series_open_web_short))
+                        }
                     }
                     if (info.synopsis.isNotBlank()) {
                         Spacer(Modifier.height(Space.md))
@@ -210,16 +215,23 @@ fun SeriesDetailScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = if (synopsisExpanded) Int.MAX_VALUE else 4,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                onTextLayout = { result ->
+                                    if (!synopsisExpanded) {
+                                        synopsisOverflow = result.hasVisualOverflow
+                                    }
+                                }
                             )
                         }
-                        TextButton(onClick = { synopsisExpanded = !synopsisExpanded }) {
-                            Text(
-                                stringResource(
-                                    if (synopsisExpanded) R.string.series_hide_synopsis
-                                    else R.string.series_more_synopsis
+                        if (synopsisExpanded || synopsisOverflow) {
+                            TextButton(onClick = { synopsisExpanded = !synopsisExpanded }) {
+                                Text(
+                                    stringResource(
+                                        if (synopsisExpanded) R.string.series_hide_synopsis
+                                        else R.string.series_more_synopsis
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }
