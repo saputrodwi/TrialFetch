@@ -2044,6 +2044,7 @@ private fun ReaderScreen(
             }
         }
     }
+}
 
 /** Latar bilah reader: solid transparan di bawah API 31, blur di atasnya. */
 @Composable
