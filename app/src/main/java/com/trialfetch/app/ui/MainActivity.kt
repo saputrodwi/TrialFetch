@@ -94,6 +94,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -842,10 +845,32 @@ private fun RowScope.BottomTab(
     label: String,
     badgeCount: Int = 0
 ) {
+    val iconColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.onPrimary
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(200),
+        label = "tabIconColor"
+    )
+    val iconScale by animateFloatAsState(
+        targetValue = if (selected) 1.15f else 1f,
+        animationSpec = tween(200),
+        label = "tabIconScale"
+    )
     NavigationBarItem(
         selected = selected,
         onClick = onClick,
         icon = {
+            val iconContent: @Composable () -> Unit = {
+                Icon(
+                    icon,
+                    contentDescription = label,
+                    tint = iconColor,
+                    modifier = Modifier.graphicsLayer(
+                        scaleX = iconScale,
+                        scaleY = iconScale
+                    )
+                )
+            }
             if (badgeCount > 0) {
                 BadgedBox(
                     badge = {
@@ -854,11 +879,9 @@ private fun RowScope.BottomTab(
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ) { Text("$badgeCount") }
                     }
-                ) {
-                    Icon(icon, contentDescription = label)
-                }
+                ) { iconContent() }
             } else {
-                Icon(icon, contentDescription = label)
+                iconContent()
             }
         },
         // labelSmall 11sp: labelLarge 14sp terbukti kepotong ("Beran…",
@@ -1829,7 +1852,7 @@ private fun ReaderScreen(
                 // tinta/border — bersih di atas gambar. Sembunyi/tampil
                 // mengikuti ketukan.
                 var menuOpen by remember { mutableStateOf(false) }
-                val barBg = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                val barBg = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
                 AnimatedVisibility(
                     visible = menusVisible,
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -1969,8 +1992,8 @@ private fun ReaderScreen(
                                     )
                                 }
                                 Text(
-                                    "Halaman ${currentPage + 1} dari ${list.size}",
-                                    style = MaterialTheme.typography.labelLarge,
+                                    "${currentPage + 1} / ${list.size}",
+                                    style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f).padding(horizontal = Space.sm),
                                     maxLines = 1
@@ -2025,6 +2048,27 @@ private fun ReaderScreen(
                                         contentDescription = "Daftar chapter",
                                         tint = MaterialTheme.colorScheme.onSurface
                                     )
+                                }
+                                TextButton(onClick = {
+                                    onModeChange(
+                                        when (mode) {
+                                            ReaderMode.LEFT_TO_RIGHT -> ReaderMode.RIGHT_TO_LEFT
+                                            ReaderMode.RIGHT_TO_LEFT -> ReaderMode.WEBTOON
+                                            ReaderMode.WEBTOON -> ReaderMode.LEFT_TO_RIGHT
+                                        }
+                                    )
+                                }) {
+                                    Icon(
+                                        when (mode) {
+                                            ReaderMode.WEBTOON -> Icons.Default.ViewAgenda
+                                            ReaderMode.RIGHT_TO_LEFT -> Icons.Default.ArrowUpward
+                                            ReaderMode.LEFT_TO_RIGHT -> Icons.Default.AutoStories
+                                        },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(Space.xs))
+                                    Text(mode.label, style = MaterialTheme.typography.labelLarge)
                                 }
                                 IconButton(onClick = onDownload) {
                                     Icon(

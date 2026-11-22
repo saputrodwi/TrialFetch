@@ -197,8 +197,11 @@ fun SeriesDetailScreen(
                             )
                         }
                         Spacer(Modifier.width(Space.sm))
-                        OutlinedButton(onClick = onOpenWeb) {
-                            Text(stringResource(R.string.series_open_web_short))
+                        IconButton(onClick = onOpenWeb) {
+                            Icon(
+                                Icons.Default.Public,
+                                contentDescription = stringResource(R.string.series_open_web)
+                            )
                         }
                     }
                     if (info.synopsis.isNotBlank()) {
