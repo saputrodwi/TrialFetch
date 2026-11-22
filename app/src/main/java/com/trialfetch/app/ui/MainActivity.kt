@@ -39,7 +39,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -2052,7 +2051,7 @@ private fun ReaderScreen(
 private fun ReaderBarBackdrop(color: androidx.compose.ui.graphics.Color) {
     Box(
         Modifier
-            .matchParentSize()
+            .fillMaxSize()
             .background(color)
             .then(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(12.dp)
