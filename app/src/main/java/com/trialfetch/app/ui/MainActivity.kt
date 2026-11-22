@@ -875,9 +875,9 @@ private fun RowScope.BottomTab(
         // terang di atas kuning yang nyaris tak terbaca itu dibuang).
         // Tak terpilih: ikon redup tapi tetap jelas.
         colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            indicatorColor = MaterialTheme.colorScheme.primary,
+            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
