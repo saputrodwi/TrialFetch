@@ -719,8 +719,7 @@ class ComicRepository(
 
         val savedPath: String = when (settings.outputMode) {
             OutputMode.FOLDER -> {
-                storage.writeText(parentPath, INFO_FILE, info)
-                storage.writeNoMedia(parentPath)
+                storage.writeNoMedia(parentPath, info)
                 storage.displayPath(parentPath)
             }
             OutputMode.ZIP -> {
@@ -731,9 +730,7 @@ class ComicRepository(
                 if (zipSink == null || !zipSink.commit()) {
                     return@withContext fail("Gagal menyelesaikan arsip ZIP.")
                 }
-                storage.writeText(seriesDir, "$chapterDir.info.txt", info)
-                // Sembunyikan folder series dari galeri seperti Mihon.
-                storage.writeNoMedia(seriesDir)
+                storage.writeNoMedia(seriesDir, info)
                 storage.displayPath("$seriesDir/$zipName")
             }
         }

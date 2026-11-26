@@ -17,8 +17,7 @@ import java.util.zip.ZipOutputStream
  * series, nama `.nomedia` menyembunyikan gambar unduhan dari galeri sistem.
  * File `info.txt` lama tetap dibaca sebagai fallback.
  */
-/** Metadata chapter: tetap info.txt agar tidak diubah MediaStore. */
-const val INFO_FILE = "info.txt"
+/** Marker lama info.txt hanya dibaca, tidak pernah ditulis lagi. */
 const val LEGACY_INFO_FILE = "info.txt"
 
 /** Penanda galeri ala Mihon, ditulis lewat File langsung. */
@@ -333,7 +332,7 @@ class StorageWriter(private val context: Context) {
         for (child in children) {
             if (child.isDirectory) {
                 scanInfoTxt(child, sourceDisplayName, seriesTitle, comicId, out, root, depth + 1)
-            } else if (child.name == LEGACY_INFO_FILE) {
+            } else if (child.name == LEGACY_INFO_FILE || child.name == NOMEDIA_FILE) {
                 val content = runCatching { child.readText() }.getOrNull() ?: continue
                 if (!infoTxtMatches(content, sourceDisplayName, seriesTitle, comicId)) continue
                 val folder = child.parentFile ?: continue
@@ -813,13 +812,11 @@ class StorageWriter(private val context: Context) {
      * dipakai untuk marker ini. File API bekerja di sini karena izin akses
      * sudah diberikan (atau API < 29).
      */
-    fun writeNoMedia(folderPath: String) {
+    fun writeNoMedia(folderPath: String, content: String = "") {
         runCatching {
             val dir = treeFile(folderPath)
             dir.mkdirs()
-            java.io.File(dir, NOMEDIA_FILE).apply {
-                if (!exists()) createNewFile()
-            }
+            java.io.File(dir, NOMEDIA_FILE).writeText(content, Charsets.UTF_8)
         }
     }
 
