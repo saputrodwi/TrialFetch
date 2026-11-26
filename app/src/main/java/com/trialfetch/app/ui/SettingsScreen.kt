@@ -2,7 +2,7 @@ package com.trialfetch.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,15 +17,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -190,7 +189,11 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(Space.lg))
-        TextButton(onClick = onReset) { Text(stringResource(R.string.settings_reset)) }
+        androidx.compose.material3.OutlinedButton(
+            onClick = onReset,
+            modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch)
+        ) { Text(stringResource(R.string.settings_reset)) }
+        Spacer(Modifier.height(Space.sm))
         Text(
             stringResource(R.string.settings_build, BuildConfig.VERSION_CODE),
             style = MaterialTheme.typography.labelSmall,
@@ -221,6 +224,7 @@ private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingChoice(
     title: String,
@@ -229,49 +233,32 @@ private fun SettingChoice(
     selectedIndex: Int,
     onSelect: (Int) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = Space.touch)
-                .clickable { expanded = true }
-                .padding(vertical = Space.sm),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge)
-                Spacer(Modifier.height(Space.xs))
-                Text(
-                    description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(Modifier.width(Space.sm))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    options.getOrNull(selectedIndex).orEmpty(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Icon(
-                    Icons.Default.ArrowDropDown,
-                    contentDescription = stringResource(R.string.settings_choose, title),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+    Column(Modifier.fillMaxWidth().padding(vertical = Space.sm)) {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Spacer(Modifier.height(Space.xs))
+        Text(
+            description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(Space.sm))
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
             options.forEachIndexed { index, option ->
-                DropdownMenuItem(
-                    text = { Text(option) },
-                    onClick = {
-                        onSelect(index)
-                        expanded = false
-                    }
+                val selected = index == selectedIndex
+                FilterChip(
+                    selected = selected,
+                    onClick = { onSelect(index) },
+                    label = { Text(option, style = MaterialTheme.typography.labelMedium) },
+                    leadingIcon = if (selected) {
+                        {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    } else null,
+                    modifier = Modifier.heightIn(min = Space.touch)
                 )
             }
         }
