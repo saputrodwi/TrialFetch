@@ -53,14 +53,21 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
 
     /** Panggil API dan kembalikan objek `data`-nya. */
     private suspend fun apiGet(path: String): JsonObject {
+        // Cache-buster: chapter baru bisa muncul di server sementara response
+        // lama masih tersimpan di proxy/CDN. Parameter `_t` unik per request
+        // memaksa jalur segar; header no-cache melengkapi untuk proxy lain.
+        val separator = if (path.contains('?')) "&" else "?"
+        val freshPath = "$path${separator}_t=${System.currentTimeMillis()}"
         val body = try {
             http.getHtmlWithHeaders(
-                api + path,
+                api + freshPath,
                 mapOf(
                     "User-Agent" to http.mobileUa,
                     "Accept" to "application/json, text/plain, */*",
                     "X-Requested-With" to "XMLHttpRequest",
-                    "Referer" to base
+                    "Referer" to base,
+                    "Cache-Control" to "no-cache",
+                    "Pragma" to "no-cache"
                 )
             )
         } catch (e: kotlinx.coroutines.CancellationException) {
