@@ -103,8 +103,13 @@ fun SeriesDetailScreen(
     val downloadedKey = remember(downloadedIds) { downloadedIds.map { it.lowercase() }.toSet() }
     val shown = remember(info.chapters, newestFirst, filter) {
         val q = filter.trim()
-        val asc = info.chapters.mapIndexed { i, c -> Triple(c, c.chapterNumber, i) }
-            .sortedWith(compareBy({ it.second ?: Int.MAX_VALUE }, { it.third }))
+        // Urutan asli dari source dipakai sebagai fallback untuk chapter
+        // yang tidak punya nomor, supaya tidak muncul acak di sela-sela
+        // chapter bernomor. Semua source memakai aturan yang sama.
+        val asc = info.chapters.mapIndexed { i, c ->
+            Triple(c, c.chapterNumber ?: (info.chapters.size + i), i)
+        }
+            .sortedWith(compareBy({ it.second }, { it.third }))
             .map { it.first }
             .filter {
                 q.isBlank() || it.title.contains(q, ignoreCase = true) ||
@@ -277,12 +282,18 @@ fun SeriesDetailScreen(
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.weight(1f).semantics { heading() }
                         )
-                        IconButton(onClick = { newestFirst = !newestFirst }) {
+                        TextButton(onClick = { newestFirst = !newestFirst }) {
                             Icon(
                                 if (newestFirst) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                                contentDescription = stringResource(
-                                    if (newestFirst) R.string.series_sort_old else R.string.series_sort_new
-                                )
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(Space.xs))
+                            Text(
+                                stringResource(
+                                    if (newestFirst) R.string.sort_newest else R.string.sort_oldest
+                                ),
+                                style = MaterialTheme.typography.labelLarge
                             )
                         }
                         TextButton(onClick = {

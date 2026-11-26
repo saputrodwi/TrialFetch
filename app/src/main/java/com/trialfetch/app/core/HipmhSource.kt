@@ -141,10 +141,15 @@ class HipmhSource(private val http: HttpClient) : ComicSource {
                 val hid = o.stringOrNull("hid") ?: continue
                 if (!seen.add(hid)) continue
                 val t = o.stringOrNull("title").orEmpty()
+                // Judul HipMH tidak selalu memuat nomor (mis. "天使，快人一步"
+                // untuk chapter 133), jadi nomor diambil dari field API
+                // `chapter_number`, bukan dari regex judul.
+                val number = o.stringOrNull("chapter_number")?.toIntOrNull()
+                    ?: Regex("""(\d+)""").find(t)?.groupValues?.get(1)?.toIntOrNull()
                 chapters += Chapter(
                     chapterId = hid,
                     title = t.ifBlank { "Chapter ${chapters.size + 1}" },
-                    chapterNumber = Regex("""(\d+)""").find(t)?.groupValues?.get(1)?.toIntOrNull(),
+                    chapterNumber = number,
                     url = hid
                 )
             }

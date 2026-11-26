@@ -130,6 +130,8 @@
     <string name="series_chapters">Daftar chapter</string>
     <string name="series_sort_old">Urut lama ke baru</string>
     <string name="series_sort_new">Urut baru ke lama</string>
+    <string name="sort_newest">Terbaru</string>
+    <string name="sort_oldest">Terlama</string>
     <string name="series_select">Pilih</string>
     <string name="series_cancel_select">Batal</string>
     <string name="series_all">Semua</string>
