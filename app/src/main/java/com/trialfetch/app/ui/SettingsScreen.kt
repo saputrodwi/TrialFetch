@@ -1,8 +1,8 @@
 package com.trialfetch.app.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -20,6 +22,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,7 +38,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import com.trialfetch.app.BuildConfig
 import com.trialfetch.app.R
@@ -48,8 +50,8 @@ import com.trialfetch.app.data.ThemeMode
 import com.trialfetch.app.ui.theme.Space
 
 /**
- * Pengaturan: daftar berisi penjelasan. Tiap opsi menampilkan apa fungsinya
- * dan nilai aktifnya; tidak ada ikon dekoratif di setiap baris.
+ * Pengaturan dikelompokkan dalam permukaan tonal. Tiap baris punya label,
+ * penjelasan, dan kontrol yang jelas; tidak ada warna aksen berulang.
  */
 @Composable
 fun SettingsScreen(
@@ -64,6 +66,7 @@ fun SettingsScreen(
     onRequestManage: () -> Unit = {}
 ) {
     val ctx = LocalContext.current
+
     Column(
         Modifier
             .fillMaxSize()
@@ -75,9 +78,9 @@ fun SettingsScreen(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.semantics { heading() }
         )
-        Spacer(Modifier.height(Space.xl))
+        Spacer(Modifier.height(Space.lg))
 
-        SettingSection(stringResource(R.string.settings_section_display)) {
+        SettingsGroup(stringResource(R.string.settings_section_display)) {
             SettingChoice(
                 title = stringResource(R.string.settings_theme),
                 description = stringResource(R.string.settings_theme_desc),
@@ -92,7 +95,7 @@ fun SettingsScreen(
             ) { i -> onChange(settings.copy(readerMode = ReaderMode.entries[i])) }
         }
 
-        SettingSection(stringResource(R.string.settings_section_download)) {
+        SettingsGroup(stringResource(R.string.settings_section_download)) {
             SettingChoice(
                 title = stringResource(R.string.settings_output_mode),
                 description = stringResource(R.string.settings_output_mode_desc),
@@ -128,7 +131,7 @@ fun SettingsScreen(
             ) { v -> onChange(settings.copy(cropBanner = v)) }
         }
 
-        SettingSection(stringResource(R.string.settings_section_network)) {
+        SettingsGroup(stringResource(R.string.settings_section_network)) {
             SettingSwitch(
                 title = stringResource(R.string.settings_doh),
                 description = stringResource(R.string.settings_doh_hint),
@@ -144,7 +147,7 @@ fun SettingsScreen(
             }
         }
 
-        SettingSection(stringResource(R.string.settings_section_data)) {
+        SettingsGroup(stringResource(R.string.settings_section_data)) {
             SettingAction(
                 title = stringResource(R.string.settings_backup),
                 description = stringResource(R.string.settings_backup_desc),
@@ -165,7 +168,7 @@ fun SettingsScreen(
             )
         }
 
-        SettingSection(stringResource(R.string.settings_section_diagnostics)) {
+        SettingsGroup(stringResource(R.string.settings_section_diagnostics)) {
             SettingAction(
                 title = stringResource(R.string.settings_run),
                 description = stringResource(R.string.settings_diagnostics_hint),
@@ -186,7 +189,7 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(Space.xl))
+        Spacer(Modifier.height(Space.lg))
         TextButton(onClick = onReset) { Text(stringResource(R.string.settings_reset)) }
         Text(
             stringResource(R.string.settings_build, BuildConfig.VERSION_CODE),
@@ -198,16 +201,24 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingSection(title: String, content: @Composable () -> Unit) {
-    Text(
-        title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.semantics { heading() }
-    )
-    Spacer(Modifier.height(Space.sm))
-    content()
-    Spacer(Modifier.height(Space.xl))
+private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
+    Column {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.height(Space.sm))
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(Space.md)) { content() }
+        }
+        Spacer(Modifier.height(Space.lg))
+    }
 }
 
 @Composable
@@ -223,35 +234,35 @@ private fun SettingChoice(
         Row(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = Space.touch + Space.md)
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant,
-                    androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-                )
+                .heightIn(min = Space.touch)
                 .clickable { expanded = true }
-                .padding(Space.md),
+                .padding(vertical = Space.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
+                Text(title, style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(Space.xs))
                 Text(
                     description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(Space.sm))
+            }
+            Spacer(Modifier.width(Space.sm))
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
                     options.getOrNull(selectedIndex).orEmpty(),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Icon(
+                    Icons.Default.ArrowDropDown,
+                    contentDescription = stringResource(R.string.settings_choose, title),
+                    modifier = Modifier.size(20.dp)
                 )
             }
-            Spacer(Modifier.width(Space.sm))
-            Icon(
-                Icons.Default.ArrowDropDown,
-                contentDescription = stringResource(R.string.settings_choose, title)
-            )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEachIndexed { index, option ->
@@ -265,11 +276,7 @@ private fun SettingChoice(
             }
         }
     }
-    Spacer(Modifier.height(Space.sm))
 }
-
-@Composable
-private fun Modifier.widthCompat(): Modifier = this.padding(start = Space.sm)
 
 @Composable
 private fun SettingSwitch(
@@ -279,7 +286,10 @@ private fun SettingSwitch(
     onChange: (Boolean) -> Unit
 ) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = Space.touch).padding(vertical = Space.md),
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = Space.touch)
+            .padding(vertical = Space.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -291,6 +301,7 @@ private fun SettingSwitch(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        Spacer(Modifier.width(Space.sm))
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }
@@ -305,36 +316,35 @@ private fun SettingAction(
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = Space.touch + Space.md)
-            .background(
-                MaterialTheme.colorScheme.primaryContainer,
-                androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-            )
+            .heightIn(min = Space.touch)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(Space.md),
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+            .padding(Space.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
             Text(
                 title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(Space.xs))
             Text(
                 description,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Spacer(Modifier.width(Space.sm))
-        Text(
-            stringResource(R.string.settings_open),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
-        )
+        if (enabled) {
+            Spacer(Modifier.width(Space.sm))
+            Text(
+                stringResource(R.string.settings_open),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     }
-    Spacer(Modifier.height(Space.sm))
 }
 
 @Composable
@@ -344,6 +354,6 @@ private fun SettingNote(text: String) {
         style = MaterialTheme.typography.bodySmall,
         fontFamily = FontFamily.Monospace,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(vertical = Space.md)
+        modifier = Modifier.padding(vertical = Space.sm)
     )
 }
