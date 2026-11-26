@@ -1033,6 +1033,7 @@ private fun SeriesRoute(
                 onOpenWeb = {
                     webUrl = vm.repo.seriesPageUrl(infoNow.source, infoNow.comicId)
                 },
+                onRefresh = { vm.openSeriesById(infoNow.source, infoNow.comicId) },
                 onContinue = { ch, page -> vm.openReader(infoNow, ch, page) }
             )
             // Overlay WebView halaman situs asli (tombol globe di header).

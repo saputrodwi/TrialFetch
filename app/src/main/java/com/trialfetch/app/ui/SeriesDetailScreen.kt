@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -83,6 +84,7 @@ fun SeriesDetailScreen(
     downloadedIds: Set<String>,
     readMap: Map<String, HistoryEntry>,
     onOpenWeb: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     onContinue: (Chapter, Int) -> Unit = { _, _ -> },
     onBack: () -> Unit = {}
 ) {
@@ -206,6 +208,12 @@ fun SeriesDetailScreen(
                             Icon(
                                 Icons.Default.Public,
                                 contentDescription = stringResource(R.string.series_open_web)
+                            )
+                        }
+                        IconButton(onClick = onRefresh) {
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = stringResource(R.string.series_refresh)
                             )
                         }
                     }

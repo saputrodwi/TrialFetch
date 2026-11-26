@@ -114,6 +114,7 @@
     <!-- Detail series -->
     <string name="series_back">Kembali</string>
     <string name="series_open_web">Buka halaman situs asli</string>
+    <string name="series_refresh">Muat ulang daftar chapter</string>
     <string name="series_open_web_short">Buka web</string>
     <string name="series_bookmark_add">Simpan series</string>
     <string name="series_bookmark_remove">Hapus dari simpanan</string>
